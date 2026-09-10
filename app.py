@@ -1,196 +1,207 @@
 import streamlit as st
 import pandas as pd
+import calendar
 from datetime import datetime, date
 
-# Configuración de página
+# Configuración visual de la página
 st.set_page_config(
-    page_title="Agenda de Jardinería - Capillas",
+    page_title="Sistema de Gestión y Agenda Integral",
     page_icon="🌿",
     layout="wide"
 )
 
-# Estilos CSS
+# Estilos en tema claro (blanco/verde)
 st.markdown("""
     <style>
-    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; background-color: #2e7d32; color: white; }
-    .card-capilla {
+    .stApp { background-color: #ffffff; color: #1e293b; }
+    
+    /* Botones y formularios */
+    .stButton>button { width: 100%; border-radius: 6px; background-color: #2e7d32; color: white; font-weight: bold; border: none; }
+    .stButton>button:hover { background-color: #1b5e20; color: white; }
+    
+    /* Cuadrícula del Calendario */
+    .cal-header { text-align: center; font-weight: bold; padding: 8px; background-color: #e2e8f0; color: #334155; border-radius: 4px; }
+    .cal-day-box {
+        background-color: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        min-height: 85px;
+        padding: 6px;
+        font-size: 13px;
+        color: #0f172a;
+    }
+    .cal-day-box-selected {
+        background-color: #e8f5e9 !important;
+        border: 2px solid #2e7d32 !important;
+    }
+    .task-tag {
+        background-color: #c8e6c9;
+        color: #1b5e20;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-size: 11px;
+        margin-top: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .card-rotacion {
         background-color: #f1f8e9;
-        border-left: 6px solid #33691e;
+        border-left: 5px solid #2e7d32;
         padding: 12px;
-        border-radius: 8px;
         margin-bottom: 10px;
+        border-radius: 6px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🌿 PLANIFICACIÓN DE CAPILLAS (LUNES A SÁBADO)")
-st.caption("Acceso compartido para el equipo de jardinería")
+st.title("🌿 SISTEMA DE GESTIÓN Y AGENDA INTEGRAL")
 
-# --- ESTRUCTURA FIJA DE ROTACIÓN DE CAPILLAS ---
+# --- ROTACIÓN FIJA (SIN PRIORIDADES) ---
 ROTACION_SEMANAL = {
-    "Lunes": [
-        {"nombre": "Barrio 1", "obs": "Prioridad 2 - Turno Completo", "horario": "Turno Completo"}
-    ],
-    "Martes": [
-        {"nombre": "Barrio 3", "obs": "Prioridad 3 - Turno Completo", "horario": "Turno Completo"}
-    ],
+    "Lunes": [{"nombre": "Barrio 1", "horario": "Turno Completo"}],
+    "Martes": [{"nombre": "Barrio 3", "horario": "Turno Completo"}],
     "Miércoles": [
-        {"nombre": "Alberdi", "obs": "Prioridad 4", "horario": "Mañana (08:00 - 12:00 hs)"},
-        {"nombre": "Barrio 2", "obs": "Prioridad 7", "horario": "Tarde (12:00 - 16:00 hs)"}
+        {"nombre": "Alberdi", "horario": "Mañana (08:00 - 12:00 hs)"},
+        {"nombre": "Barrio 2", "horario": "Tarde (12:00 - 16:00 hs)"}
     ],
     "Jueves": [
-        {"nombre": "Güiraldes", "obs": "Prioridad 5", "horario": "Mañana (08:00 - 12:00 hs)"},
-        {"nombre": "Puerto Tirol", "obs": "Prioridad 6", "horario": "Tarde (12:00 - 16:00 hs)"}
+        {"nombre": "Güiraldes", "horario": "Mañana (08:00 - 12:00 hs)"},
+        {"nombre": "Puerto Tirol", "horario": "Tarde (12:00 - 16:00 hs)"}
     ],
-    "Viernes": [
-        {"nombre": "Barrio 4", "obs": "Prioridad 1 (2 patios)", "horario": "Turno Completo"}
-    ],
-    "Sábado": [
-        {"nombre": "Barrio 4 (Remates)", "obs": "Prioridad 1 - Remates", "horario": "Mañana"}
-    ],
-    "Domingo": [
-        {"nombre": "Sin programación fija", "obs": "Día de descanso / Mantenimiento opcional", "horario": "-"}
-    ]
+    "Viernes": [{"nombre": "Barrio 4", "horario": "Turno Completo (2 patios)"}],
+    "Sábado": [{"nombre": "Barrio 4 (Remates)", "horario": "Mañana"}]
 }
 
-DIAS_ESPANOL = {
-    "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles",
-    "Thursday": "Jueves", "Friday": "Viernes", "Saturday": "Sábado", "Sunday": "Domingo"
-}
+DIAS_ESP = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
-# --- INICIALIZACIÓN DEL ESTADO ---
-if "registro_jornadas" not in st.session_state:
-    st.session_state["registro_jornadas"] = []
-
+# --- ESTADO EN SESIÓN ---
 if "tareas_calendario" not in st.session_state:
     st.session_state["tareas_calendario"] = []
 
-# --- PESTAÑAS PRINCIPALES ---
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📅 Cronograma Semanal Fijo", 
-    "📆 Calendario Interactivo / Agendar Tarea", 
-    "✍️ Registrar Jornada Realizada",
-    "📌 Tareas Extras y Pendientes"
-])
+if "estados_capillas" not in st.session_state:
+    st.session_state["estados_capillas"] = {
+        "Barrio 1": "Pendiente / Todavía no",
+        "Barrio 2": "Pendiente / Todavía no",
+        "Barrio 3": "Pendiente / Todavía no",
+        "Barrio 4": "Pendiente / Todavía no",
+        "Alberdi": "Pendiente / Todavía no",
+        "Güiraldes": "Pendiente / Todavía no",
+        "Puerto Tirol": "Pendiente / Todavía no"
+    }
+
+# Pestañas superiores
+tab_cal, tab_capillas = st.tabs(["📅 Calendario", "⛪ Capillas y Estados"])
 
 # ---------------------------------------------------------
-# TAB 1: ROTACIÓN SEMANAL FIJA
+# TAB 1: CALENDARIO EN CUADRÍCULA Y ANOTADOR LATERAL
 # ---------------------------------------------------------
-with tab1:
-    st.header("Rotación Semanal de Capillas")
-    st.write("Horario y orden de prioridad establecido para el mantenimiento habitual:")
+with tab_cal:
+    col_main_cal, col_side_note = st.columns([3, 1])
     
-    cols = st.columns(3)
-    dias_orden = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
-    
-    for idx, dia in enumerate(dias_orden):
-        col_target = cols[idx % 3]
-        with col_target:
-            st.subheader(f"🗓️ {dia}")
-            for cap in ROTACION_SEMANAL[dia]:
-                st.markdown(f"""
-                <div class="card-capilla">
-                    <h4>{cap['nombre']}</h4>
-                    <p><b>Horario:</b> {cap['horario']}<br>
-                    <b>Detalle:</b> {cap['obs']}</p>
-                </div>
-                """, unsafe_allow_html=True)
+    # Navegación del mes
+    with col_main_cal:
+        fecha_hoy = date.today()
+        mes_sel = st.selectbox("Seleccionar Mes / Año:", [date(2026, m, 1) for m in range(1, 13)], 
+                              format_func=lambda d: d.strftime("%B %Y").upper(),
+                              index=fecha_hoy.month - 1)
+        
+        # Encabezado de Días
+        cols_dias = st.columns(7)
+        dias_head = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+        for idx, d in enumerate(dias_head):
+            cols_dias[idx].markdown(f'<div class="cal-header">{d}</div>', unsafe_allow_html=True)
+            
+        # Matriz del mes
+        cal_matriz = calendar.monthcalendar(mes_sel.year, mes_sel.month)
+        
+        if "dia_click" not in st.session_state:
+            st.session_state["dia_click"] = fecha_hoy.day
+            
+        for semana in cal_matriz:
+            cols_sem = st.columns(7)
+            for i, dia_num in enumerate(semana):
+                with cols_sem[i]:
+                    if dia_num != 0:
+                        fecha_str = f"{mes_sel.year}-{mes_sel.month:02d}-{dia_num:02d}"
+                        tareas_dia = [t for t in st.session_state["tareas_calendario"] if t["fecha"] == fecha_str]
+                        
+                        is_sel = (dia_num == st.session_state["dia_click"])
+                        css_box = "cal-day-box cal-day-box-selected" if is_sel else "cal-day-box"
+                        
+                        resumen_texto = ""
+                        for t in tareas_dia[:2]:
+                            resumen_texto += f'<div class="task-tag">• {t["titulo"]}</div>'
+                        
+                        st.markdown(f"""
+                        <div class="{css_box}">
+                            <b>{dia_num}</b>
+                            {resumen_texto}
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        if st.button(f"Ver {dia_num}", key=f"btn_{fecha_str}"):
+                            st.session_state["dia_click"] = dia_num
+                            st.rerun()
 
-# ---------------------------------------------------------
-# TAB 2: CALENDARIO INTERACTIVO (CUALQUIER FECHA DEL AÑO)
-# ---------------------------------------------------------
-with tab2:
-    st.header("Calendario General y Agendado de Tareas")
-    
-    col_cal1, col_cal2 = st.columns([1, 2])
-    
-    with col_cal1:
-        fecha_sel = st.date_input("Seleccionar Fecha del Año:", date.today())
-        nombre_dia_ing = fecha_sel.strftime("%A")
-        nombre_dia_esp = DIAS_ESPANOL.get(nombre_dia_ing, "Lunes")
+    # Anotador lateral derecho
+    with col_side_note:
+        dia_actual = st.session_state["dia_click"]
+        fecha_sel_str = f"{mes_sel.year}-{mes_sel.month:02d}-{dia_actual:02d}"
+        fecha_obj = date(mes_sel.year, mes_sel.month, dia_actual)
+        nombre_dia_esp = DIAS_ESP[fecha_obj.weekday()]
         
-        st.info(f"**Día de la semana:** {nombre_dia_esp}")
-        st.markdown("**Capillas programadas por rutina para este día:**")
-        for c in ROTACION_SEMANAL.get(nombre_dia_esp, []):
-            st.write(f"• **{c['nombre']}** ({c['horario']})")
+        st.subheader(f"📋 Trabajos: {fecha_obj.strftime('%d/%m/%Y')}")
+        st.caption(f"Día: **{nombre_dia_esp}**")
+        
+        rot_dia = ROTACION_SEMANAL.get(nombre_dia_esp, [])
+        if rot_dia:
+            st.write("<b>Rutina Fija:</b>", unsafe_allow_html=True)
+            for r in rot_dia:
+                st.info(f"• **{r['nombre']}** ({r['horario']})")
 
-    with col_cal2:
-        st.subheader(f"📌 Tareas agendadas para el {fecha_sel.strftime('%d/%m/%Y')}")
-        
-        # Filtrar tareas del calendario para la fecha elegida
-        tareas_fecha = [t for t in st.session_state["tareas_calendario"] if t["fecha"] == str(fecha_sel)]
-        
-        if tareas_fecha:
-            for t in tareas_fecha:
-                st.success(f"**[{t['capilla']}]** {t['descripcion']} (Estado: {t['estado']})")
+        st.write("<b>Tareas Agendadas:</b>", unsafe_allow_html=True)
+        tareas_actuales = [t for t in st.session_state["tareas_calendario"] if t["fecha"] == fecha_sel_str]
+        if tareas_actuales:
+            for t in tareas_actuales:
+                st.success(f"📌 **[{t['hora']}]** {t['titulo']} ({t['tipo']})")
         else:
-            st.write("No hay tareas especiales agendadas para esta fecha.")
+            st.caption("No hay actividades extras anotadas.")
             
         st.divider()
-        st.subheader("➕ Agregar Tarea / Evento a esta fecha")
-        with st.form("form_nueva_tarea_fecha"):
-            capilla_tarea = st.selectbox("Seleccionar Capilla:", [
-                "Barrio 1", "Barrio 2", "Barrio 3", "Barrio 4", "Alberdi", "Güiraldes", "Puerto Tirol", "General / Otra"
-            ])
-            desc_tarea = st.text_input("Descripción de la tarea:")
-            btn_agendar = st.form_submit_button("Agendar Tarea")
+        st.markdown("### AGREGAR ACTIVIDAD")
+        with st.form("form_lateral_tarea"):
+            tit_act = st.text_input("Título de la actividad")
+            hora_act = st.text_input("Hora (ej: 10:30)", "08:00")
+            tipo_act = st.selectbox("Tipo", ["Mantenimiento", "Poda", "Limpieza Profunda", "Otro"])
             
-            if btn_agendar:
-                if desc_tarea.strip() != "":
-                    st.session_state["tareas_calendario"].append({
-                        "fecha": str(fecha_sel),
-                        "capilla": capilla_tarea,
-                        "descripcion": desc_tarea,
-                        "estado": "Pendiente"
-                    })
-                    st.success("¡Tarea agendada en la fecha seleccionada!")
-                    st.rerun()
+            btn_guardar_act = st.form_submit_button("+ Guardar en Fecha Seleccionada")
+            if btn_guardar_act and tit_act.strip() != "":
+                st.session_state["tareas_calendario"].append({
+                    "fecha": fecha_sel_str,
+                    "titulo": tit_act,
+                    "hora": hora_act,
+                    "tipo": tipo_act
+                })
+                st.success("Actividad guardada.")
+                st.rerun()
 
 # ---------------------------------------------------------
-# TAB 3: REGISTRO DE JORNADA REALIZADA
+# TAB 2: CAPILLAS Y ESTADO (HECHO / NO HECHO)
 # ---------------------------------------------------------
-with tab3:
-    st.header("Registrar Horario de Trabajo Realizado")
+with tab_capillas:
+    st.header("Control de Estado de Capillas")
+    st.write("Actualizá el estado del trabajo según corresponda:")
     
-    with st.form("form_registro_jornada"):
-        col_reg1, col_reg2 = st.columns(2)
-        with col_reg1:
-            f_jornada = st.date_input("Fecha de Trabajo", date.today())
-            c_jornada = st.selectbox("Capilla Trabajada", [
-                "Barrio 1", "Barrio 2", "Barrio 3", "Barrio 4", "Alberdi", "Güiraldes", "Puerto Tirol"
-            ])
-            estado_jornada = st.selectbox("Estado", ["Completado", "Parcial / En Proceso", "Suspendido por Lluvia"])
-        
-        with col_reg2:
-            h_in = st.time_input("Hora Entrada", datetime.strptime("08:00", "%H:%M").time())
-            h_out = st.time_input("Hora Salida", datetime.strptime("12:00", "%H:%M").time())
-            obs_jornada = st.text_area("Observaciones del trabajo realizado:")
-            
-        guardar_jornada = st.form_submit_button("Guardar Registro")
-        if guardar_jornada:
-            st.session_state["registro_jornadas"].append({
-                "fecha": str(f_jornada),
-                "capilla": c_jornada,
-                "inicio": h_in.strftime("%H:%M"),
-                "fin": h_out.strftime("%H:%M"),
-                "estado": estado_jornada,
-                "obs": obs_jornada
-            })
-            st.success("¡Jornada registrada con éxito!")
-
-    st.divider()
-    st.subheader("📋 Historial de Jornadas Registradas")
-    if st.session_state["registro_jornadas"]:
-        df_jornadas = pd.DataFrame(st.session_state["registro_jornadas"])
-        st.dataframe(df_jornadas, use_container_width=True, hide_index=True)
-
-# ---------------------------------------------------------
-# TAB 4: TAREAS EXTRAS Y PENDIENTES GENERALES
-# ---------------------------------------------------------
-with tab4:
-    st.header("Lista de Tareas Especiales / Extras Agendadas")
-    if st.session_state["tareas_calendario"]:
-        df_tareas = pd.DataFrame(st.session_state["tareas_calendario"])
-        st.dataframe(df_tareas, use_container_width=True, hide_index=True)
-    else:
-        st.info("No hay tareas especiales agendadas en el calendario.")
+    cols_cap = st.columns(2)
+    for idx, (capilla, estado) in enumerate(st.session_state["estados_capillas"].items()):
+        with cols_cap[idx % 2]:
+            st.markdown(f'<div class="card-rotacion"><h4>{capilla}</h4></div>', unsafe_allow_html=True)
+            nuevo_est = st.selectbox(
+                f"Estado actual de {capilla}:",
+                ["Pendiente / Todavía no", "En Proceso", "Completado / Ya se hizo"],
+                index=0 if "Pendiente" in estado else (1 if "Proceso" in estado else 2),
+                key=f"est_{capilla}"
+            )
+            st.session_state["estados_capillas"][capilla] = nuevo_est
+            st.divider()
