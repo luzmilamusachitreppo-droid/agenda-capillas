@@ -10,12 +10,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilos CSS limpios
+# Estilos CSS limpios para forzar la cuadrícula tipo Google Calendar
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #1e293b; }
     
-    /* Encabezado de días del calendario */
+    /* Encabezado de días */
     .cal-header { 
         text-align: center; 
         font-weight: bold; 
@@ -25,41 +25,62 @@ st.markdown("""
         border-radius: 4px; 
     }
     
-    /* Cuadrículas blancas limpias para el calendario */
+    /* Cuadro visual de cada día (Tarjeta grande) */
+    .cal-day-card {
+        background-color: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        min-height: 85px;
+        padding: 6px;
+        font-size: 13px;
+        color: #0f172a;
+        margin-bottom: 4px;
+    }
+    
+    .cal-day-card-selected {
+        background-color: #e8f5e9 !important;
+        border: 2px solid #2e7d32 !important;
+    }
+
+    /* Etiqueta para tareas anotadas adentro de la tarjeta */
+    .task-tag {
+        background-color: #c8e6c9;
+        color: #1b5e20;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-size: 10px;
+        margin-top: 4px;
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Ajuste para que los botones abarquen todo el ancho y no parezcan pastillas */
     div[data-testid="column"] .stButton > button {
         width: 100% !important;
-        min-height: 90px !important;
-        background-color: #f8fafc !important;
+        border-radius: 4px !important;
+        font-size: 11px !important;
+        padding: 2px 5px !important;
+        height: 26px !important;
+        background-color: #f1f5f9 !important;
+        color: #475569 !important;
         border: 1px solid #cbd5e1 !important;
-        border-radius: 6px !important;
-        color: #0f172a !important;
-        text-align: left !important;
-        vertical-align: top !important;
-        padding: 8px !important;
-        font-size: 13px !important;
-        font-weight: normal !important;
-        box-shadow: none !important;
     }
 
     div[data-testid="column"] .stButton > button:hover {
         border-color: #2e7d32 !important;
-        background-color: #f1f8e9 !important;
-    }
-
-    /* Día seleccionado */
-    .day-selected > button {
         background-color: #e8f5e9 !important;
-        border: 2px solid #2e7d32 !important;
-        font-weight: bold !important;
+        color: #1b5e20 !important;
     }
 
-    /* Botón del formulario lateral */
+    /* Botón verde del formulario lateral */
     .stForm .stButton > button {
         background-color: #2e7d32 !important;
         color: white !important;
         font-weight: bold !important;
         min-height: 40px !important;
-        text-align: center !important;
+        font-size: 14px !important;
     }
 
     /* Tarjeta verde de capillas */
@@ -114,7 +135,7 @@ if "tareas_calendario" not in st.session_state:
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c["nombre"]: "Pendiente / Todavía no" for c in CAPILLAS_INFO}
 
-# Pestañas principales
+# Pestañas
 tab_cal, tab_capillas = st.tabs(["📅 Calendario", "⛪ Capillas y Estados"])
 
 # ---------------------------------------------------------
@@ -148,20 +169,26 @@ with tab_cal:
                         fecha_str = f"{mes_sel.year}-{mes_sel.month:02d}-{dia_num:02d}"
                         tareas_dia = [t for t in st.session_state["tareas_calendario"] if t["fecha"] == fecha_str]
                         
-                        label_btn = f"{dia_num}"
-                        if tareas_dia:
-                            label_btn += f"\n• {tareas_dia[0]['titulo']}"
-                            
                         is_sel = (dia_num == st.session_state["dia_click"])
-                        if is_sel:
-                            st.markdown('<div class="day-selected">', unsafe_allow_html=True)
+                        css_card = "cal-day-card cal-day-card-selected" if is_sel else "cal-day-card"
+                        
+                        # Texto para mostrar dentro del cuadro grande
+                        html_tareas = ""
+                        for t in tareas_dia[:2]:
+                            html_tareas += f'<div class="task-tag">• {t["titulo"]}</div>'
                             
-                        if st.button(label_btn, key=f"btn_{fecha_str}"):
+                        # Cuadro contenedor grande
+                        st.markdown(f"""
+                        <div class="{css_card}">
+                            <b>{dia_num}</b>
+                            {html_tareas}
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Botón sobrio para seleccionar el día
+                        if st.button(f"Elegir {dia_num}", key=f"btn_{fecha_str}"):
                             st.session_state["dia_click"] = dia_num
                             st.rerun()
-                            
-                        if is_sel:
-                            st.markdown('</div>', unsafe_allow_html=True)
 
     # Anotador lateral
     with col_side_note:
@@ -206,11 +233,11 @@ with tab_cal:
                 st.rerun()
 
 # ---------------------------------------------------------
-# TAB 2: CAPILLAS Y ESTADO (CON DÍAS ORGANIZADOS)
+# TAB 2: CAPILLAS Y ESTADO
 # ---------------------------------------------------------
 with tab_capillas:
     st.header("Control de Estado de Capillas")
-    st.write("Actualizá el estado del trabajo según el día asignado:")
+    st.write("Actualizá el estado del trabajo según corresponda:")
     
     cols_cap = st.columns(2)
     for idx, c in enumerate(CAPILLAS_INFO):
