@@ -12,18 +12,18 @@ st.set_page_config(
 
 COLOR_JARDINERIA_BASE = "#2e7d32"
 
-# Paleta fija de botones con círculos (Incluye Celeste al inicio)
-PALETA_COLORES_CIRCULOS = {
-    "Celeste": "#29b6f6",
-    "Verde": "#4caf50",
-    "Violeta": "#ab47bc",
-    "Rosa": "#ec407a",
-    "Amarillo": "#fbc02d",
-    "Naranja": "#ffa726",
-    "Rojo": "#ef5350"
+# Paleta de colores (Celeste al principio)
+PALETA_COLORES = {
+    "🩵 Celeste": "#29b6f6",
+    "💚 Verde": "#4caf50",
+    "💜 Violeta": "#ab47bc",
+    "🩷 Rosa": "#ec407a",
+    "💛 Amarillo": "#fbc02d",
+    "🧡 Naranja": "#ffa726",
+    "❤️ Rojo": "#ef5350"
 }
 
-# Estilos CSS
+# Estilos CSS limpios
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #1e293b; }
@@ -54,7 +54,7 @@ st.markdown("""
         cursor: pointer !important;
     }
 
-    /* RESALTADO INTENSO AL PRESIONAR/SELECCIONAR UN DÍA */
+    /* RESALTADO INTENSO AL SELECCIONAR UN DÍA EN EL CALENDARIO */
     .fc-highlight {
         background-color: #29b6f6 !important;
         opacity: 0.85 !important;
@@ -80,22 +80,6 @@ st.markdown("""
         border-radius: 6px;
     }
     .card-rotacion h4 { margin: 0; color: #006064; }
-
-    /* Botón de guardar RECTANGULAR */
-    div.stButton > button.btn-guardar-rect {
-        border-radius: 8px !important;
-        width: 100% !important;
-        height: 42px !important;
-        background-color: #0288d1 !important;
-        color: white !important;
-        font-weight: bold !important;
-        border: none !important;
-        font-size: 15px !important;
-    }
-    div.stButton > button.btn-guardar-rect:hover {
-        background-color: #01579b !important;
-        color: white !important;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -144,9 +128,6 @@ if "eventos_calendar" not in st.session_state:
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today().strftime("%Y-%m-%d")
 
-if "color_seleccionado" not in st.session_state:
-    st.session_state["color_seleccionado"] = "#29b6f6" # Celeste por defecto
-
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in CAPILLAS_BASE}
 
@@ -168,7 +149,7 @@ with tab_cal:
             "unselectAuto": False,
             "editable": True,
             "droppable": True,
-            "displayEventTime": False, # Oculta el numero de hora (8 o 12) antes del titulo
+            "displayEventTime": False, # Oculta la hora en la etiqueta
             "height": 720,
             "locale": "es"
         }
@@ -213,52 +194,40 @@ with tab_cal:
         st.divider()
         st.markdown("### ➕ AGREGAR ACTIVIDAD")
         
-        nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...")
-        
-        st.write("**Seleccionar Color:**")
-        cols_colores = st.columns(7)
-        for idx, (nombre_c, hex_c) in enumerate(PALETA_COLORES_CIRCULOS.items()):
-            with cols_colores[idx]:
-                es_seleccionado = (st.session_state["color_seleccionado"] == hex_c)
-                borde_estilo = "3px solid #000000" if es_seleccionado else "2px solid #ffffff"
-                
-                st.markdown(f"""
-                <style>
-                div[data-testid="stColumn"]:nth-child({idx+1}) button {{
-                    border-radius: 50% !important;
-                    width: 36px !important;
-                    height: 36px !important;
-                    padding: 0 !important;
-                    background-color: {hex_c} !important;
-                    border: {borde_estilo} !important;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
-                }}
-                </style>
-                """, unsafe_allow_html=True)
-                
-                if st.button(" ", key=f"btn_col_{nombre_c}"):
-                    st.session_state["color_seleccionado"] = hex_c
-                    st.rerun()
+        with st.form("form_nueva_actividad_limpio", clear_on_submit=False):
+            nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...")
+            
+            # Selector de color nativo horizontal
+            color_nom = st.radio(
+                "Seleccionar Color:",
+                options=list(PALETA_COLORES.keys()),
+                horizontal=True
+            )
+            hex_color_elegido = PALETA_COLORES[color_nom]
 
-        c_h1, c_h2 = st.columns(2)
-        with c_h1:
-            h_in = st.time_input("Inicio", value=datetime.strptime("08:00", "%H:%M").time())
-        with c_h2:
-            h_fi = st.time_input("Fin", value=datetime.strptime("12:00", "%H:%M").time())
-        
-        # Botón de guardar con clase específica
-        if st.button("Guardar Actividad", key="btn_guardar_actividad", type="primary"):
-            if nombre_actividad.strip() != "":
-                st.session_state["eventos_calendar"].append({
-                    "title": nombre_actividad,
-                    "start": f"{f_sel_str}T{h_in.strftime('%H:%M:%00')}",
-                    "end": f"{f_sel_str}T{h_fi.strftime('%H:%M:%00')}",
-                    "backgroundColor": st.session_state["color_seleccionado"],
-                    "borderColor": st.session_state["color_seleccionado"],
-                    "textColor": "#ffffff"
-                })
-                st.success("Actividad agregada al calendario.")
-                st.rerun()
+            c_h1, c_h2 = st.columns(2)
+            with c_h1:
+                h_in = st.time_input("Inicio", value=datetime.strptime("08:00", "%H:%M").time())
+            with c_h2:
+                h_fi = st.time_input("Fin", value=datetime.strptime("12:00", "%H:%M").time())
+            
+            # Botón de guardar RECTANGULAR de ancho completo
+            btn_guardar = st.form_submit_button("Guardar Actividad", use_container_width=True)
+            
+            if btn_guardar:
+                if nombre_actividad.strip() != "":
+                    st.session_state["eventos_calendar"].append({
+                        "title": nombre_actividad,
+                        "start": f"{f_sel_str}T{h_in.strftime('%H:%M:%00')}",
+                        "end": f"{f_sel_str}T{h_fi.strftime('%H:%M:%00')}",
+                        "backgroundColor": hex_color_elegido,
+                        "borderColor": hex_color_elegido,
+                        "textColor": "#ffffff"
+                    })
+                    st.success("Actividad agregada al calendario.")
+                    st.rerun()
+                else:
+                    st.warning("Por favor ingresá un nombre para la actividad.")
 
 with tab_capillas:
     st.header("Control de Estado de Capillas")
