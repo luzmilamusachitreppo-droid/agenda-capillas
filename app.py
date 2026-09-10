@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
+import calendar
 from datetime import datetime, date, timedelta
-from streamlit_calendar import calendar
 import uuid
 
 # Configuración de página
@@ -11,86 +11,24 @@ st.set_page_config(
     layout="wide"
 )
 
-COLOR_JARDINERIA_BASE = "#2e7d32"
-
 # Paleta de colores
 PALETA_COLORES = {
-    "🩵 Celeste": "#29b6f6",
-    "💚 Verde": "#4caf50",
-    "💜 Violeta": "#ab47bc",
-    "🩷 Rosa": "#ec407a",
-    "💛 Amarillo": "#fbc02d",
-    "🧡 Naranja": "#ffa726",
-    "❤️ Rojo": "#ef5350"
+    "🩵 Celeste": {"bg": "#e0f7fa", "border": "#29b6f6", "text": "#006064"},
+    "💚 Verde": {"bg": "#e8f5e9", "border": "#4caf50", "text": "#1b5e20"},
+    "💜 Violeta": {"bg": "#f3e5f5", "border": "#ab47bc", "text": "#4a148c"},
+    "🩷 Rosa": {"bg": "#fce4ec", "border": "#ec407a", "text": "#880e4f"},
+    "💛 Amarillo": {"bg": "#fffde7", "border": "#fbc02d", "text": "#f57f17"},
+    "🧡 Naranja": {"bg": "#fff3e0", "border": "#ffa726", "text": "#e65100"},
+    "❤️ Rojo": {"bg": "#ffebee", "border": "#ef5350", "text": "#b71c1c"}
 }
 
-# Estilos CSS
-st.markdown("""
-    <style>
-    .stApp { background-color: #ffffff; color: #1e293b; }
-    
-    /* Botones de navegación del calendario */
-    .fc-button-primary {
-        background-color: #0288d1 !important;
-        border-color: #0288d1 !important;
-        color: white !important;
-        border-radius: 6px !important;
-        font-weight: 500 !important;
-    }
-    .fc-button-primary:hover, .fc-button-active {
-        background-color: #01579b !important;
-        border-color: #01579b !important;
-    }
-
-    /* Tarjetas de eventos */
-    .fc-timegrid-event, .fc-daygrid-event {
-        border-radius: 6px !important;
-        border: none !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
-        padding: 3px 6px !important;
-        cursor: pointer !important;
-    }
-    
-    .fc-daygrid-day {
-        cursor: pointer !important;
-    }
-
-    /* Resaltado de día seleccionado */
-    .fc-highlight {
-        background-color: #29b6f6 !important;
-        opacity: 0.85 !important;
-        outline: 3px solid #0288d1 !important;
-        box-shadow: inset 0 0 10px rgba(0,0,0,0.3) !important;
-    }
-    
-    .fc-daygrid-day:hover {
-        background-color: #e0f7fa !important;
-    }
-    
-    button[data-baseweb="tab"][aria-selected="true"] {
-        color: #0288d1 !important;
-        border-bottom-color: #0288d1 !important;
-    }
-
-    .card-rotacion {
-        background-color: #e0f7fa;
-        border-left: 5px solid #0288d1;
-        padding: 10px 15px;
-        margin-bottom: 8px;
-        border-radius: 6px;
-    }
-    .card-rotacion h4 { margin: 0; color: #006064; }
-    </style>
-""", unsafe_allow_html=True)
-
-st.title("🌿 Calendario Jardinería y Limpieza")
+COLOR_JARDINERIA_BASE = {"bg": "#e8f5e9", "border": "#2e7d32", "text": "#1b5e20"}
 
 CAPILLAS_BASE = [
     "Barrio 1", "Barrio 2", "Barrio 3", "Barrio 4", 
     "Alberdi", "Güiraldes", "Puerto Tirol"
 ]
 
-# Rutina semanal fija de Jardinería
 ROTACION_JARDINERIA = {
     0: [{"nombre": "Barrio 1", "inicio": "08:00", "fin": "16:00"}],
     1: [{"nombre": "Barrio 3", "inicio": "08:00", "fin": "16:00"}],
@@ -99,7 +37,8 @@ ROTACION_JARDINERIA = {
     4: [{"nombre": "Barrio 4", "inicio": "08:00", "fin": "16:00"}]
 }
 
-DIAS_ESP = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+DIAS_SEMANA_ESP = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
 def generar_eventos_jardineria(anio=2026):
     eventos = []
@@ -114,144 +53,201 @@ def generar_eventos_jardineria(anio=2026):
                 eventos.append({
                     "id": str(uuid.uuid4()),
                     "title": f"🌱 Jardinería: {tarea['nombre']}",
-                    "start": f"{curr.strftime('%Y-%m-%d')}T{tarea['inicio']}:00",
-                    "end": f"{curr.strftime('%Y-%m-%d')}T{tarea['fin']}:00",
-                    "color": COLOR_JARDINERIA_BASE,
-                    "backgroundColor": COLOR_JARDINERIA_BASE,
-                    "borderColor": "#1b5e20",
-                    "textColor": "#ffffff"
+                    "fecha": curr.strftime("%Y-%m-%d"),
+                    "inicio": tarea['inicio'],
+                    "fin": tarea['fin'],
+                    "estilo": COLOR_JARDINERIA_BASE
                 })
         curr += delta
     return eventos
 
+# Inicialización de estado
 if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
 if "fecha_seleccionada" not in st.session_state:
-    st.session_state["fecha_seleccionada"] = date.today().strftime("%Y-%m-%d")
+    st.session_state["fecha_seleccionada"] = date(2026, 9, 10)
+
+if "mes_visita" not in st.session_state:
+    st.session_state["mes_visita"] = 9
+
+if "anio_visita" not in st.session_state:
+    st.session_state["anio_visita"] = 2026
 
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in CAPILLAS_BASE}
 
-if "version_cal" not in st.session_state:
-    st.session_state["version_cal"] = 1
+# Estilos CSS
+st.markdown("""
+    <style>
+    .stApp { background-color: #f8fafc; }
+    
+    /* Minicalendario Lateral */
+    .mini-cal-header {
+        font-weight: bold; font-size: 1.1rem; text-align: center; margin-bottom: 10px; color: #1e293b;
+    }
+    .mini-day-box {
+        text-align: center; padding: 4px; border-radius: 50%; font-size: 0.85rem; font-weight: 500;
+    }
+    
+    /* Grilla de Calendario Principal */
+    .day-cell {
+        background: white; border: 1px solid #e2e8f0; border-radius: 8px; min-height: 120px; padding: 6px;
+    }
+    .day-cell-today {
+        background: #f0f9ff; border: 2px solid #0288d1;
+    }
+    .day-number {
+        font-weight: bold; font-size: 0.9rem; color: #334155; margin-bottom: 4px;
+    }
+    
+    /* Eventos */
+    .event-card {
+        border-left: 4px solid; padding: 3px 6px; margin-bottom: 4px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 tab_cal, tab_capillas = st.tabs(["📅 Calendario", "⛪ Capillas y Estados"])
 
 with tab_cal:
-    col_main_cal, col_side_note = st.columns([3, 1])
-    
-    with col_main_cal:
-        calendar_options = {
-            "headerToolbar": {
-                "left": "prev,next today",
-                "center": "title",
-                "right": "dayGridMonth,timeGridWeek,timeGridDay"
-            },
-            "initialView": "dayGridMonth",
-            "selectable": True,
-            "selectMirror": True,
-            "unselectAuto": False,
-            "editable": True,
-            "droppable": True,
-            "displayEventTime": False,
-            "height": 720,
-            "locale": "es"
-        }
-        
-        cal_key = f"cal_key_{st.session_state['version_cal']}"
-        
-        cal_data = calendar(
-            events=st.session_state["eventos_calendar"],
-            options=calendar_options,
-            key=cal_key
-        )
-        
-        if cal_data.get("dateClick"):
-            st.session_state["fecha_seleccionada"] = cal_data["dateClick"]["date"].split("T")[0]
-        elif cal_data.get("select"):
-            st.session_state["fecha_seleccionada"] = cal_data["select"]["start"].split("T")[0]
-        elif cal_data.get("eventClick"):
-            st.session_state["fecha_seleccionada"] = cal_data["eventClick"]["event"]["start"].split("T")[0]
+    col_left, col_center, col_right = st.columns([1, 2.8, 1.2])
 
-    with col_side_note:
-        f_sel_str = st.session_state["fecha_seleccionada"]
-        f_obj = datetime.strptime(f_sel_str, "%Y-%m-%d").date()
-        nombre_dia_esp = DIAS_ESP[f_obj.weekday()]
+    # ------------------ PANEL IZQUIERDO: MINI CALENDARIO Y NAVEGACIÓN ------------------
+    with col_left:
+        st.markdown("<div style='background:white; padding:15px; border-radius:10px; border:1px solid #e2e8f0;'>", unsafe_allow_html=True)
         
-        st.subheader(f"📋 Día: {f_obj.strftime('%d/%m/%Y')}")
-        st.caption(f"Día de la semana: **{nombre_dia_esp}**")
+        c_nav1, c_nav2, c_nav3 = st.columns([1, 3, 1])
+        if c_nav1.button("◄", key="m_prev"):
+            if st.session_state["mes_visita"] == 1:
+                st.session_state["mes_visita"] = 12
+                st.session_state["anio_visita"] -= 1
+            else:
+                st.session_state["mes_visita"] -= 1
+            st.rerun()
+            
+        c_nav2.markdown(f"<div class='mini-cal-header'>{MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}</div>", unsafe_allow_html=True)
+        
+        if c_nav3.button("►", key="m_next"):
+            if st.session_state["mes_visita"] == 12:
+                st.session_state["mes_visita"] = 1
+                st.session_state["anio_visita"] += 1
+            else:
+                st.session_state["mes_visita"] += 1
+            st.rerun()
 
-        st.write("<b>Tareas en esta fecha:</b>", unsafe_allow_html=True)
-        evs_dia = [e for e in st.session_state["eventos_calendar"] if e["start"].startswith(f_sel_str)]
+        # Generar mini mes
+        cal_mat = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
+        
+        cols_hdr = st.columns(7)
+        for i, d in enumerate(["D", "L", "M", "M", "J", "V", "S"]):
+            cols_hdr[i].caption(f"**{d}**")
+
+        for semana in cal_mat:
+            cols_sem = st.columns(7)
+            # Reordenar para domingo primero estilo Zoho
+            semana_rot = [semana[-1]] + semana[:-1]
+            for i, dia_num in enumerate(semana_rot):
+                if dia_num != 0:
+                    fecha_iter = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
+                    es_sel = (fecha_iter == st.session_state["fecha_seleccionada"])
+                    btn_label = f"**{dia_num}**" if es_sel else str(dia_num)
+                    if cols_sem[i].button(btn_label, key=f"btn_mini_{dia_num}"):
+                        st.session_state["fecha_seleccionada"] = fecha_iter
+                        st.rerun()
+                else:
+                    cols_sem[i].write("")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ------------------ PANEL CENTRAL: CALENDARIO PRINCIPAL DE MES ------------------
+    with col_center:
+        st.markdown(f"### {MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}")
+        
+        headers = st.columns(7)
+        dias_hdr = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
+        for idx, h in enumerate(dias_hdr):
+            headers[idx].markdown(f"**{h}**")
+
+        cal_semanas = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
+        
+        for semana in cal_semanas:
+            cols_dia = st.columns(7)
+            semana_rot = [semana[-1]] + semana[:-1]
+            for idx, dia_num in enumerate(semana_rot):
+                with cols_dia[idx]:
+                    if dia_num != 0:
+                        f_str = f"{st.session_state['anio_visita']}-{st.session_state['mes_visita']:02d}-{dia_num:02d}"
+                        f_curr = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
+                        
+                        es_hoy = (f_curr == st.session_state["fecha_seleccionada"])
+                        clase_cell = "day-cell day-cell-today" if es_hoy else "day-cell"
+                        
+                        st.markdown(f"<div class='{clase_cell}'><div class='day-number'>{dia_num}</div>", unsafe_allow_html=True)
+                        
+                        # Buscar eventos para este día
+                        evs = [e for e in st.session_state["eventos_calendar"] if e["fecha"] == f_str]
+                        for ev in evs:
+                            st.markdown(
+                                f"""<div class='event-card' style='background-color:{ev["estilo"]["bg"]}; border-color:{ev["estilo"]["border"]}; color:{ev["estilo"]["text"]};'>
+                                {ev["inicio"]} {ev["title"]}
+                                </div>""",
+                                unsafe_allow_html=True
+                            )
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("<div class='day-cell' style='background:#f1f5f9;'></div>", unsafe_allow_html=True)
+
+    # ------------------ PANEL DERECHO: DETALLE Y CREACIÓN DE ACTIVIDADES ------------------
+    with col_right:
+        f_obj = st.session_state["fecha_seleccionada"]
+        f_str_sel = f_obj.strftime("%Y-%m-%d")
+        
+        st.subheader(f"📋 {f_obj.strftime('%d/%m/%Y')}")
+        st.caption(f"Día seleccionado")
+
+        st.markdown("**Tareas para esta fecha:**")
+        evs_dia = [e for e in st.session_state["eventos_calendar"] if e["fecha"] == f_str_sel]
+        
         if evs_dia:
             for e in evs_dia:
-                h_in = e["start"].split("T")[1][:5] if "T" in e["start"] else "08:00"
-                h_fi = e["end"].split("T")[1][:5] if "end" in e and "T" in e["end"] else "12:00"
-                tit_clean = e['title'].replace('\n', ' - ')
-                st.write(f"📌 **[{h_in} - {h_fi}]** {tit_clean}")
+                st.markdown(f"📌 **[{e['inicio']} - {e['fin']}]** {e['title']}")
         else:
-            st.caption("Sin tareas adicionales agendadas.")
-            
-        st.divider()
-        st.markdown("### ➕ AGREGAR ACTIVIDAD")
-        
-        nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...", key="txt_act_key")
-        
-        color_nom = st.radio(
-            "Seleccionar Color:",
-            options=list(PALETA_COLORES.keys()),
-            horizontal=True,
-            key="radio_color_key"
-        )
-        hex_color_elegido = PALETA_COLORES[color_nom]
+            st.caption("Sin tareas adicionales.")
 
-        c_h1, c_h2 = st.columns(2)
-        with c_h1:
-            h_in = st.time_input("Inicio", value=datetime.strptime("08:00", "%H:%M").time(), key="time_in_key")
-        with c_h2:
-            h_fi = st.time_input("Fin", value=datetime.strptime("12:00", "%H:%M").time(), key="time_fi_key")
+        st.divider()
+        st.markdown("### ➕ Agregar Actividad")
         
-        if st.button("Guardar Actividad", use_container_width=True, type="primary"):
-            if nombre_actividad.strip() != "":
-                str_inicio = f"{f_sel_str}T{h_in.strftime('%H:%M:00')}"
-                str_fin = f"{f_sel_str}T{h_fi.strftime('%H:%M:00')}"
-                
-                nuevo_evento = {
-                    "id": str(uuid.uuid4()),
-                    "title": str(nombre_actividad),
-                    "start": str_inicio,
-                    "end": str_fin,
-                    "color": hex_color_elegido,
-                    "backgroundColor": hex_color_elegido,
-                    "borderColor": hex_color_elegido,
-                    "textColor": "#ffffff"
-                }
-                
-                st.session_state["eventos_calendar"].append(nuevo_evento)
-                st.session_state["version_cal"] += 1
-                st.success("Actividad agregada con éxito.")
-                st.rerun()
-            else:
-                st.warning("Por favor ingresá un nombre para la actividad.")
+        with st.form("form_actividad_zoho", clear_on_submit=True):
+            nombre_act = st.text_input("Título", placeholder="Ej: Limpieza Alberdi")
+            color_nom = st.radio("Color", options=list(PALETA_COLORES.keys()), horizontal=True)
+            
+            c1, c2 = st.columns(2)
+            h_in = c1.time_input("Inicio", value=datetime.strptime("08:00", "%H:%M").time())
+            h_fi = c2.time_input("Fin", value=datetime.strptime("12:00", "%H:%M").time())
+            
+            if st.form_submit_button("Guardar Actividad", use_container_width=True, type="primary"):
+                if nombre_act.strip():
+                    estilo = PALETA_COLORES[color_nom]
+                    st.session_state["eventos_calendar"].append({
+                        "id": str(uuid.uuid4()),
+                        "title": nombre_act,
+                        "fecha": f_str_sel,
+                        "inicio": h_in.strftime("%H:%M"),
+                        "fin": h_fi.strftime("%H:%M"),
+                        "estilo": estilo
+                    })
+                    st.success("¡Agregado!")
+                    st.rerun()
 
 with tab_capillas:
     st.header("Control de Estado de Capillas")
-    st.write("Estado general de las distintas zonas / capillas:")
-    
     cols_cap = st.columns(2)
     for idx, c in enumerate(CAPILLAS_BASE):
         estado_act = st.session_state["estados_capillas"][c]
-        
         with cols_cap[idx % 2]:
-            st.markdown(f"""
-            <div class="card-rotacion">
-                <h4>{c}</h4>
-            </div>
-            """, unsafe_allow_html=True)
-            
+            st.subheader(c)
             nuevo_est = st.selectbox(
-                f"Estado de {c}:",
+                f"Estado:",
                 ["Pendiente", "En Proceso", "Completado"],
                 index=0 if estado_act == "Pendiente" else (1 if estado_act == "En Proceso" else 2),
                 key=f"est_{c}"
