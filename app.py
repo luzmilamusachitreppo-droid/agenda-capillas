@@ -37,7 +37,6 @@ ROTACION_JARDINERIA = {
     4: [{"nombre": "Barrio 4", "inicio": "08:00", "fin": "16:00"}]
 }
 
-DIAS_SEMANA_ESP = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
 def generar_eventos_jardineria(anio=2026):
@@ -61,9 +60,13 @@ def generar_eventos_jardineria(anio=2026):
         curr += delta
     return eventos
 
-# Inicialización de estado
+# Inicialización y migración segura de estado
 if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
+else:
+    # Si existen eventos viejos sin la clave "fecha", reinicia la estructura
+    if any("fecha" not in e for e in st.session_state["eventos_calendar"]):
+        st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date(2026, 9, 10)
@@ -82,15 +85,10 @@ st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
     
-    /* Minicalendario Lateral */
     .mini-cal-header {
         font-weight: bold; font-size: 1.1rem; text-align: center; margin-bottom: 10px; color: #1e293b;
     }
-    .mini-day-box {
-        text-align: center; padding: 4px; border-radius: 50%; font-size: 0.85rem; font-weight: 500;
-    }
     
-    /* Grilla de Calendario Principal */
     .day-cell {
         background: white; border: 1px solid #e2e8f0; border-radius: 8px; min-height: 120px; padding: 6px;
     }
@@ -101,7 +99,6 @@ st.markdown("""
         font-weight: bold; font-size: 0.9rem; color: #334155; margin-bottom: 4px;
     }
     
-    /* Eventos */
     .event-card {
         border-left: 4px solid; padding: 3px 6px; margin-bottom: 4px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;
     }
@@ -113,7 +110,7 @@ tab_cal, tab_capillas = st.tabs(["📅 Calendario", "⛪ Capillas y Estados"])
 with tab_cal:
     col_left, col_center, col_right = st.columns([1, 2.8, 1.2])
 
-    # ------------------ PANEL IZQUIERDO: MINI CALENDARIO Y NAVEGACIÓN ------------------
+    # ------------------ PANEL IZQUIERDO ------------------
     with col_left:
         st.markdown("<div style='background:white; padding:15px; border-radius:10px; border:1px solid #e2e8f0;'>", unsafe_allow_html=True)
         
@@ -136,7 +133,6 @@ with tab_cal:
                 st.session_state["mes_visita"] += 1
             st.rerun()
 
-        # Generar mini mes
         cal_mat = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
         
         cols_hdr = st.columns(7)
@@ -145,7 +141,6 @@ with tab_cal:
 
         for semana in cal_mat:
             cols_sem = st.columns(7)
-            # Reordenar para domingo primero estilo Zoho
             semana_rot = [semana[-1]] + semana[:-1]
             for i, dia_num in enumerate(semana_rot):
                 if dia_num != 0:
@@ -159,7 +154,7 @@ with tab_cal:
                     cols_sem[i].write("")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ------------------ PANEL CENTRAL: CALENDARIO PRINCIPAL DE MES ------------------
+    # ------------------ PANEL CENTRAL ------------------
     with col_center:
         st.markdown(f"### {MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}")
         
@@ -184,12 +179,13 @@ with tab_cal:
                         
                         st.markdown(f"<div class='{clase_cell}'><div class='day-number'>{dia_num}</div>", unsafe_allow_html=True)
                         
-                        # Buscar eventos para este día
-                        evs = [e for e in st.session_state["eventos_calendar"] if e["fecha"] == f_str]
+                        # Lectura segura con .get()
+                        evs = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
                         for ev in evs:
+                            est = ev.get("estilo", COLOR_JARDINERIA_BASE)
                             st.markdown(
-                                f"""<div class='event-card' style='background-color:{ev["estilo"]["bg"]}; border-color:{ev["estilo"]["border"]}; color:{ev["estilo"]["text"]};'>
-                                {ev["inicio"]} {ev["title"]}
+                                f"""<div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
+                                {ev.get("inicio", "08:00")} {ev.get("title", "")}
                                 </div>""",
                                 unsafe_allow_html=True
                             )
@@ -197,20 +193,20 @@ with tab_cal:
                     else:
                         st.markdown("<div class='day-cell' style='background:#f1f5f9;'></div>", unsafe_allow_html=True)
 
-    # ------------------ PANEL DERECHO: DETALLE Y CREACIÓN DE ACTIVIDADES ------------------
+    # ------------------ PANEL DERECHO ------------------
     with col_right:
         f_obj = st.session_state["fecha_seleccionada"]
         f_str_sel = f_obj.strftime("%Y-%m-%d")
         
         st.subheader(f"📋 {f_obj.strftime('%d/%m/%Y')}")
-        st.caption(f"Día seleccionado")
+        st.caption("Día seleccionado")
 
         st.markdown("**Tareas para esta fecha:**")
-        evs_dia = [e for e in st.session_state["eventos_calendar"] if e["fecha"] == f_str_sel]
+        evs_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str_sel]
         
         if evs_dia:
             for e in evs_dia:
-                st.markdown(f"📌 **[{e['inicio']} - {e['fin']}]** {e['title']}")
+                st.markdown(f"📌 **[{e.get('inicio', '08:00')} - {e.get('fin', '12:00')}]** {e.get('title', '')}")
         else:
             st.caption("Sin tareas adicionales.")
 
