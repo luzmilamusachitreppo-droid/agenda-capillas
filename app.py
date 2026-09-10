@@ -12,7 +12,7 @@ st.set_page_config(
 
 COLOR_JARDINERIA_BASE = "#2e7d32"
 
-# Paleta de colores (Celeste al principio)
+# Paleta de colores
 PALETA_COLORES = {
     "🩵 Celeste": "#29b6f6",
     "💚 Verde": "#4caf50",
@@ -23,7 +23,7 @@ PALETA_COLORES = {
     "❤️ Rojo": "#ef5350"
 }
 
-# Estilos CSS limpios
+# Estilos CSS
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #1e293b; }
@@ -54,7 +54,7 @@ st.markdown("""
         cursor: pointer !important;
     }
 
-    /* RESALTADO INTENSO AL SELECCIONAR UN DÍA EN EL CALENDARIO */
+    /* Resaltado de día seleccionado */
     .fc-highlight {
         background-color: #29b6f6 !important;
         opacity: 0.85 !important;
@@ -62,7 +62,6 @@ st.markdown("""
         box-shadow: inset 0 0 10px rgba(0,0,0,0.3) !important;
     }
     
-    /* Hover en los días del calendario */
     .fc-daygrid-day:hover {
         background-color: #e0f7fa !important;
     }
@@ -149,15 +148,18 @@ with tab_cal:
             "unselectAuto": False,
             "editable": True,
             "droppable": True,
-            "displayEventTime": False, # Oculta la hora en la etiqueta
+            "displayEventTime": False,
             "height": 720,
             "locale": "es"
         }
         
+        # Key dinámico para forzar el redibujado cuando se agreguen eventos
+        cal_key = f"cal_v_{len(st.session_state['eventos_calendar'])}"
+        
         cal_data = calendar(
             events=st.session_state["eventos_calendar"],
             options=calendar_options,
-            key="custom_fullcalendar"
+            key=cal_key
         )
         
         nueva_fecha = None
@@ -194,10 +196,9 @@ with tab_cal:
         st.divider()
         st.markdown("### ➕ AGREGAR ACTIVIDAD")
         
-        with st.form("form_nueva_actividad_limpio", clear_on_submit=False):
+        with st.form("form_nueva_actividad_limpio", clear_on_submit=True):
             nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...")
             
-            # Selector de color nativo horizontal
             color_nom = st.radio(
                 "Seleccionar Color:",
                 options=list(PALETA_COLORES.keys()),
@@ -211,7 +212,6 @@ with tab_cal:
             with c_h2:
                 h_fi = st.time_input("Fin", value=datetime.strptime("12:00", "%H:%M").time())
             
-            # Botón de guardar RECTANGULAR de ancho completo
             btn_guardar = st.form_submit_button("Guardar Actividad", use_container_width=True)
             
             if btn_guardar:
