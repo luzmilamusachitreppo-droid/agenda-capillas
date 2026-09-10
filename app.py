@@ -60,15 +60,11 @@ def generar_eventos_jardineria(anio=2026):
         curr += delta
     return eventos
 
-# Inicialización y migración segura de estado
+# Inicialización y validación de tipos en session_state
 if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
-else:
-    # Si existen eventos viejos sin la clave "fecha", reinicia la estructura
-    if any("fecha" not in e for e in st.session_state["eventos_calendar"]):
-        st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
-if "fecha_seleccionada" not in st.session_state:
+if "fecha_seleccionada" not in st.session_state or not isinstance(st.session_state["fecha_seleccionada"], date):
     st.session_state["fecha_seleccionada"] = date(2026, 9, 10)
 
 if "mes_visita" not in st.session_state:
@@ -147,7 +143,7 @@ with tab_cal:
                     fecha_iter = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
                     es_sel = (fecha_iter == st.session_state["fecha_seleccionada"])
                     btn_label = f"**{dia_num}**" if es_sel else str(dia_num)
-                    if cols_sem[i].button(btn_label, key=f"btn_mini_{dia_num}"):
+                    if cols_sem[i].button(btn_label, key=f"btn_mini_{st.session_state['mes_visita']}_{dia_num}"):
                         st.session_state["fecha_seleccionada"] = fecha_iter
                         st.rerun()
                 else:
@@ -179,7 +175,6 @@ with tab_cal:
                         
                         st.markdown(f"<div class='{clase_cell}'><div class='day-number'>{dia_num}</div>", unsafe_allow_html=True)
                         
-                        # Lectura segura con .get()
                         evs = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
                         for ev in evs:
                             est = ev.get("estilo", COLOR_JARDINERIA_BASE)
@@ -196,6 +191,12 @@ with tab_cal:
     # ------------------ PANEL DERECHO ------------------
     with col_right:
         f_obj = st.session_state["fecha_seleccionada"]
+        
+        # Validación de tipo fecha
+        if isinstance(f_obj, str):
+            f_obj = datetime.strptime(f_obj, "%Y-%m-%d").date()
+            st.session_state["fecha_seleccionada"] = f_obj
+
         f_str_sel = f_obj.strftime("%Y-%m-%d")
         
         st.subheader(f"📋 {f_obj.strftime('%d/%m/%Y')}")
