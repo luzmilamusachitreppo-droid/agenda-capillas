@@ -77,7 +77,7 @@ if "anio_visita" not in st.session_state:
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in CAPILLAS_BASE}
 
-# CSS optimizado
+# Estilos optimizados para celular
 st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
@@ -86,7 +86,7 @@ st.markdown("""
         background: #ffffff;
         border: 1px solid #cbd5e1;
         border-radius: 12px;
-        padding: 12px;
+        padding: 10px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         margin-bottom: 15px;
     }
@@ -97,24 +97,12 @@ st.markdown("""
         text-align: center;
         color: #1e293b;
     }
-    
-    .event-card {
-        border-left: 4px solid;
-        padding: 4px 8px;
-        margin-top: 3px;
-        margin-bottom: 3px;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-align: left;
-    }
 
-    /* Ocultar cuadrícula pesada en celulares vía CSS si fuera necesario */
-    @media (max-width: 768px) {
-        .stButton > button {
-            padding: 2px !important;
-            font-size: 0.8rem !important;
-        }
+    /* Ajustes compactos para los botones de números en celular */
+    .stButton > button {
+        padding: 4px 0px !important;
+        font-size: 0.85rem !important;
+        min-height: 38px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -122,18 +110,9 @@ st.markdown("""
 tab_cal, tab_capillas = st.tabs(["📅 Calendario", "⛪ Capillas y Estados"])
 
 with tab_cal:
-    # Selector de vista para facilitar la navegación en celulares
-    modo_vista = st.radio(
-        "Modo de vista:",
-        ["📱 Celular (Lista por Día)", "🖥️ Pantalla Grande (Cuadrícula)"],
-        horizontal=True
-    )
-    
-    st.divider()
-
-    # NAVEGADOR DE MES (Común para ambos modos)
+    # NAVEGADOR DE MES
     c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
-    if c_nav1.button("◄ Mes anterior", key="m_prev", use_container_width=True):
+    if c_nav1.button("◄", key="m_prev", use_container_width=True):
         if st.session_state["mes_visita"] == 1:
             st.session_state["mes_visita"] = 12
             st.session_state["anio_visita"] -= 1
@@ -143,7 +122,7 @@ with tab_cal:
         
     c_nav2.markdown(f"<div class='mini-cal-header'>{MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}</div>", unsafe_allow_html=True)
     
-    if c_nav3.button("Siguiente ►", key="m_next", use_container_width=True):
+    if c_nav3.button("►", key="m_next", use_container_width=True):
         if st.session_state["mes_visita"] == 12:
             st.session_state["mes_visita"] = 1
             st.session_state["anio_visita"] += 1
@@ -153,68 +132,41 @@ with tab_cal:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ------------------ VISTA OPTIMIZADA PARA CELULAR ------------------
-    if "📱" in modo_vista:
-        st.subheader("Seleccionar Día del Mes:")
-        
-        # Selector desplegable directo o botones agrupados para móvil
-        num_dias = calendar.monthrange(st.session_state["anio_visita"], st.session_state["mes_visita"])[1]
-        dias_lista = [date(st.session_state["anio_visita"], st.session_state["mes_visita"], d) for d in range(1, num_dias + 1)]
-        
-        dias_fmt = [d.strftime("%d/%m/%Y - ") + ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"][d.weekday()] for d in dias_lista]
-        
-        index_actual = st.session_state["fecha_seleccionada"].day - 1 if st.session_state["fecha_seleccionada"].month == st.session_state["mes_visita"] else 0
-        
-        fecha_elegida = st.selectbox(
-            "Elegí un día para ver o agregar tareas:",
-            options=dias_lista,
-            index=min(index_actual, len(dias_lista)-1),
-            format_func=lambda x: x.strftime("%d/%m/%Y (") + ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"][(x.weekday()+1)%7] + ")"
-        )
-        st.session_state["fecha_seleccionada"] = fecha_elegida
+    # ------------------ MINI CALENDARIO TÁCTIL PARA CELULAR ------------------
+    st.markdown("<div class='mini-cal-card'>", unsafe_allow_html=True)
+    
+    cols_hdr = st.columns(7)
+    for i, d in enumerate(["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]):
+        cols_hdr[i].caption(f"**{d}**")
 
-        st.divider()
+    cal_mat = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
 
-    # ------------------ VISTA CUADRÍCULA (PANTALLAS GRANDES) ------------------
-    else:
-        headers = st.columns(7)
-        dias_hdr = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
-        for idx, h in enumerate(dias_hdr):
-            headers[idx].markdown(f"**{h}**")
+    for semana in cal_mat:
+        cols_sem = st.columns(7)
+        semana_rot = [semana[-1]] + semana[:-1]
+        for i, dia_num in enumerate(semana_rot):
+            if dia_num != 0:
+                fecha_iter = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
+                f_str_iter = fecha_iter.strftime("%Y-%m-%d")
+                
+                es_sel = (fecha_iter == st.session_state["fecha_seleccionada"])
+                
+                # Revisa si hay tareas agendadas en esta fecha
+                tiene_eventos = any(e.get("fecha") == f_str_iter for e in st.session_state["eventos_calendar"])
+                
+                # Etiqueta con punto verde si tiene tareas
+                label_btn = f"• {dia_num}" if tiene_eventos else str(dia_num)
+                tipo_btn = "primary" if es_sel else "secondary"
+                
+                if cols_sem[i].button(label_btn, key=f"btn_cel_{st.session_state['mes_visita']}_{dia_num}", type=tipo_btn, use_container_width=True):
+                    st.session_state["fecha_seleccionada"] = fecha_iter
+                    st.rerun()
+            else:
+                cols_sem[i].write("")
+                
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        cal_semanas = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
-        
-        for semana in cal_semanas:
-            cols_dia = st.columns(7)
-            semana_rot = [semana[-1]] + semana[:-1]
-            for idx, dia_num in enumerate(semana_rot):
-                with cols_dia[idx]:
-                    if dia_num != 0:
-                        f_str = f"{st.session_state['anio_visita']}-{st.session_state['mes_visita']:02d}-{dia_num:02d}"
-                        f_curr = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
-                        
-                        es_hoy = (f_curr == st.session_state["fecha_seleccionada"])
-                        
-                        lbl_dia = f"★ {dia_num}" if es_hoy else f"{dia_num}"
-                        btn_type = "primary" if es_hoy else "secondary"
-                        
-                        if st.button(lbl_dia, key=f"btn_big_{st.session_state['mes_visita']}_{dia_num}", type=btn_type, use_container_width=True):
-                            st.session_state["fecha_seleccionada"] = f_curr
-                            st.rerun()
-
-                        evs = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
-                        for ev in evs:
-                            est = ev.get("estilo", COLOR_JARDINERIA_BASE)
-                            st.markdown(
-                                f"""<div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
-                                {ev.get("inicio", "08:00")} {ev.get("title", "")}
-                                </div>""",
-                                unsafe_allow_html=True
-                            )
-                    else:
-                        st.write("")
-
-    # ------------------ DETALLE Y FORMULARIO DE TAREAS ------------------
+    # ------------------ DETALLE Y FORMULARIO (ABAJO DEL MINI CALENDARIO) ------------------
     f_obj = st.session_state["fecha_seleccionada"]
     if isinstance(f_obj, str):
         f_obj = datetime.strptime(f_obj, "%Y-%m-%d").date()
@@ -222,7 +174,7 @@ with tab_cal:
 
     f_str_sel = f_obj.strftime("%Y-%m-%d")
 
-    st.subheader(f"📋 Día: {f_obj.strftime('%d/%m/%Y')}")
+    st.subheader(f"📋 Tareas: {f_obj.strftime('%d/%m/%Y')}")
     evs_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str_sel]
     
     if evs_dia:
@@ -231,9 +183,9 @@ with tab_cal:
     else:
         st.caption("No hay tareas registradas para esta fecha.")
 
-    with st.expander("➕ Agregar Actividad para esta fecha", expanded=True):
+    with st.expander("➕ Agregar Actividad para este día", expanded=False):
         with st.form("form_actividad_móvil", clear_on_submit=True):
-            nombre_act = st.text_input("Título", placeholder="Ej: Limpieza Alberdi")
+            nombre_act = st.text_input("Título", placeholder="Ej: Limpieza Barrio 1")
             color_nom = st.selectbox("Color", options=list(PALETA_COLORES.keys()))
             
             c1, c2 = st.columns(2)
