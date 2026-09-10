@@ -12,7 +12,7 @@ st.set_page_config(
 
 COLOR_JARDINERIA_BASE = "#2e7d32"
 
-# Paleta fija de botones con círculos
+# Paleta fija de botones con círculos (Incluye Celeste al inicio)
 PALETA_COLORES_CIRCULOS = {
     "Celeste": "#29b6f6",
     "Verde": "#4caf50",
@@ -80,25 +80,21 @@ st.markdown("""
         border-radius: 6px;
     }
     .card-rotacion h4 { margin: 0; color: #006064; }
-    
-    /* Estilos para los botones circulares de color */
-    .stButton > button {
-        border-radius: 50% !important;
-        width: 38px !important;
-        height: 38px !important;
-        padding: 0 !important;
-        border: 2px solid #ffffff !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
-    }
-    
-    .btn-guardar > button {
+
+    /* Botón de guardar RECTANGULAR */
+    div.stButton > button.btn-guardar-rect {
         border-radius: 8px !important;
         width: 100% !important;
-        height: auto !important;
+        height: 42px !important;
         background-color: #0288d1 !important;
         color: white !important;
         font-weight: bold !important;
-        padding: 8px 16px !important;
+        border: none !important;
+        font-size: 15px !important;
+    }
+    div.stButton > button.btn-guardar-rect:hover {
+        background-color: #01579b !important;
+        color: white !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -172,6 +168,7 @@ with tab_cal:
             "unselectAuto": False,
             "editable": True,
             "droppable": True,
+            "displayEventTime": False, # Oculta el numero de hora (8 o 12) antes del titulo
             "height": 720,
             "locale": "es"
         }
@@ -222,15 +219,19 @@ with tab_cal:
         cols_colores = st.columns(7)
         for idx, (nombre_c, hex_c) in enumerate(PALETA_COLORES_CIRCULOS.items()):
             with cols_colores[idx]:
-                # Estilo dinámico para destacar el botón seleccionado
                 es_seleccionado = (st.session_state["color_seleccionado"] == hex_c)
                 borde_estilo = "3px solid #000000" if es_seleccionado else "2px solid #ffffff"
                 
                 st.markdown(f"""
                 <style>
                 div[data-testid="stColumn"]:nth-child({idx+1}) button {{
+                    border-radius: 50% !important;
+                    width: 36px !important;
+                    height: 36px !important;
+                    padding: 0 !important;
                     background-color: {hex_c} !important;
                     border: {borde_estilo} !important;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
                 }}
                 </style>
                 """, unsafe_allow_html=True)
@@ -245,8 +246,8 @@ with tab_cal:
         with c_h2:
             h_fi = st.time_input("Fin", value=datetime.strptime("12:00", "%H:%M").time())
         
-        st.markdown('<div class="btn-guardar">', unsafe_allow_html=True)
-        if st.button("+ Guardar Actividad", key="btn_guardar_actividad"):
+        # Botón de guardar con clase específica
+        if st.button("Guardar Actividad", key="btn_guardar_actividad", type="primary"):
             if nombre_actividad.strip() != "":
                 st.session_state["eventos_calendar"].append({
                     "title": nombre_actividad,
@@ -258,7 +259,6 @@ with tab_cal:
                 })
                 st.success("Actividad agregada al calendario.")
                 st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
 with tab_capillas:
     st.header("Control de Estado de Capillas")
