@@ -114,9 +114,11 @@ def generar_eventos_jardineria(anio=2026):
                     "title": f"🌱 Jardinería: {tarea['nombre']}",
                     "start": f"{curr.strftime('%Y-%m-%d')}T{tarea['inicio']}:00",
                     "end": f"{curr.strftime('%Y-%m-%d')}T{tarea['fin']}:00",
+                    "color": COLOR_JARDINERIA_BASE,
                     "backgroundColor": COLOR_JARDINERIA_BASE,
                     "borderColor": "#1b5e20",
-                    "textColor": "#ffffff"
+                    "textColor": "#ffffff",
+                    "allDay": False
                 })
         curr += delta
     return eventos
@@ -149,12 +151,13 @@ with tab_cal:
             "editable": True,
             "droppable": True,
             "displayEventTime": False,
+            "allDaySlot": True,
             "height": 720,
             "locale": "es"
         }
         
-        # Key dinámico para forzar el redibujado cuando se agreguen eventos
-        cal_key = f"cal_v_{len(st.session_state['eventos_calendar'])}"
+        # Key dinámico para actualizar dinámicamente al agregar
+        cal_key = f"cal_v_{len(st.session_state['eventos_calendar'])}_{st.session_state['fecha_seleccionada']}"
         
         cal_data = calendar(
             events=st.session_state["eventos_calendar"],
@@ -220,9 +223,11 @@ with tab_cal:
                         "title": nombre_actividad,
                         "start": f"{f_sel_str}T{h_in.strftime('%H:%M:%00')}",
                         "end": f"{f_sel_str}T{h_fi.strftime('%H:%M:%00')}",
+                        "color": hex_color_elegido,
                         "backgroundColor": hex_color_elegido,
                         "borderColor": hex_color_elegido,
-                        "textColor": "#ffffff"
+                        "textColor": "#ffffff",
+                        "allDay": False
                     })
                     st.success("Actividad agregada al calendario.")
                     st.rerun()
