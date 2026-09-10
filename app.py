@@ -12,21 +12,22 @@ st.set_page_config(
 
 # Paleta de Colores disponibles para nuevos eventos
 PALETA_COLORES = {
-    "Celeste (Limpieza)": "#29b6f6",
-    "Verde (Jardinería)": "#4caf50",
-    "Amarillo / Oro (Reunión / Urgente)": "#fbc02d",
-    "Naranja (Mantenimiento / Compras)": "#ffa726",
-    "Violeta (Trámites / Administración)": "#ab47bc",
-    "Rojo (Importante / Prioritario)": "#ef5350"
+    "Celeste (Limpieza)": "#0288d1",
+    "Verde (Jardinería)": "#2e7d32",
+    "Amarillo / Oro (Reunión / Urgente)": "#f57f17",
+    "Naranja (Mantenimiento / Compras)": "#e65100",
+    "Violeta (Trámites / Administración)": "#7b1fa2",
+    "Rojo (Importante / Prioritario)": "#c62828"
 }
 
-COLOR_JARDINERIA_BASE = "#4caf50"
+COLOR_JARDINERIA_BASE = "#2e7d32"
 
-# Estilos CSS
+# Estilos CSS con resaltado fuerte para la selección del calendario
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #1e293b; }
     
+    /* Botones de navegación */
     .fc-button-primary {
         background-color: #0288d1 !important;
         border-color: #0288d1 !important;
@@ -39,16 +40,28 @@ st.markdown("""
         border-color: #01579b !important;
     }
 
+    /* Eventos / Tarjetas */
     .fc-timegrid-event, .fc-daygrid-event {
         border-radius: 6px !important;
         border: none !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-        padding: 2px 5px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
+        padding: 3px 6px !important;
         cursor: pointer !important;
     }
     
     .fc-daygrid-day {
         cursor: pointer !important;
+    }
+
+    /* COLOR RESALTADO AL SELECCIONAR UNA CASILLA DEL CALENDARIO */
+    .fc-highlight {
+        background-color: #81d4fa !important; /* Celeste intenso */
+        opacity: 0.7 !important;
+    }
+    
+    /* Efecto hover al pasar el mouse por un día */
+    .fc-daygrid-day:hover {
+        background-color: #e1f5fe !important;
     }
     
     button[data-baseweb="tab"][aria-selected="true"] {
@@ -66,7 +79,7 @@ st.markdown("""
     .card-rotacion h4 { margin: 0; color: #006064; }
     
     .stForm .stButton > button {
-        background-color: #2e7d32 !important;
+        background-color: #0288d1 !important;
         color: white !important;
         font-weight: bold !important;
         width: 100%;
@@ -150,7 +163,6 @@ with tab_cal:
             key="custom_fullcalendar"
         )
         
-        # Capturar el clic en cualquier casilla vacía o en un evento
         nueva_fecha = None
         if cal_data.get("dateClick"):
             nueva_fecha = cal_data["dateClick"]["date"].split("T")[0]
