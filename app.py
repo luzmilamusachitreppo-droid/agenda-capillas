@@ -10,19 +10,40 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilos CSS
+# Estilos CSS con paleta Verde y Celeste
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #1e293b; }
     
+    /* Cambiar botones del calendario (flechas, hoy, semana) a Celeste */
+    .fc-button-primary {
+        background-color: #0288d1 !important;
+        border-color: #0288d1 !important;
+        color: white !important;
+    }
+    .fc-button-primary:hover {
+        background-color: #01579b !important;
+        border-color: #01579b !important;
+    }
+    .fc-button-active {
+        background-color: #01579b !important;
+        border-color: #01579b !important;
+    }
+    
+    /* Cambiar la pestaña seleccionada de Streamlit a Celeste */
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #0288d1 !important;
+        border-bottom-color: #0288d1 !important;
+    }
+
     .card-rotacion {
-        background-color: #f1f8e9;
-        border-left: 5px solid #2e7d32;
+        background-color: #e0f7fa;
+        border-left: 5px solid #0288d1;
         padding: 10px 15px;
         margin-bottom: 8px;
         border-radius: 6px;
     }
-    .card-rotacion h4 { margin: 0; color: #1b5e20; }
+    .card-rotacion h4 { margin: 0; color: #006064; }
     
     .stForm .stButton > button {
         background-color: #2e7d32 !important;
@@ -136,8 +157,8 @@ with tab_cal:
                 st.session_state["eventos_calendar"].append({
                     "title": tit_act,
                     "start": inicio_iso,
-                    "backgroundColor": "#2e7d32",
-                    "borderColor": "#1b5e20"
+                    "backgroundColor": "#0288d1",
+                    "borderColor": "#01579b"
                 })
                 st.success("Actividad guardada.")
                 st.rerun()
@@ -156,7 +177,7 @@ with tab_capillas:
         with cols_cap[idx % 2]:
             st.markdown(f"""
             <div class="card-rotacion">
-                <h4>{cap_nombre} — <span style="font-size: 15px; color: #2e7d32;">{cap_dia}</span></h4>
+                <h4>{cap_nombre} — <span style="font-size: 15px; color: #0288d1;">{cap_dia}</span></h4>
                 <p style="margin:0; font-size: 13px; color: #555;"><b>Horario:</b> {cap_horario}</p>
             </div>
             """, unsafe_allow_html=True)
