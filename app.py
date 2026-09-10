@@ -39,16 +39,16 @@ st.markdown("""
         border-color: #01579b !important;
     }
 
-    .fc-timegrid-event {
+    .fc-timegrid-event, .fc-daygrid-event {
         border-radius: 6px !important;
         border: none !important;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-        padding: 4px 6px !important;
+        padding: 2px 5px !important;
+        cursor: pointer !important;
     }
-    .fc-v-event .fc-event-main {
-        color: #0f172a !important;
-        font-weight: 600 !important;
-        font-size: 13px !important;
+    
+    .fc-daygrid-day {
+        cursor: pointer !important;
     }
     
     button[data-baseweb="tab"][aria-selected="true"] {
@@ -103,12 +103,12 @@ def generar_eventos_jardineria(anio=2026):
         if dia_num in ROTACION_JARDINERIA:
             for tarea in ROTACION_JARDINERIA[dia_num]:
                 eventos.append({
-                    "title": f"🌱 Jardinería:\n{tarea['nombre']}",
+                    "title": f"🌱 Jardinería: {tarea['nombre']}",
                     "start": f"{curr.strftime('%Y-%m-%d')}T{tarea['inicio']}:00",
                     "end": f"{curr.strftime('%Y-%m-%d')}T{tarea['fin']}:00",
                     "backgroundColor": COLOR_JARDINERIA_BASE,
                     "borderColor": "#1b5e20",
-                    "textColor": "#0f172a"
+                    "textColor": "#ffffff"
                 })
         curr += delta
     return eventos
@@ -132,15 +132,15 @@ with tab_cal:
             "headerToolbar": {
                 "left": "prev,next today",
                 "center": "title",
-                "right": "timeGridWeek,timeGridDay,dayGridMonth"
+                "right": "dayGridMonth,timeGridWeek,timeGridDay"
             },
-            "initialView": "timeGridWeek",
-            "slotMinTime": "07:00:00",
-            "slotMaxTime": "19:00:00",
+            "initialView": "dayGridMonth",
             "selectable": True,
+            "selectMirror": True,
+            "unselectAuto": False,
             "editable": True,
-            "allDaySlot": False,
-            "height": 750,
+            "droppable": True,
+            "height": 720,
             "locale": "es"
         }
         
@@ -150,10 +150,18 @@ with tab_cal:
             key="custom_fullcalendar"
         )
         
+        # Capturar el clic en cualquier casilla vacía o en un evento
+        nueva_fecha = None
         if cal_data.get("dateClick"):
-            st.session_state["fecha_seleccionada"] = cal_data["dateClick"]["date"].split("T")[0]
+            nueva_fecha = cal_data["dateClick"]["date"].split("T")[0]
         elif cal_data.get("select"):
-            st.session_state["fecha_seleccionada"] = cal_data["select"]["start"].split("T")[0]
+            nueva_fecha = cal_data["select"]["start"].split("T")[0]
+        elif cal_data.get("eventClick"):
+            nueva_fecha = cal_data["eventClick"]["event"]["start"].split("T")[0]
+            
+        if nueva_fecha and nueva_fecha != st.session_state["fecha_seleccionada"]:
+            st.session_state["fecha_seleccionada"] = nueva_fecha
+            st.rerun()
 
     with col_side_note:
         f_sel_str = st.session_state["fecha_seleccionada"]
@@ -177,7 +185,7 @@ with tab_cal:
         st.divider()
         st.markdown("### ➕ AGREGAR ACTIVIDAD")
         with st.form("form_nueva_actividad"):
-            nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión, Compra...")
+            nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...")
             
             opcion_color = st.selectbox("Color de la tarjeta", list(PALETA_COLORES.keys()))
             hex_color = PALETA_COLORES[opcion_color]
@@ -196,7 +204,7 @@ with tab_cal:
                     "end": f"{f_sel_str}T{h_fi.strftime('%H:%M:%00')}",
                     "backgroundColor": hex_color,
                     "borderColor": hex_color,
-                    "textColor": "#0f172a"
+                    "textColor": "#ffffff"
                 })
                 st.success("Actividad agregada al calendario.")
                 st.rerun()
