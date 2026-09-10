@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date, timedelta
 from streamlit_calendar import calendar
+import uuid
 
 # Configuración de página
 st.set_page_config(
@@ -111,6 +112,7 @@ def generar_eventos_jardineria(anio=2026):
         if dia_num in ROTACION_JARDINERIA:
             for tarea in ROTACION_JARDINERIA[dia_num]:
                 eventos.append({
+                    "id": str(uuid.uuid4()),
                     "title": f"🌱 Jardinería: {tarea['nombre']}",
                     "start": f"{curr.strftime('%Y-%m-%d')}T{tarea['inicio']}:00",
                     "end": f"{curr.strftime('%Y-%m-%d')}T{tarea['fin']}:00",
@@ -157,8 +159,7 @@ with tab_cal:
             "locale": "es"
         }
         
-        # Clave única que cambia al agregar eventos
-        cal_key = f"cal_instancia_{st.session_state['version_cal']}"
+        cal_key = f"cal_key_{st.session_state['version_cal']}"
         
         cal_data = calendar(
             events=st.session_state["eventos_calendar"],
@@ -166,7 +167,6 @@ with tab_cal:
             key=cal_key
         )
         
-        # Captura de clics en la grilla
         if cal_data.get("dateClick"):
             st.session_state["fecha_seleccionada"] = cal_data["dateClick"]["date"].split("T")[0]
         elif cal_data.get("select"):
@@ -196,38 +196,41 @@ with tab_cal:
         st.divider()
         st.markdown("### ➕ AGREGAR ACTIVIDAD")
         
-        nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...", key="txt_actividad_input")
+        nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...", key="txt_act_key")
         
         color_nom = st.radio(
             "Seleccionar Color:",
             options=list(PALETA_COLORES.keys()),
             horizontal=True,
-            key="radio_color_input"
+            key="radio_color_key"
         )
         hex_color_elegido = PALETA_COLORES[color_nom]
 
         c_h1, c_h2 = st.columns(2)
         with c_h1:
-            h_in = st.time_input("Inicio", value=datetime.strptime("08:00", "%H:%M").time(), key="time_in_input")
+            h_in = st.time_input("Inicio", value=datetime.strptime("08:00", "%H:%M").time(), key="time_in_key")
         with c_h2:
-            h_fi = st.time_input("Fin", value=datetime.strptime("12:00", "%H:%M").time(), key="time_fi_input")
+            h_fi = st.time_input("Fin", value=datetime.strptime("12:00", "%H:%M").time(), key="time_fi_key")
         
         if st.button("Guardar Actividad", use_container_width=True, type="primary"):
             if nombre_actividad.strip() != "":
+                str_inicio = f"{f_sel_str}T{h_in.strftime('%H:%M:00')}"
+                str_fin = f"{f_sel_str}T{h_fi.strftime('%H:%M:00')}"
+                
                 nuevo_evento = {
-                    "title": nombre_actividad,
-                    "start": f"{f_sel_str}T{h_in.strftime('%H:%M:00')}",
-                    "end": f"{f_sel_str}T{h_fi.strftime('%H:%M:00')}",
+                    "id": str(uuid.uuid4()),
+                    "title": str(nombre_actividad),
+                    "start": str_inicio,
+                    "end": str_fin,
                     "color": hex_color_elegido,
                     "backgroundColor": hex_color_elegido,
                     "borderColor": hex_color_elegido,
                     "textColor": "#ffffff"
                 }
-                # 1. Agregar a la lista global
+                
                 st.session_state["eventos_calendar"].append(nuevo_evento)
-                # 2. Incrementar la versión del calendario para forzar el redibujado completo
                 st.session_state["version_cal"] += 1
-                st.success("Actividad guardada correctamente.")
+                st.success("Actividad agregada con éxito.")
                 st.rerun()
             else:
                 st.warning("Por favor ingresá un nombre para la actividad.")
