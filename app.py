@@ -131,6 +131,9 @@ if "fecha_seleccionada" not in st.session_state:
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in CAPILLAS_BASE}
 
+if "version_cal" not in st.session_state:
+    st.session_state["version_cal"] = 1
+
 tab_cal, tab_capillas = st.tabs(["📅 Calendario", "⛪ Capillas y Estados"])
 
 with tab_cal:
@@ -154,8 +157,8 @@ with tab_cal:
             "locale": "es"
         }
         
-        # Key basado únicamente en la cantidad de eventos para re-renderizar solo al guardar
-        cal_key = f"calendario_principal_{len(st.session_state['eventos_calendar'])}"
+        # Clave única que cambia al agregar eventos
+        cal_key = f"cal_instancia_{st.session_state['version_cal']}"
         
         cal_data = calendar(
             events=st.session_state["eventos_calendar"],
@@ -163,7 +166,7 @@ with tab_cal:
             key=cal_key
         )
         
-        # Guardar la fecha del clic sin reconstruir el calendario
+        # Captura de clics en la grilla
         if cal_data.get("dateClick"):
             st.session_state["fecha_seleccionada"] = cal_data["dateClick"]["date"].split("T")[0]
         elif cal_data.get("select"):
@@ -193,40 +196,41 @@ with tab_cal:
         st.divider()
         st.markdown("### ➕ AGREGAR ACTIVIDAD")
         
-        with st.form("form_nueva_actividad", clear_on_submit=True):
-            nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...")
-            
-            color_nom = st.radio(
-                "Seleccionar Color:",
-                options=list(PALETA_COLORES.keys()),
-                horizontal=True
-            )
-            hex_color_elegido = PALETA_COLORES[color_nom]
+        nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...", key="txt_actividad_input")
+        
+        color_nom = st.radio(
+            "Seleccionar Color:",
+            options=list(PALETA_COLORES.keys()),
+            horizontal=True,
+            key="radio_color_input"
+        )
+        hex_color_elegido = PALETA_COLORES[color_nom]
 
-            c_h1, c_h2 = st.columns(2)
-            with c_h1:
-                h_in = st.time_input("Inicio", value=datetime.strptime("08:00", "%H:%M").time())
-            with c_h2:
-                h_fi = st.time_input("Fin", value=datetime.strptime("12:00", "%H:%M").time())
-            
-            btn_guardar = st.form_submit_button("Guardar Actividad", use_container_width=True)
-            
-            if btn_guardar:
-                if nombre_actividad.strip() != "":
-                    nuevo_evento = {
-                        "title": nombre_actividad,
-                        "start": f"{f_sel_str}T{h_in.strftime('%H:%M:00')}",
-                        "end": f"{f_sel_str}T{h_fi.strftime('%H:%M:00')}",
-                        "color": hex_color_elegido,
-                        "backgroundColor": hex_color_elegido,
-                        "borderColor": hex_color_elegido,
-                        "textColor": "#ffffff"
-                    }
-                    st.session_state["eventos_calendar"].append(nuevo_evento)
-                    st.success("Actividad agregada al calendario.")
-                    st.rerun()
-                else:
-                    st.warning("Por favor ingresá un nombre para la actividad.")
+        c_h1, c_h2 = st.columns(2)
+        with c_h1:
+            h_in = st.time_input("Inicio", value=datetime.strptime("08:00", "%H:%M").time(), key="time_in_input")
+        with c_h2:
+            h_fi = st.time_input("Fin", value=datetime.strptime("12:00", "%H:%M").time(), key="time_fi_input")
+        
+        if st.button("Guardar Actividad", use_container_width=True, type="primary"):
+            if nombre_actividad.strip() != "":
+                nuevo_evento = {
+                    "title": nombre_actividad,
+                    "start": f"{f_sel_str}T{h_in.strftime('%H:%M:00')}",
+                    "end": f"{f_sel_str}T{h_fi.strftime('%H:%M:00')}",
+                    "color": hex_color_elegido,
+                    "backgroundColor": hex_color_elegido,
+                    "borderColor": hex_color_elegido,
+                    "textColor": "#ffffff"
+                }
+                # 1. Agregar a la lista global
+                st.session_state["eventos_calendar"].append(nuevo_evento)
+                # 2. Incrementar la versión del calendario para forzar el redibujado completo
+                st.session_state["version_cal"] += 1
+                st.success("Actividad guardada correctamente.")
+                st.rerun()
+            else:
+                st.warning("Por favor ingresá un nombre para la actividad.")
 
 with tab_capillas:
     st.header("Control de Estado de Capillas")
