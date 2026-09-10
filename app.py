@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
+import calendar as cal_lib
 from streamlit_calendar import calendar
 
 # Configuración de página
@@ -15,7 +16,7 @@ st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #1e293b; }
     
-    /* Cambiar botones del calendario (flechas, hoy, semana) a Celeste */
+    /* Botones del calendario en Celeste */
     .fc-button-primary {
         background-color: #0288d1 !important;
         border-color: #0288d1 !important;
@@ -30,7 +31,7 @@ st.markdown("""
         border-color: #01579b !important;
     }
     
-    /* Cambiar la pestaña seleccionada de Streamlit a Celeste */
+    /* Pestañas en Celeste */
     button[data-baseweb="tab"][aria-selected="true"] {
         color: #0288d1 !important;
         border-bottom-color: #0288d1 !important;
@@ -67,24 +68,51 @@ CAPILLAS_INFO = [
 ]
 
 ROTACION_SEMANAL = {
-    "Lunes": [{"nombre": "Barrio 1", "horario": "Turno Completo"}],
-    "Martes": [{"nombre": "Barrio 3", "horario": "Turno Completo"}],
-    "Miércoles": [
-        {"nombre": "Alberdi", "horario": "Mañana (08:00 - 12:00 hs)"},
-        {"nombre": "Barrio 2", "horario": "Tarde (12:00 - 16:00 hs)"}
+    0: [{"nombre": "Barrio 1", "hora": "08:00", "tipo": "Jardinería"}],
+    1: [{"nombre": "Barrio 3", "hora": "08:00", "tipo": "Jardinería"}],
+    2: [
+        {"nombre": "Alberdi", "hora": "08:00", "tipo": "Limpieza"},
+        {"nombre": "Barrio 2", "hora": "12:00", "tipo": "Jardinería"}
     ],
-    "Jueves": [
-        {"nombre": "Güiraldes", "horario": "Mañana (08:00 - 12:00 hs)"},
-        {"nombre": "Puerto Tirol", "horario": "Tarde (12:00 - 16:00 hs)"}
+    3: [
+        {"nombre": "Güiraldes", "hora": "08:00", "tipo": "Limpieza"},
+        {"nombre": "Puerto Tirol", "hora": "12:00", "tipo": "Jardinería"}
     ],
-    "Viernes": [{"nombre": "Barrio 4", "horario": "Turno Completo (2 patios)"}],
-    "Sábado": [{"nombre": "Barrio 4 (Remates)", "horario": "Mañana"}]
+    4: [{"nombre": "Barrio 4", "hora": "08:00", "tipo": "Jardinería"}],
+    5: [{"nombre": "Barrio 4 (Remates)", "hora": "08:00", "tipo": "Limpieza"}]
 }
 
 DIAS_ESP = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
+# Colores según tipo de trabajo
+COLOR_JARDINERIA = "#2e7d32" # Verde
+COLOR_LIMPIEZA = "#0288d1"   # Celeste
+
+# Función para generar los eventos recurrentes en el mes visualizado
+def generar_eventos_base(anio=2026):
+    eventos = []
+    fecha_inicio = date(anio, 1, 1)
+    fecha_fin = date(anio, 12, 31)
+    delta = timedelta(days=1)
+    
+    curr = fecha_inicio
+    while curr <= fecha_fin:
+        dia_num = curr.weekday()
+        if dia_num in ROTACION_SEMANAL:
+            for tarea in ROTACION_SEMANAL[dia_num]:
+                bg_col = COLOR_LIMPIEZA if tarea["tipo"] == "Limpieza" else COLOR_JARDINERIA
+                eventos.append({
+                    "title": f"[{tarea['tipo']}] {tarea['nombre']}",
+                    "start": f"{curr.strftime('%Y-%m-%d')}T{tarea['hora']}:00",
+                    "backgroundColor": bg_col,
+                    "borderColor": bg_col,
+                    "textColor": "#ffffff"
+                })
+        curr += delta
+    return eventos
+
 if "eventos_calendar" not in st.session_state:
-    st.session_state["eventos_calendar"] = []
+    st.session_state["eventos_calendar"] = generar_eventos_base(2026)
 
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today().strftime("%Y-%m-%d")
@@ -107,7 +135,7 @@ with tab_cal:
             "initialView": "dayGridMonth",
             "selectable": True,
             "editable": True,
-            "height": 650,
+            "height": 700,
             "locale": "es"
         }
         
@@ -129,36 +157,36 @@ with tab_cal:
         
         st.subheader(f"📋 Trabajos: {f_obj.strftime('%d/%m/%Y')}")
         st.caption(f"Día: **{nombre_dia_esp}**")
-        
-        rot_dia = ROTACION_SEMANAL.get(nombre_dia_esp, [])
-        if rot_dia:
-            st.write("<b>Rutina Fija:</b>", unsafe_allow_html=True)
-            for r in rot_dia:
-                st.info(f"• **{r['nombre']}** ({r['horario']})")
 
         st.write("<b>Tareas Agendadas:</b>", unsafe_allow_html=True)
         evs_dia = [e for e in st.session_state["eventos_calendar"] if e["start"].startswith(f_sel_str)]
         if evs_dia:
             for e in evs_dia:
-                hora_show = e["start"].split("T")[1] if "T" in e["start"] else "Todo el día"
-                st.success(f"📌 **[{hora_show}]** {e['title']}")
+                hora_show = e["start"].split("T")[1][:5] if "T" in e["start"] else "Todo el día"
+                col_badge = "🟢" if e["backgroundColor"] == COLOR_JARDINERIA else "🔵"
+                st.write(f"{col_badge} **[{hora_show}]** {e['title']}")
         else:
             st.caption("No hay actividades extras anotadas.")
             
         st.divider()
-        st.markdown("### AGREGAR ACTIVIDAD")
+        st.markdown("### AGREGAR ACTIVIDAD EXTRA")
         with st.form("form_lateral_tarea"):
             tit_act = st.text_input("Título de la actividad")
+            tipo_trabajo = st.radio("Rubro / Color", ["Jardinería (Verde)", "Limpieza (Celeste)"])
             hora_act = st.time_input("Hora de inicio", value=datetime.strptime("08:00", "%H:%M").time())
             
             btn_guardar_act = st.form_submit_button("+ Guardar en Fecha Seleccionada")
             if btn_guardar_act and tit_act.strip() != "":
+                color_elegido = COLOR_JARDINERIA if "Jardinería" in tipo_trabajo else COLOR_LIMPIEZA
+                tag_tipo = "Jardinería" if "Jardinería" in tipo_trabajo else "Limpieza"
                 inicio_iso = f"{f_sel_str}T{hora_act.strftime('%H:%M:%00')}"
+                
                 st.session_state["eventos_calendar"].append({
-                    "title": tit_act,
+                    "title": f"[{tag_tipo}] {tit_act}",
                     "start": inicio_iso,
-                    "backgroundColor": "#0288d1",
-                    "borderColor": "#01579b"
+                    "backgroundColor": color_elegido,
+                    "borderColor": color_elegido,
+                    "textColor": "#ffffff"
                 })
                 st.success("Actividad guardada.")
                 st.rerun()
