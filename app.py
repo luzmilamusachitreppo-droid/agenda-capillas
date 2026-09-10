@@ -10,19 +10,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# Paleta de Colores disponibles para nuevos eventos
-PALETA_COLORES = {
-    "Celeste (Limpieza)": "#0288d1",
-    "Verde (Jardinería)": "#2e7d32",
-    "Amarillo / Oro (Reunión / Urgente)": "#f57f17",
-    "Naranja (Mantenimiento / Compras)": "#e65100",
-    "Violeta (Trámites / Administración)": "#7b1fa2",
-    "Rojo (Importante / Prioritario)": "#c62828"
-}
-
 COLOR_JARDINERIA_BASE = "#2e7d32"
 
-# Estilos CSS con resaltado fuerte para la selección del calendario
+# Estilos CSS
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #1e293b; }
@@ -40,7 +30,7 @@ st.markdown("""
         border-color: #01579b !important;
     }
 
-    /* Eventos / Tarjetas */
+    /* Tarjetas de eventos */
     .fc-timegrid-event, .fc-daygrid-event {
         border-radius: 6px !important;
         border: none !important;
@@ -53,15 +43,17 @@ st.markdown("""
         cursor: pointer !important;
     }
 
-    /* COLOR RESALTADO AL SELECCIONAR UNA CASILLA DEL CALENDARIO */
+    /* RESALTADO FUERTE AL PRESIONAR/SELECCIONAR UN DÍA EN EL CALENDARIO */
     .fc-highlight {
-        background-color: #81d4fa !important; /* Celeste intenso */
-        opacity: 0.7 !important;
+        background-color: #29b6f6 !important; /* Azul celestón bien vivo */
+        opacity: 0.85 !important;
+        outline: 3px solid #0288d1 !important;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.3) !important;
     }
     
-    /* Efecto hover al pasar el mouse por un día */
+    /* Efecto al pasar el mouse por un día */
     .fc-daygrid-day:hover {
-        background-color: #e1f5fe !important;
+        background-color: #e0f7fa !important;
     }
     
     button[data-baseweb="tab"][aria-selected="true"] {
@@ -94,7 +86,7 @@ CAPILLAS_BASE = [
     "Alberdi", "Güiraldes", "Puerto Tirol"
 ]
 
-# Rutina semanal fija de Jardinería (Verde)
+# Rutina semanal fija de Jardinería
 ROTACION_JARDINERIA = {
     0: [{"nombre": "Barrio 1", "inicio": "08:00", "fin": "16:00"}],
     1: [{"nombre": "Barrio 3", "inicio": "08:00", "fin": "16:00"}],
@@ -199,8 +191,8 @@ with tab_cal:
         with st.form("form_nueva_actividad"):
             nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...")
             
-            opcion_color = st.selectbox("Color de la tarjeta", list(PALETA_COLORES.keys()))
-            hex_color = PALETA_COLORES[opcion_color]
+            # Selector de color interactivo mediante círculo
+            hex_color = st.color_picker("Color de la tarjeta", "#0288D1")
             
             c_h1, c_h2 = st.columns(2)
             with c_h1:
