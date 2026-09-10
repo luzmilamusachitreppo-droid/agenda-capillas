@@ -60,7 +60,7 @@ def generar_eventos_jardineria(anio=2026):
         curr += delta
     return eventos
 
-# Inicialización y validación de tipos en session_state
+# Estado global
 if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
@@ -81,22 +81,43 @@ st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
     
-    .mini-cal-header {
-        font-weight: bold; font-size: 1.1rem; text-align: center; margin-bottom: 10px; color: #1e293b;
+    /* Contenedor Mini Calendario Lateral con bordes prolijos */
+    .mini-cal-card {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        margin-bottom: 15px;
     }
     
-    .day-cell {
-        background: white; border: 1px solid #e2e8f0; border-radius: 8px; min-height: 120px; padding: 6px;
+    .mini-cal-header {
+        font-weight: 700;
+        font-size: 1rem;
+        text-align: center;
+        color: #1e293b;
     }
+    
+    /* Celdas del Calendario Principal */
     .day-cell-today {
-        background: #f0f9ff; border: 2px solid #0288d1;
-    }
-    .day-number {
-        font-weight: bold; font-size: 0.9rem; color: #334155; margin-bottom: 4px;
+        background: #f0f9ff !important;
+        border: 2px solid #0288d1 !important;
     }
     
     .event-card {
-        border-left: 4px solid; padding: 3px 6px; margin-bottom: 4px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;
+        border-left: 4px solid;
+        padding: 3px 6px;
+        margin-top: 3px;
+        margin-bottom: 3px;
+        border-radius: 4px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-align: left;
+    }
+
+    /* Estilo de botones de día interactivos */
+    .stButton > button {
+        border-radius: 6px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -106,12 +127,12 @@ tab_cal, tab_capillas = st.tabs(["📅 Calendario", "⛪ Capillas y Estados"])
 with tab_cal:
     col_left, col_center, col_right = st.columns([1, 2.8, 1.2])
 
-    # ------------------ PANEL IZQUIERDO ------------------
+    # ------------------ PANEL IZQUIERDO: MINI CALENDARIO CON BORDE MEJORADO ------------------
     with col_left:
-        st.markdown("<div style='background:white; padding:15px; border-radius:10px; border:1px solid #e2e8f0;'>", unsafe_allow_html=True)
+        st.markdown("<div class='mini-cal-card'>", unsafe_allow_html=True)
         
         c_nav1, c_nav2, c_nav3 = st.columns([1, 3, 1])
-        if c_nav1.button("◄", key="m_prev"):
+        if c_nav1.button("◄", key="m_prev", use_container_width=True):
             if st.session_state["mes_visita"] == 1:
                 st.session_state["mes_visita"] = 12
                 st.session_state["anio_visita"] -= 1
@@ -121,13 +142,15 @@ with tab_cal:
             
         c_nav2.markdown(f"<div class='mini-cal-header'>{MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}</div>", unsafe_allow_html=True)
         
-        if c_nav3.button("►", key="m_next"):
+        if c_nav3.button("►", key="m_next", use_container_width=True):
             if st.session_state["mes_visita"] == 12:
                 st.session_state["mes_visita"] = 1
                 st.session_state["anio_visita"] += 1
             else:
                 st.session_state["mes_visita"] += 1
             st.rerun()
+
+        st.divider()
 
         cal_mat = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
         
@@ -142,15 +165,17 @@ with tab_cal:
                 if dia_num != 0:
                     fecha_iter = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
                     es_sel = (fecha_iter == st.session_state["fecha_seleccionada"])
-                    btn_label = f"**{dia_num}**" if es_sel else str(dia_num)
-                    if cols_sem[i].button(btn_label, key=f"btn_mini_{st.session_state['mes_visita']}_{dia_num}"):
+                    
+                    # Botón mini
+                    tipo_btn = "primary" if es_sel else "secondary"
+                    if cols_sem[i].button(str(dia_num), key=f"btn_mini_{st.session_state['mes_visita']}_{dia_num}", type=tipo_btn, use_container_width=True):
                         st.session_state["fecha_seleccionada"] = fecha_iter
                         st.rerun()
                 else:
                     cols_sem[i].write("")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ------------------ PANEL CENTRAL ------------------
+    # ------------------ PANEL CENTRAL: CALENDARIO PRINCIPAL CLICKEABLE ------------------
     with col_center:
         st.markdown(f"### {MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}")
         
@@ -171,10 +196,16 @@ with tab_cal:
                         f_curr = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
                         
                         es_hoy = (f_curr == st.session_state["fecha_seleccionada"])
-                        clase_cell = "day-cell day-cell-today" if es_hoy else "day-cell"
                         
-                        st.markdown(f"<div class='{clase_cell}'><div class='day-number'>{dia_num}</div>", unsafe_allow_html=True)
+                        # Botón del día grande clickeable
+                        lbl_dia = f"🗓️ {dia_num}" if es_hoy else f"{dia_num}"
+                        btn_type = "primary" if es_hoy else "secondary"
                         
+                        if st.button(lbl_dia, key=f"btn_big_{st.session_state['mes_visita']}_{dia_num}", type=btn_type, use_container_width=True):
+                            st.session_state["fecha_seleccionada"] = f_curr
+                            st.rerun()
+
+                        # Eventos dentro de la casilla
                         evs = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
                         for ev in evs:
                             est = ev.get("estilo", COLOR_JARDINERIA_BASE)
@@ -184,15 +215,13 @@ with tab_cal:
                                 </div>""",
                                 unsafe_allow_html=True
                             )
-                        st.markdown("</div>", unsafe_allow_html=True)
                     else:
-                        st.markdown("<div class='day-cell' style='background:#f1f5f9;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='min-height: 80px;'></div>", unsafe_allow_html=True)
 
-    # ------------------ PANEL DERECHO ------------------
+    # ------------------ PANEL DERECHO: DETALLE Y CREACIÓN DE ACTIVIDAD ------------------
     with col_right:
         f_obj = st.session_state["fecha_seleccionada"]
         
-        # Validación de tipo fecha
         if isinstance(f_obj, str):
             f_obj = datetime.strptime(f_obj, "%Y-%m-%d").date()
             st.session_state["fecha_seleccionada"] = f_obj
