@@ -1,65 +1,20 @@
 import streamlit as st
 import pandas as pd
-import calendar
 from datetime import datetime, date
+from streamlit_calendar import calendar
 
-# Configuración visual
+# Configuración de página
 st.set_page_config(
-    page_title="Sistema de Gestión y Agenda Integral",
+    page_title="Calendario Jardinería y Limpieza",
     page_icon="🌿",
     layout="wide"
 )
 
-# Estilo para forzar la grilla de Google Calendar con celdas completas
+# Estilos CSS
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #1e293b; }
     
-    .cal-header { 
-        text-align: center; 
-        font-weight: bold; 
-        padding: 8px; 
-        background-color: #e2e8f0; 
-        color: #334155; 
-        border-radius: 4px;
-        margin-bottom: 8px;
-    }
-    
-    /* Convertir el botón en el cuadro blanco entero */
-    div[data-testid="column"] div.stButton > button {
-        width: 100% !important;
-        min-height: 100px !important;
-        background-color: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 6px !important;
-        color: #0f172a !important;
-        text-align: left !important;
-        vertical-align: top !important;
-        padding: 10px !important;
-        font-size: 14px !important;
-        box-shadow: none !important;
-        white-space: pre-wrap !important;
-    }
-
-    div[data-testid="column"] div.stButton > button:hover {
-        border-color: #2e7d32 !important;
-        background-color: #f1f8e9 !important;
-    }
-
-    /* Cuadro seleccionado en verde */
-    div.day-selected div.stButton > button {
-        background-color: #e8f5e9 !important;
-        border: 2px solid #2e7d32 !important;
-        font-weight: bold !important;
-    }
-
-    .stForm .stButton > button {
-        background-color: #2e7d32 !important;
-        color: white !important;
-        font-weight: bold !important;
-        height: 42px !important;
-    }
-
     .card-rotacion {
         background-color: #f1f8e9;
         border-left: 5px solid #2e7d32;
@@ -68,10 +23,17 @@ st.markdown("""
         border-radius: 6px;
     }
     .card-rotacion h4 { margin: 0; color: #1b5e20; }
+    
+    .stForm .stButton > button {
+        background-color: #2e7d32 !important;
+        color: white !important;
+        font-weight: bold !important;
+        width: 100%;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🌿 SISTEMA DE GESTIÓN Y AGENDA INTEGRAL")
+st.title("🌿 Calendario Jardinería y Limpieza")
 
 CAPILLAS_INFO = [
     {"nombre": "Barrio 1", "dia": "LUNES", "horario": "Turno Completo"},
@@ -100,8 +62,11 @@ ROTACION_SEMANAL = {
 
 DIAS_ESP = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
-if "tareas_calendario" not in st.session_state:
-    st.session_state["tareas_calendario"] = []
+if "eventos_calendar" not in st.session_state:
+    st.session_state["eventos_calendar"] = []
+
+if "fecha_seleccionada" not in st.session_state:
+    st.session_state["fecha_seleccionada"] = date.today().strftime("%Y-%m-%d")
 
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c["nombre"]: "Pendiente / Todavía no" for c in CAPILLAS_INFO}
@@ -112,53 +77,36 @@ with tab_cal:
     col_main_cal, col_side_note = st.columns([3, 1])
     
     with col_main_cal:
-        fecha_hoy = date.today()
-        mes_sel = st.selectbox("Seleccionar Mes / Año:", [date(2026, m, 1) for m in range(1, 13)], 
-                              format_func=lambda d: d.strftime("%B %Y").upper(),
-                              index=fecha_hoy.month - 1)
+        calendar_options = {
+            "headerToolbar": {
+                "left": "prev,next today",
+                "center": "title",
+                "right": "dayGridMonth,timeGridWeek"
+            },
+            "initialView": "dayGridMonth",
+            "selectable": True,
+            "editable": True,
+            "height": 650,
+            "locale": "es"
+        }
         
-        cols_dias = st.columns(7)
-        dias_head = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
-        for idx, d in enumerate(dias_head):
-            cols_dias[idx].markdown(f'<div class="cal-header">{d}</div>', unsafe_allow_html=True)
-            
-        cal_matriz = calendar.monthcalendar(mes_sel.year, mes_sel.month)
+        cal_data = calendar(
+            events=st.session_state["eventos_calendar"],
+            options=calendar_options,
+            key="custom_fullcalendar"
+        )
         
-        if "dia_click" not in st.session_state:
-            st.session_state["dia_click"] = fecha_hoy.day
-            
-        for semana in cal_matriz:
-            cols_sem = st.columns(7)
-            for i, dia_num in enumerate(semana):
-                with cols_sem[i]:
-                    if dia_num != 0:
-                        fecha_str = f"{mes_sel.year}-{mes_sel.month:02d}-{dia_num:02d}"
-                        tareas_dia = [t for t in st.session_state["tareas_calendario"] if t["fecha"] == fecha_str]
-                        
-                        label_btn = f"{dia_num}"
-                        if tareas_dia:
-                            for t in tareas_dia[:2]:
-                                label_btn += f"\n• {t['titulo']}"
-                            
-                        is_sel = (dia_num == st.session_state["dia_click"])
-                        
-                        if is_sel:
-                            st.markdown('<div class="day-selected">', unsafe_allow_html=True)
-                            
-                        if st.button(label_btn, key=f"btn_{fecha_str}"):
-                            st.session_state["dia_click"] = dia_num
-                            st.rerun()
-                            
-                        if is_sel:
-                            st.markdown('</div>', unsafe_allow_html=True)
+        if cal_data.get("dateClick"):
+            st.session_state["fecha_seleccionada"] = cal_data["dateClick"]["date"].split("T")[0]
+        elif cal_data.get("select"):
+            st.session_state["fecha_seleccionada"] = cal_data["select"]["start"].split("T")[0]
 
     with col_side_note:
-        dia_actual = st.session_state["dia_click"]
-        fecha_sel_str = f"{mes_sel.year}-{mes_sel.month:02d}-{dia_actual:02d}"
-        fecha_obj = date(mes_sel.year, mes_sel.month, dia_actual)
-        nombre_dia_esp = DIAS_ESP[fecha_obj.weekday()]
+        f_sel_str = st.session_state["fecha_seleccionada"]
+        f_obj = datetime.strptime(f_sel_str, "%Y-%m-%d").date()
+        nombre_dia_esp = DIAS_ESP[f_obj.weekday()]
         
-        st.subheader(f"📋 Trabajos: {fecha_obj.strftime('%d/%m/%Y')}")
+        st.subheader(f"📋 Trabajos: {f_obj.strftime('%d/%m/%Y')}")
         st.caption(f"Día: **{nombre_dia_esp}**")
         
         rot_dia = ROTACION_SEMANAL.get(nombre_dia_esp, [])
@@ -168,10 +116,11 @@ with tab_cal:
                 st.info(f"• **{r['nombre']}** ({r['horario']})")
 
         st.write("<b>Tareas Agendadas:</b>", unsafe_allow_html=True)
-        tareas_actuales = [t for t in st.session_state["tareas_calendario"] if t["fecha"] == fecha_sel_str]
-        if tareas_actuales:
-            for t in tareas_actuales:
-                st.success(f"📌 **[{t['hora']}]** {t['titulo']} ({t['tipo']})")
+        evs_dia = [e for e in st.session_state["eventos_calendar"] if e["start"].startswith(f_sel_str)]
+        if evs_dia:
+            for e in evs_dia:
+                hora_show = e["start"].split("T")[1] if "T" in e["start"] else "Todo el día"
+                st.success(f"📌 **[{hora_show}]** {e['title']}")
         else:
             st.caption("No hay actividades extras anotadas.")
             
@@ -179,16 +128,16 @@ with tab_cal:
         st.markdown("### AGREGAR ACTIVIDAD")
         with st.form("form_lateral_tarea"):
             tit_act = st.text_input("Título de la actividad")
-            hora_act = st.text_input("Hora (ej: 10:30)", "08:00")
-            tipo_act = st.selectbox("Tipo", ["Mantenimiento", "Poda", "Limpieza Profunda", "Otro"])
+            hora_act = st.time_input("Hora de inicio", value=datetime.strptime("08:00", "%H:%M").time())
             
             btn_guardar_act = st.form_submit_button("+ Guardar en Fecha Seleccionada")
             if btn_guardar_act and tit_act.strip() != "":
-                st.session_state["tareas_calendario"].append({
-                    "fecha": fecha_sel_str,
-                    "titulo": tit_act,
-                    "hora": hora_act,
-                    "tipo": tipo_act
+                inicio_iso = f"{f_sel_str}T{hora_act.strftime('%H:%M:%00')}"
+                st.session_state["eventos_calendar"].append({
+                    "title": tit_act,
+                    "start": inicio_iso,
+                    "backgroundColor": "#2e7d32",
+                    "borderColor": "#1b5e20"
                 })
                 st.success("Actividad guardada.")
                 st.rerun()
