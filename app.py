@@ -117,8 +117,7 @@ def generar_eventos_jardineria(anio=2026):
                     "color": COLOR_JARDINERIA_BASE,
                     "backgroundColor": COLOR_JARDINERIA_BASE,
                     "borderColor": "#1b5e20",
-                    "textColor": "#ffffff",
-                    "allDay": False
+                    "textColor": "#ffffff"
                 })
         curr += delta
     return eventos
@@ -151,13 +150,12 @@ with tab_cal:
             "editable": True,
             "droppable": True,
             "displayEventTime": False,
-            "allDaySlot": True,
             "height": 720,
             "locale": "es"
         }
         
-        # Key dinámico para actualizar dinámicamente al agregar
-        cal_key = f"cal_v_{len(st.session_state['eventos_calendar'])}_{st.session_state['fecha_seleccionada']}"
+        # Key basado únicamente en la cantidad de eventos para re-renderizar solo al guardar
+        cal_key = f"calendario_principal_{len(st.session_state['eventos_calendar'])}"
         
         cal_data = calendar(
             events=st.session_state["eventos_calendar"],
@@ -165,17 +163,13 @@ with tab_cal:
             key=cal_key
         )
         
-        nueva_fecha = None
+        # Guardar la fecha del clic sin reconstruir el calendario
         if cal_data.get("dateClick"):
-            nueva_fecha = cal_data["dateClick"]["date"].split("T")[0]
+            st.session_state["fecha_seleccionada"] = cal_data["dateClick"]["date"].split("T")[0]
         elif cal_data.get("select"):
-            nueva_fecha = cal_data["select"]["start"].split("T")[0]
+            st.session_state["fecha_seleccionada"] = cal_data["select"]["start"].split("T")[0]
         elif cal_data.get("eventClick"):
-            nueva_fecha = cal_data["eventClick"]["event"]["start"].split("T")[0]
-            
-        if nueva_fecha and nueva_fecha != st.session_state["fecha_seleccionada"]:
-            st.session_state["fecha_seleccionada"] = nueva_fecha
-            st.rerun()
+            st.session_state["fecha_seleccionada"] = cal_data["eventClick"]["event"]["start"].split("T")[0]
 
     with col_side_note:
         f_sel_str = st.session_state["fecha_seleccionada"]
@@ -199,7 +193,7 @@ with tab_cal:
         st.divider()
         st.markdown("### ➕ AGREGAR ACTIVIDAD")
         
-        with st.form("form_nueva_actividad_limpio", clear_on_submit=True):
+        with st.form("form_nueva_actividad", clear_on_submit=True):
             nombre_actividad = st.text_input("Título / Nombre de la actividad", placeholder="Ej: Limpieza Alberdi, Reunión...")
             
             color_nom = st.radio(
@@ -219,16 +213,16 @@ with tab_cal:
             
             if btn_guardar:
                 if nombre_actividad.strip() != "":
-                    st.session_state["eventos_calendar"].append({
+                    nuevo_evento = {
                         "title": nombre_actividad,
-                        "start": f"{f_sel_str}T{h_in.strftime('%H:%M:%00')}",
-                        "end": f"{f_sel_str}T{h_fi.strftime('%H:%M:%00')}",
+                        "start": f"{f_sel_str}T{h_in.strftime('%H:%M:00')}",
+                        "end": f"{f_sel_str}T{h_fi.strftime('%H:%M:00')}",
                         "color": hex_color_elegido,
                         "backgroundColor": hex_color_elegido,
                         "borderColor": hex_color_elegido,
-                        "textColor": "#ffffff",
-                        "allDay": False
-                    })
+                        "textColor": "#ffffff"
+                    }
+                    st.session_state["eventos_calendar"].append(nuevo_evento)
                     st.success("Actividad agregada al calendario.")
                     st.rerun()
                 else:
