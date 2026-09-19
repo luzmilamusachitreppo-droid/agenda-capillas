@@ -111,7 +111,7 @@ st.markdown("""
         border-right: 1px solid #edf2f7;
         height: 55px;
         vertical-align: top;
-        padding: 4px;
+        padding: 6px;
     }
     
     .time-col {
@@ -129,9 +129,9 @@ st.markdown("""
         padding: 8px 12px;
         font-size: 0.9rem;
         font-weight: 600;
-        margin: 2px 0;
+        margin-bottom: 6px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.06);
-        border-left: 4px solid;
+        border-left: 5px solid;
         line-height: 1.3;
     }
 
@@ -187,16 +187,15 @@ with tab_cal:
         html_dia = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th><th>Actividades programadas</th></tr></thead><tbody>"
         for hora in range(7, 19):
             html_dia += f"<tr><td class='time-col'>{hora:02d}:00 hs</td><td>"
-            evs_hora = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str and e.get("inicio", 8) <= hora < e.get("fin", 12)]
+            evs_hora = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str and e.get("inicio", 8) == hora]
             for ev in evs_hora:
-                if ev.get("inicio") == hora:
-                    est = ev.get("estilo", COLOR_JARDINERIA_BASE)
-                    html_dia += f"""
-                        <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
-                            📌 {ev.get("title")}<br>
-                            <small style='font-size: 0.8rem;'>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00 hs</small>
-                        </div>
-                    """
+                est = ev.get("estilo", COLOR_JARDINERIA_BASE)
+                html_dia += f"""
+                    <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
+                        📌 {ev.get("title")}<br>
+                        <small style='font-size: 0.8rem;'>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00 hs</small>
+                    </div>
+                """
             html_dia += "</td></tr>"
         html_dia += "</tbody></table>"
         st.markdown(html_dia, unsafe_allow_html=True)
@@ -232,24 +231,23 @@ with tab_cal:
             html_semana += f"<tr><td class='time-col'>{hora:02d}:00</td>"
             for f in fechas_semana:
                 f_str = f.strftime("%Y-%m-%d")
-                evs_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str and e.get("inicio", 8) <= hora < e.get("fin", 12)]
+                evs_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str and e.get("inicio", 8) == hora]
                 html_semana += "<td>"
                 if evs_dia:
                     for ev in evs_dia:
-                        if ev.get("inicio") == hora:
-                            est = ev.get("estilo", COLOR_JARDINERIA_BASE)
-                            html_semana += f"""
-                                <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
-                                    📌 {ev.get("title")}<br>
-                                    <small style='font-size: 0.8rem;'>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00</small>
-                                </div>
-                            """
+                        est = ev.get("estilo", COLOR_JARDINERIA_BASE)
+                        html_semana += f"""
+                            <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
+                                📌 {ev.get("title")}<br>
+                                <small style='font-size: 0.8rem;'>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00</small>
+                            </div>
+                        """
                 html_semana += "</td>"
             html_semana += "</tr>"
         html_semana += "</tbody></table>"
         st.markdown(html_semana, unsafe_allow_html=True)
 
-    # 3. VISTA POR MES (CON AGENDA DIARIA DESPLEGADA POR HORAS ABAJO)
+    # 3. VISTA POR MES
     elif periodo_vista == "Por Mes":
         c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
         if c_nav1.button("◄ Mes Anterior", use_container_width=True):
@@ -307,7 +305,7 @@ with tab_cal:
                     else:
                         st.write("")
 
-        # AGENDA POR HORAS (TIPO GOOGLE CALENDAR) DEL DÍA PRESIONADO
+        # AGENDA POR HORAS DEL DÍA SELECCIONADO
         st.markdown("<br>", unsafe_allow_html=True)
         dias_nom = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
         f_sel = st.session_state["fecha_seleccionada"]
@@ -318,16 +316,15 @@ with tab_cal:
         html_dia_sel = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th><th>Actividades y Compromisos</th></tr></thead><tbody>"
         for hora in range(7, 19):
             html_dia_sel += f"<tr><td class='time-col'>{hora:02d}:00 hs</td><td>"
-            evs_hora = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str and e.get("inicio", 8) <= hora < e.get("fin", 12)]
+            evs_hora = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str and e.get("inicio", 8) == hora]
             for ev in evs_hora:
-                if ev.get("inicio") == hora:
-                    est = ev.get("estilo", COLOR_JARDINERIA_BASE)
-                    html_dia_sel += f"""
-                        <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
-                            📌 <b>{ev.get("title")}</b><br>
-                            <small style='font-size: 0.8rem;'>⏱️ Horario: {ev.get("inicio"):02d}:00 a {ev.get("fin"):02d}:00 hs</small>
-                        </div>
-                    """
+                est = ev.get("estilo", COLOR_JARDINERIA_BASE)
+                html_dia_sel += f"""
+                    <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
+                        📌 <b>{ev.get("title")}</b><br>
+                        <small style='font-size: 0.8rem;'>⏱️ Horario: {ev.get("inicio"):02d}:00 a {ev.get("fin"):02d}:00 hs</small>
+                    </div>
+                """
             html_dia_sel += "</td></tr>"
         html_dia_sel += "</tbody></table>"
         
