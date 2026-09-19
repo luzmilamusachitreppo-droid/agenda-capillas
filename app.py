@@ -4,6 +4,7 @@ import calendar
 from datetime import datetime, date, timedelta
 import uuid
 
+# Configuración de página
 st.set_page_config(
     page_title="Calendario Jardinería y Limpieza",
     page_icon="🌿",
@@ -11,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Paleta de colores vibrantes
+# Paleta de colores
 PALETA_COLORES = {
     "💚 Verde": {"bg": "#2e7d32", "text": "#ffffff"},
     "💜 Violeta": {"bg": "#7b1fa2", "text": "#ffffff"},
@@ -75,32 +76,56 @@ if "anio_visita" not in st.session_state:
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in CAPILLAS_BASE}
 
-# CSS Estilo Agenda por Horas
+# Estilos CSS específicos para la vista del celular
 st.markdown("""
     <style>
-    .stApp { background-color: #f1f5f9; }
+    .stApp { background-color: #f8fafc; }
     
-    .time-slot {
+    .agenda-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0px;
+        background: #ffffff;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+    
+    .agenda-row {
+        display: flex;
+        flex-direction: row;
+        align-items: stretch;
+        min-height: 52px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .agenda-time {
+        width: 60px;
+        min-width: 60px;
         font-size: 0.75rem;
-        font-weight: bold;
+        font-weight: 700;
         color: #64748b;
-        padding-top: 6px;
+        padding: 8px 4px;
         text-align: right;
-        padding-right: 8px;
+        border-right: 1px solid #e2e8f0;
+        background-color: #f8fafc;
     }
     
-    .time-row {
-        border-top: 1px solid #e2e8f0;
-        min-height: 48px;
+    .agenda-events {
+        flex-grow: 1;
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     
-    .event-block {
+    .event-card-mobile {
         border-radius: 6px;
         padding: 6px 10px;
-        font-weight: 600;
         font-size: 0.8rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-        margin-bottom: 4px;
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        margin: 2px 0;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -110,27 +135,26 @@ tab_cal, tab_capillas = st.tabs(["📅 Agenda", "⛪ Capillas y Estados"])
 with tab_cal:
     modo_vista = st.radio(
         "Modo de vista:",
-        ["📱 Teléfono (Agenda Diaria por Horas)", "🖥️ Computadora (Mes Completo)"],
+        ["📱 Teléfono", "🖥️ Computadora"],
         horizontal=True
     )
     
     st.divider()
 
-    # ------------------ VISTA TELÉFONO (AGENDA POR HORAS) ------------------
+    # ------------------ VISTA TELÉFONO ------------------
     if "📱" in modo_vista:
-        # Navegador de día a día
         c1, c2, c3 = st.columns([1, 2, 1])
-        if c1.button("◄ Día ant.", use_container_width=True):
+        if c1.button("◄ Ant.", use_container_width=True):
             st.session_state["fecha_seleccionada"] -= timedelta(days=1)
             st.session_state["mes_visita"] = st.session_state["fecha_seleccionada"].month
             st.session_state["anio_visita"] = st.session_state["fecha_seleccionada"].year
             st.rerun()
             
         f_actual = st.session_state["fecha_seleccionada"]
-        dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        dias_semana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
         c2.markdown(f"<h4 style='text-align:center; margin:0;'>{dias_semana[f_actual.weekday()]} {f_actual.strftime('%d/%m/%Y')}</h4>", unsafe_allow_html=True)
         
-        if c3.button("Día sig. ►", use_container_width=True):
+        if c3.button("Sig. ►", use_container_width=True):
             st.session_state["fecha_seleccionada"] += timedelta(days=1)
             st.session_state["mes_visita"] = st.session_state["fecha_seleccionada"].month
             st.session_state["anio_visita"] = st.session_state["fecha_seleccionada"].year
@@ -138,46 +162,38 @@ with tab_cal:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Eventos para la fecha seleccionada
         f_str = f_actual.strftime("%Y-%m-%d")
         eventos_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
 
-        # Grilla de Horarios (07:00 a 18:00)
-        st.markdown("### ⏱️ Horarios del Día")
-        
+        # Agenda HTML horizontal por hora
+        html_agenda = "<div class='agenda-container'>"
         for hora in range(7, 19):
-            col_hora, col_evento = st.columns([1, 4])
+            evs_hora = [e for e in eventos_dia if e.get("inicio", 8) <= hora < e.get("fin", 12)]
             
-            with col_hora:
-                st.markdown(f"<div class='time-slot'>{hora:02d}:00</div>", unsafe_allow_html=True)
+            html_agenda += f"<div class='agenda-row'><div class='agenda-time'>{hora:02d}:00</div><div class='agenda-events'>"
             
-            with col_evento:
-                # Filtrar eventos que cubran esta hora
-                evs_hora = [e for e in eventos_dia if e.get("inicio", 8) <= hora < e.get("fin", 12)]
-                
-                if evs_hora:
-                    for e in evs_hora:
-                        # Dibujar el bloque de color sólo en la hora de inicio de la actividad
-                        if e.get("inicio") == hora:
-                            est = e.get("estilo", COLOR_JARDINERIA_BASE)
-                            duracion = e.get("fin", 12) - e.get("inicio", 8)
-                            st.markdown(
-                                f"""<div class='event-block' style='background-color:{est["bg"]}; color:{est["text"]};'>
-                                📌 <b>{e.get("title")}</b><br>
+            if evs_hora:
+                for e in evs_hora:
+                    if e.get("inicio") == hora:
+                        est = e.get("estilo", COLOR_JARDINERIA_BASE)
+                        duracion = e.get("fin", 12) - e.get("inicio", 8)
+                        html_agenda += f"""
+                            <div class='event-card-mobile' style='background-color:{est["bg"]}; color:{est["text"]};'>
+                                📌 {e.get("title")}<br>
                                 <small>⏱️ {e.get("inicio"):02d}:00 - {e.get("fin"):02d}:00 ({duracion} hs)</small>
-                                </div>""",
-                                unsafe_allow_html=True
-                            )
-                else:
-                    st.markdown("<div class='time-row'></div>", unsafe_allow_html=True)
+                            </div>
+                        """
+            html_agenda += "</div></div>"
+            
+        html_agenda += "</div>"
+        st.markdown(html_agenda, unsafe_allow_html=True)
 
         st.divider()
 
-        # Botón desplegable para agregar nueva actividad
-        with st.expander("➕ Agregar nueva actividad a este día", expanded=False):
+        with st.expander("➕ Agregar nueva actividad", expanded=False):
             with st.form("form_nuevo_movil", clear_on_submit=True):
                 titulo = st.text_input("Título / Capilla", placeholder="Ej: Limpieza Barrio 1")
-                color = st.selectbox("Color del bloque", options=list(PALETA_COLORES.keys()))
+                color = st.selectbox("Color", options=list(PALETA_COLORES.keys()))
                 
                 ch1, ch2 = st.columns(2)
                 h_inicio = ch1.number_input("Hora inicio (0-23)", min_value=0, max_value=23, value=8)
@@ -196,9 +212,8 @@ with tab_cal:
                         st.success("¡Actividad agendada!")
                         st.rerun()
 
-    # ------------------ VISTA COMPUTADORA (MES COMPLETO) ------------------
+    # ------------------ VISTA COMPUTADORA ------------------
     else:
-        # NAVEGADOR DE MES
         c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
         if c_nav1.button("◄ Mes anterior", key="m_prev", use_container_width=True):
             if st.session_state["mes_visita"] == 1:
