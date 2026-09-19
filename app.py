@@ -76,7 +76,7 @@ if "anio_visita" not in st.session_state:
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in CAPILLAS_BASE}
 
-# Estilos CSS específicos para la vista del celular
+# Estilos CSS
 st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
@@ -190,6 +190,51 @@ with tab_cal:
 
         st.divider()
 
+        # ------------------ SECCIÓN DE GESTIÓN (EDITAR / ELIMINAR / AGREGAR) ------------------
+        
+        # 1. EDITAR / ELIMINAR TAREAS DEL DÍA
+        if eventos_dia:
+            with st.expander("✏️ Editar o Eliminar actividad del día", expanded=False):
+                opciones_eventos = {f"{e['title']} ({e['inicio']}:00 - {e['fin']}:00 hs)": e for e in eventos_dia}
+                seleccion_label = st.selectbox("Seleccioná la tarea a modificar:", list(opciones_eventos.keys()))
+                
+                evento_sel = opciones_eventos[seleccion_label]
+                
+                with st.form("form_editar_movil"):
+                    nuevo_titulo = st.text_input("Título / Capilla", value=evento_sel["title"])
+                    
+                    # Buscar color actual en la paleta
+                    color_def = "💚 Verde"
+                    for k, v in PALETA_COLORES.items():
+                        if v["bg"] == evento_sel.get("estilo", {}).get("bg"):
+                            color_def = k
+                            break
+                    
+                    nuevo_color = st.selectbox("Color", options=list(PALETA_COLORES.keys()), index=list(PALETA_COLORES.keys()).index(color_def))
+                    
+                    ce1, ce2 = st.columns(2)
+                    n_inicio = ce1.number_input("Hora inicio (0-23)", min_value=0, max_value=23, value=int(evento_sel["inicio"]))
+                    n_fin = ce2.number_input("Hora fin (0-23)", min_value=1, max_value=24, value=int(evento_sel["fin"]))
+                    
+                    c_btn1, c_btn2 = st.columns(2)
+                    
+                    btn_guardar = c_btn1.form_submit_button("💾 Guardar Cambios", use_container_width=True, type="primary")
+                    btn_eliminar = c_btn2.form_submit_button("🗑️ Eliminar Tarea", use_container_width=True)
+                    
+                    if btn_guardar:
+                        evento_sel["title"] = nuevo_titulo
+                        evento_sel["inicio"] = int(n_inicio)
+                        evento_sel["fin"] = int(n_fin)
+                        evento_sel["estilo"] = PALETA_COLORES[nuevo_color]
+                        st.success("¡Tarea actualizada!")
+                        st.rerun()
+                        
+                    if btn_eliminar:
+                        st.session_state["eventos_calendar"] = [e for e in st.session_state["eventos_calendar"] if e["id"] != evento_sel["id"]]
+                        st.success("¡Tarea eliminada!")
+                        st.rerun()
+
+        # 2. AGREGAR NUEVA ACTIVIDAD
         with st.expander("➕ Agregar nueva actividad", expanded=False):
             with st.form("form_nuevo_movil", clear_on_submit=True):
                 titulo = st.text_input("Título / Capilla", placeholder="Ej: Limpieza Barrio 1")
