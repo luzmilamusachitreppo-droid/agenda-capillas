@@ -58,14 +58,23 @@ def generar_eventos_jardineria(anio=2026):
         curr += delta
     return eventos
 
+# Inicializaciones en Session State
 if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
 if "fecha_inicio_semana" not in st.session_state:
-    hoy = date(2026, 9, 14) # Lunes de la semana
+    hoy = date(2026, 9, 14)
     st.session_state["fecha_inicio_semana"] = hoy - timedelta(days=hoy.weekday())
 
-# Estilos CSS tipo ClickUp / Notion Calendar
+if "estados_capillas" not in st.session_state:
+    st.session_state["estados_capillas"] = {c: "Pendiente" for c in CAPILLAS_BASE}
+
+# Garantizar que todas las capillas existan en la variable de estado
+for c in CAPILLAS_BASE:
+    if c not in st.session_state["estados_capillas"]:
+        st.session_state["estados_capillas"][c] = "Pendiente"
+
+# Estilos CSS
 st.markdown("""
     <style>
     .stApp { background-color: #fafafa; }
@@ -150,7 +159,7 @@ with tab_cal:
     dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
     fechas_semana = [f_inicio + timedelta(days=i) for i in range(7)]
     
-    # Construcción de la tabla semanal estilo ClickUp
+    # Construcción de la tabla
     html_tabla = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th>"
     
     for idx, f in enumerate(fechas_semana):
@@ -168,16 +177,15 @@ with tab_cal:
             html_tabla += "<td>"
             if evs_dia:
                 for ev in evs_dia:
-                    if ev.get("inicio") == hora: # Solo dibujamos el banner al inicio del bloque
+                    if ev.get("inicio") == hora:
                         est = ev.get("estilo", COLOR_JARDINERIA_BASE)
-                        dur = ev.get("fin", 12) - ev.get("inicio", 8)
                         html_tabla += f"""
                             <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
                                 📌 {ev.get("title")}<br>
                                 <small>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00</small>
                             </div>
                         """
-            html_tabla += "td>"
+            html_tabla += "</td>" # Etiqueta corregida aquí
         html_tabla += "</tr>"
         
     html_tabla += "</tbody></table>"
@@ -185,7 +193,7 @@ with tab_cal:
 
     st.divider()
 
-    # Panel inferior de Gestión de Tareas
+    # Panel inferior de Gestión
     col_add, col_edit = st.columns(2)
     
     with col_add:
@@ -214,7 +222,6 @@ with tab_cal:
 
     with col_edit:
         with st.expander("✏️ Editar o Eliminar tarea", expanded=False):
-            # Obtener todas las tareas de la semana visible
             fechas_str_semana = [f.strftime("%Y-%m-%d") for f in fechas_semana]
             evs_semana = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") in fechas_str_semana]
             
@@ -259,7 +266,7 @@ with tab_cal:
 with tab_capillas:
     st.header("Control de Estado de Capillas")
     for c in CAPILLAS_BASE:
-        estado_act = st.session_state["estados_capillas"][c]
+        estado_act = st.session_state["estados_capillas"].get(c, "Pendiente")
         st.subheader(c)
         nuevo_est = st.selectbox(
             f"Estado para {c}:",
