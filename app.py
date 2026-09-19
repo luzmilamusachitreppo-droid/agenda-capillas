@@ -4,9 +4,9 @@ import calendar
 from datetime import datetime, date, timedelta
 import uuid
 
-# Configuración de página con diseño ancho
+# Configuración de página
 st.set_page_config(
-    page_title="Agenda Semanal - Jardinería y Limpieza",
+    page_title="Agenda - Jardinería y Limpieza",
     page_icon="🌿",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -37,6 +37,8 @@ ROTACION_JARDINERIA = {
     4: [{"nombre": "Barrio 4", "inicio": 8, "fin": 16}]
 }
 
+MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+
 def generar_eventos_jardineria(anio=2026):
     eventos = []
     curr = date(anio, 1, 1)
@@ -62,23 +64,28 @@ def generar_eventos_jardineria(anio=2026):
 if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
-if "fecha_inicio_semana" not in st.session_state:
-    hoy = date(2026, 9, 14)
-    st.session_state["fecha_inicio_semana"] = hoy - timedelta(days=hoy.weekday())
+if "fecha_seleccionada" not in st.session_state:
+    st.session_state["fecha_seleccionada"] = date(2026, 9, 14)
+
+if "mes_visita" not in st.session_state:
+    st.session_state["mes_visita"] = 9
+
+if "anio_visita" not in st.session_state:
+    st.session_state["anio_visita"] = 2026
 
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in CAPILLAS_BASE}
 
-# Garantizar que todas las capillas existan en la variable de estado
 for c in CAPILLAS_BASE:
     if c not in st.session_state["estados_capillas"]:
         st.session_state["estados_capillas"][c] = "Pendiente"
 
-# Estilos CSS
+# Estilos CSS generales y responsivos
 st.markdown("""
     <style>
     .stApp { background-color: #fafafa; }
     
+    /* Estilos para vista Semanal / Diaria */
     .week-table {
         width: 100%;
         border-collapse: collapse;
@@ -91,7 +98,7 @@ st.markdown("""
     
     .week-table th {
         background: #f4f5f7;
-        padding: 12px 8px;
+        padding: 10px 4px;
         font-weight: 700;
         font-size: 0.85rem;
         color: #4a5568;
@@ -103,14 +110,13 @@ st.markdown("""
     .week-table td {
         border-bottom: 1px solid #edf2f7;
         border-right: 1px solid #edf2f7;
-        height: 48px;
+        height: 44px;
         vertical-align: top;
         padding: 2px;
-        width: 13.5%;
     }
     
     .time-col {
-        width: 55px !important;
+        width: 50px !important;
         background: #f8fafc;
         font-size: 0.75rem;
         font-weight: 600;
@@ -128,78 +134,197 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         border-left: 3px solid;
     }
+
+    /* Ajustes específicos para móviles */
+    @media (max-width: 768px) {
+        .week-table th { font-size: 0.7rem; padding: 6px 2px; }
+        .event-card { font-size: 0.65rem; padding: 2px 4px; }
+    }
     </style>
 """, unsafe_allow_html=True)
 
-tab_cal, tab_capillas = st.tabs(["📅 Agenda Semanal", "⛪ Capillas y Estados"])
+# Pestañas Principales
+tab_cal, tab_capillas = st.tabs(["📅 Agenda", "⛪ Capillas y Estados"])
 
 with tab_cal:
-    # Navegación semanal
-    f_inicio = st.session_state["fecha_inicio_semana"]
-    f_fin = f_inicio + timedelta(days=6)
+    col_v1, col_v2 = st.columns([1, 1])
     
-    col_nav1, col_nav2, col_nav3 = st.columns([1, 3, 1])
-    
-    if col_nav1.button("◄ Semana Anterior", use_container_width=True):
-        st.session_state["fecha_inicio_semana"] -= timedelta(days=7)
-        st.rerun()
+    with col_v1:
+        modo_vista = st.radio(
+            "Dispositivo:",
+            ["📱 Teléfono", "🖥️ Computadora"],
+            horizontal=True
+        )
         
-    col_nav2.markdown(
-        f"<h3 style='text-align: center; margin:0;'>Semana del {f_inicio.strftime('%d/%m')} al {f_fin.strftime('%d/%m/%Y')}</h3>", 
-        unsafe_allow_html=True
-    )
-    
-    if col_nav3.button("Siguiente Semana ►", use_container_width=True):
-        st.session_state["fecha_inicio_semana"] += timedelta(days=7)
-        st.rerun()
-        
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Días de la semana
-    dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-    fechas_semana = [f_inicio + timedelta(days=i) for i in range(7)]
-    
-    # Construcción de la tabla
-    html_tabla = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th>"
-    
-    for idx, f in enumerate(fechas_semana):
-        html_tabla += f"<th>{dias_semana[idx]}<br><span style='font-weight:400; font-size:0.8rem; color:#718096;'>{f.strftime('%d/%m')}</span></th>"
-    html_tabla += "</tr></thead><tbody>"
-    
-    # Horas de 07:00 a 18:00
-    for hora in range(7, 19):
-        html_tabla += f"<tr><td class='time-col'>{hora:02d}:00</td>"
-        
-        for f in fechas_semana:
-            f_str = f.strftime("%Y-%m-%d")
-            evs_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str and e.get("inicio", 8) <= hora < e.get("fin", 12)]
-            
-            html_tabla += "<td>"
-            if evs_dia:
-                for ev in evs_dia:
-                    if ev.get("inicio") == hora:
-                        est = ev.get("estilo", COLOR_JARDINERIA_BASE)
-                        html_tabla += f"""
-                            <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
-                                📌 {ev.get("title")}<br>
-                                <small>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00</small>
-                            </div>
-                        """
-            html_tabla += "</td>" # Etiqueta corregida aquí
-        html_tabla += "</tr>"
-        
-    html_tabla += "</tbody></table>"
-    st.markdown(html_tabla, unsafe_allow_html=True)
+    with col_v2:
+        periodo_vista = st.radio(
+            "Vista por:",
+            ["Por Día", "Por Semana", "Por Mes"],
+            horizontal=True,
+            index=1
+        )
 
     st.divider()
 
-    # Panel inferior de Gestión
+    f_act = st.session_state["fecha_seleccionada"]
+
+    # =========================================================================
+    # 1. VISTA POR DÍA
+    # =========================================================================
+    if periodo_vista == "Por Día":
+        c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
+        if c_nav1.button("◄ Día Ant.", use_container_width=True):
+            st.session_state["fecha_seleccionada"] -= timedelta(days=1)
+            st.rerun()
+            
+        dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        c_nav2.markdown(f"<h3 style='text-align:center; margin:0;'>{dias_semana[f_act.weekday()]} {f_act.strftime('%d/%m/%Y')}</h3>", unsafe_allow_html=True)
+        
+        if c_nav3.button("Día Sig. ►", use_container_width=True):
+            st.session_state["fecha_seleccionada"] += timedelta(days=1)
+            st.rerun()
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        f_str = f_act.strftime("%Y-%m-%d")
+
+        html_dia = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th><th>Actividades del Día</th></tr></thead><tbody>"
+        for hora in range(7, 19):
+            html_dia += f"<tr><td class='time-col'>{hora:02d}:00</td><td>"
+            evs_hora = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str and e.get("inicio", 8) <= hora < e.get("fin", 12)]
+            for ev in evs_hora:
+                if ev.get("inicio") == hora:
+                    est = ev.get("estilo", COLOR_JARDINERIA_BASE)
+                    html_dia += f"""
+                        <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
+                            📌 {ev.get("title")}<br>
+                            <small>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00 hs</small>
+                        </div>
+                    """
+            html_dia += "</td></tr>"
+        html_dia += "</tbody></table>"
+        st.markdown(html_dia, unsafe_allow_html=True)
+
+    # =========================================================================
+    # 2. VISTA POR SEMANA
+    # =========================================================================
+    elif periodo_vista == "Por Semana":
+        f_inicio = f_act - timedelta(days=f_act.weekday())
+        f_fin = f_inicio + timedelta(days=6)
+        
+        c_nav1, c_nav2, c_nav3 = st.columns([1, 3, 1])
+        if c_nav1.button("◄ Sem. Anterior", use_container_width=True):
+            st.session_state["fecha_seleccionada"] -= timedelta(days=7)
+            st.rerun()
+            
+        c_nav2.markdown(f"<h3 style='text-align:center; margin:0;'>Semana del {f_inicio.strftime('%d/%m')} al {f_fin.strftime('%d/%m/%Y')}</h3>", unsafe_allow_html=True)
+        
+        if c_nav3.button("Sem. Siguiente ►", use_container_width=True):
+            st.session_state["fecha_seleccionada"] += timedelta(days=7)
+            st.rerun()
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # En teléfono mostramos días laborables (Lun-Vie) o reducidos para optimizar espacio
+        dias_nombres = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+        cant_dias = 5 if "📱" in modo_vista else 7
+        fechas_semana = [f_inicio + timedelta(days=i) for i in range(cant_dias)]
+        
+        html_semana = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th>"
+        for idx, f in enumerate(fechas_semana):
+            html_semana += f"<th>{dias_nombres[idx]}<br><span style='font-weight:400; font-size:0.75rem;'>{f.strftime('%d/%m')}</span></th>"
+        html_semana += "</tr></thead><tbody>"
+        
+        for hora in range(7, 19):
+            html_semana += f"<tr><td class='time-col'>{hora:02d}:00</td>"
+            for f in fechas_semana:
+                f_str = f.strftime("%Y-%m-%d")
+                evs_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str and e.get("inicio", 8) <= hora < e.get("fin", 12)]
+                html_semana += "<td>"
+                if evs_dia:
+                    for ev in evs_dia:
+                        if ev.get("inicio") == hora:
+                            est = ev.get("estilo", COLOR_JARDINERIA_BASE)
+                            html_semana += f"""
+                                <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
+                                    📌 {ev.get("title")}<br>
+                                    <small>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00</small>
+                                </div>
+                            """
+                html_semana += "</td>"
+            html_semana += "</tr>"
+        html_semana += "</tbody></table>"
+        st.markdown(html_semana, unsafe_allow_html=True)
+
+    # =========================================================================
+    # 3. VISTA POR MES
+    # =========================================================================
+    elif periodo_vista == "Por Mes":
+        c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
+        if c_nav1.button("◄ Mes Anterior", use_container_width=True):
+            if st.session_state["mes_visita"] == 1:
+                st.session_state["mes_visita"] = 12
+                st.session_state["anio_visita"] -= 1
+            else:
+                st.session_state["mes_visita"] -= 1
+            st.rerun()
+            
+        c_nav2.markdown(f"<h3 style='text-align:center;'>{MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}</h3>", unsafe_allow_html=True)
+        
+        if c_nav3.button("Mes Siguiente ►", use_container_width=True):
+            if st.session_state["mes_visita"] == 12:
+                st.session_state["mes_visita"] = 1
+                st.session_state["anio_visita"] += 1
+            else:
+                st.session_state["mes_visita"] += 1
+            st.rerun()
+
+        headers = st.columns(7)
+        dias_hdr = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+        for idx, h in enumerate(dias_hdr):
+            headers[idx].markdown(f"**{h}**")
+
+        cal_semanas = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
+        
+        for semana in cal_semanas:
+            cols_dia = st.columns(7)
+            semana_rot = [semana[-1]] + semana[:-1]
+            for idx, dia_num in enumerate(semana_rot):
+                with cols_dia[idx]:
+                    if dia_num != 0:
+                        f_str = f"{st.session_state['anio_visita']}-{st.session_state['mes_visita']:02d}-{dia_num:02d}"
+                        f_curr = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
+                        
+                        es_hoy = (f_curr == st.session_state["fecha_seleccionada"])
+                        lbl_dia = f"★ {dia_num}" if es_hoy else f"{dia_num}"
+                        btn_type = "primary" if es_hoy else "secondary"
+                        
+                        if st.button(lbl_dia, key=f"btn_m_{st.session_state['mes_visita']}_{dia_num}", type=btn_type, use_container_width=True):
+                            st.session_state["fecha_seleccionada"] = f_curr
+                            st.rerun()
+
+                        evs = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
+                        for ev in evs:
+                            est = ev.get("estilo", COLOR_JARDINERIA_BASE)
+                            st.markdown(
+                                f"""<div style='background-color:{est["bg"]}; color:{est["text"]}; border-left: 3px solid {est["border"]}; padding:2px 4px; border-radius:4px; font-size:0.7rem; margin-top:2px;'>
+                                {ev.get("inicio", 8)}:00 {ev.get("title", "")}
+                                </div>""",
+                                unsafe_allow_html=True
+                            )
+                    else:
+                        st.write("")
+
+    st.divider()
+
+    # =========================================================================
+    # PANEL INFERIOR DE GESTIÓN (AGREGAR / EDITAR / ELIMINAR)
+    # =========================================================================
     col_add, col_edit = st.columns(2)
     
     with col_add:
         with st.expander("➕ Agregar nueva tarea", expanded=False):
-            with st.form("form_nueva_tarea_semana", clear_on_submit=True):
-                f_tarea = st.date_input("Fecha", value=f_inicio)
+            with st.form("form_nueva_tarea", clear_on_submit=True):
+                f_tarea = st.date_input("Fecha", value=f_act)
                 titulo = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Alberdi")
                 color = st.selectbox("Color / Categoría", options=list(PALETA_COLORES.keys()))
                 
@@ -222,15 +347,14 @@ with tab_cal:
 
     with col_edit:
         with st.expander("✏️ Editar o Eliminar tarea", expanded=False):
-            fechas_str_semana = [f.strftime("%Y-%m-%d") for f in fechas_semana]
-            evs_semana = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") in fechas_str_semana]
+            evs_disponibles = st.session_state["eventos_calendar"]
             
-            if evs_semana:
-                opciones = {f"{e['fecha']} - {e['title']} ({e['inicio']}:00 hs)": e for e in evs_semana}
+            if evs_disponibles:
+                opciones = {f"{e['fecha']} - {e['title']} ({e['inicio']}:00 hs)": e for e in evs_disponibles}
                 sel_lbl = st.selectbox("Seleccioná la tarea a modificar:", list(opciones.keys()))
                 ev_sel = opciones[sel_lbl]
                 
-                with st.form("form_editar_semana"):
+                with st.form("form_editar_tarea"):
                     n_titulo = st.text_input("Título", value=ev_sel["title"])
                     
                     c_def = list(PALETA_COLORES.keys())[0]
@@ -261,7 +385,7 @@ with tab_cal:
                         st.success("¡Tarea eliminada!")
                         st.rerun()
             else:
-                st.info("No hay tareas registradas para esta semana.")
+                st.info("No hay tareas registradas.")
 
 with tab_capillas:
     st.header("Control de Estado de Capillas")
