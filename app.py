@@ -65,7 +65,7 @@ if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
 if "fecha_seleccionada" not in st.session_state:
-    st.session_state["fecha_seleccionada"] = date(2026, 9, 14)
+    st.session_state["fecha_seleccionada"] = date(2026, 9, 15)
 
 if "mes_visita" not in st.session_state:
     st.session_state["mes_visita"] = 9
@@ -80,7 +80,7 @@ for c in CAPILLAS_BASE:
     if c not in st.session_state["estados_capillas"]:
         st.session_state["estados_capillas"][c] = "Pendiente"
 
-# Estilos CSS ampliados y más grandes
+# Estilos CSS
 st.markdown("""
     <style>
     .stApp { background-color: #fafafa; }
@@ -109,15 +109,15 @@ st.markdown("""
     .week-table td {
         border-bottom: 1px solid #edf2f7;
         border-right: 1px solid #edf2f7;
-        height: 62px;
+        height: 55px;
         vertical-align: top;
         padding: 4px;
     }
     
     .time-col {
-        width: 70px !important;
+        width: 80px !important;
         background: #f8fafc;
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         font-weight: 700;
         color: #4a5568;
         text-align: center;
@@ -126,11 +126,11 @@ st.markdown("""
     
     .event-card {
         border-radius: 8px;
-        padding: 8px 10px;
+        padding: 8px 12px;
         font-size: 0.9rem;
         font-weight: 600;
-        margin: 3px 0;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        margin: 2px 0;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.06);
         border-left: 4px solid;
         line-height: 1.3;
     }
@@ -160,7 +160,7 @@ with tab_cal:
             "Vista por:",
             ["Por Día", "Por Semana", "Por Mes"],
             horizontal=True,
-            index=1
+            index=2
         )
 
     st.divider()
@@ -184,9 +184,9 @@ with tab_cal:
         st.markdown("<br>", unsafe_allow_html=True)
         f_str = f_act.strftime("%Y-%m-%d")
 
-        html_dia = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th><th>Actividades del Día</th></tr></thead><tbody>"
+        html_dia = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th><th>Actividades programadas</th></tr></thead><tbody>"
         for hora in range(7, 19):
-            html_dia += f"<tr><td class='time-col'>{hora:02d}:00</td><td>"
+            html_dia += f"<tr><td class='time-col'>{hora:02d}:00 hs</td><td>"
             evs_hora = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str and e.get("inicio", 8) <= hora < e.get("fin", 12)]
             for ev in evs_hora:
                 if ev.get("inicio") == hora:
@@ -249,7 +249,7 @@ with tab_cal:
         html_semana += "</tbody></table>"
         st.markdown(html_semana, unsafe_allow_html=True)
 
-    # 3. VISTA POR MES
+    # 3. VISTA POR MES (CON AGENDA DIARIA DESPLEGADA POR HORAS ABAJO)
     elif periodo_vista == "Por Mes":
         c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
         if c_nav1.button("◄ Mes Anterior", use_container_width=True):
@@ -306,6 +306,32 @@ with tab_cal:
                             )
                     else:
                         st.write("")
+
+        # AGENDA POR HORAS (TIPO GOOGLE CALENDAR) DEL DÍA PRESIONADO
+        st.markdown("<br>", unsafe_allow_html=True)
+        dias_nom = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        f_sel = st.session_state["fecha_seleccionada"]
+        f_sel_str = f_sel.strftime("%Y-%m-%d")
+        
+        st.markdown(f"### 📅 Agenda por horas: {dias_nom[f_sel.weekday()]} {f_sel.strftime('%d/%m/%Y')}")
+        
+        html_dia_sel = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th><th>Actividades y Compromisos</th></tr></thead><tbody>"
+        for hora in range(7, 19):
+            html_dia_sel += f"<tr><td class='time-col'>{hora:02d}:00 hs</td><td>"
+            evs_hora = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str and e.get("inicio", 8) <= hora < e.get("fin", 12)]
+            for ev in evs_hora:
+                if ev.get("inicio") == hora:
+                    est = ev.get("estilo", COLOR_JARDINERIA_BASE)
+                    html_dia_sel += f"""
+                        <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
+                            📌 <b>{ev.get("title")}</b><br>
+                            <small style='font-size: 0.8rem;'>⏱️ Horario: {ev.get("inicio"):02d}:00 a {ev.get("fin"):02d}:00 hs</small>
+                        </div>
+                    """
+            html_dia_sel += "</td></tr>"
+        html_dia_sel += "</tbody></table>"
+        
+        st.markdown(html_dia_sel, unsafe_allow_html=True)
 
     st.divider()
 
