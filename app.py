@@ -80,12 +80,11 @@ for c in CAPILLAS_BASE:
     if c not in st.session_state["estados_capillas"]:
         st.session_state["estados_capillas"][c] = "Pendiente"
 
-# Estilos CSS generales y responsivos
+# Estilos CSS ampliados y más grandes
 st.markdown("""
     <style>
     .stApp { background-color: #fafafa; }
     
-    /* Estilos para vista Semanal / Diaria */
     .week-table {
         width: 100%;
         border-collapse: collapse;
@@ -98,10 +97,10 @@ st.markdown("""
     
     .week-table th {
         background: #f4f5f7;
-        padding: 10px 4px;
+        padding: 14px 8px;
         font-weight: 700;
-        font-size: 0.85rem;
-        color: #4a5568;
+        font-size: 1.05rem;
+        color: #2d3748;
         border-bottom: 2px solid #e2e8f0;
         border-right: 1px solid #edf2f7;
         text-align: center;
@@ -110,35 +109,35 @@ st.markdown("""
     .week-table td {
         border-bottom: 1px solid #edf2f7;
         border-right: 1px solid #edf2f7;
-        height: 44px;
+        height: 62px;
         vertical-align: top;
-        padding: 2px;
+        padding: 4px;
     }
     
     .time-col {
-        width: 50px !important;
+        width: 70px !important;
         background: #f8fafc;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #718096;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #4a5568;
         text-align: center;
         vertical-align: middle !important;
     }
     
     .event-card {
-        border-radius: 6px;
-        padding: 4px 6px;
-        font-size: 0.75rem;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.9rem;
         font-weight: 600;
-        margin: 2px 0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        border-left: 3px solid;
+        margin: 3px 0;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        border-left: 4px solid;
+        line-height: 1.3;
     }
 
-    /* Ajustes específicos para móviles */
     @media (max-width: 768px) {
-        .week-table th { font-size: 0.7rem; padding: 6px 2px; }
-        .event-card { font-size: 0.65rem; padding: 2px 4px; }
+        .week-table th { font-size: 0.8rem; padding: 8px 2px; }
+        .event-card { font-size: 0.75rem; padding: 4px 6px; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -168,9 +167,7 @@ with tab_cal:
 
     f_act = st.session_state["fecha_seleccionada"]
 
-    # =========================================================================
     # 1. VISTA POR DÍA
-    # =========================================================================
     if periodo_vista == "Por Día":
         c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
         if c_nav1.button("◄ Día Ant.", use_container_width=True):
@@ -178,7 +175,7 @@ with tab_cal:
             st.rerun()
             
         dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-        c_nav2.markdown(f"<h3 style='text-align:center; margin:0;'>{dias_semana[f_act.weekday()]} {f_act.strftime('%d/%m/%Y')}</h3>", unsafe_allow_html=True)
+        c_nav2.markdown(f"<h2 style='text-align:center; margin:0;'>{dias_semana[f_act.weekday()]} {f_act.strftime('%d/%m/%Y')}</h2>", unsafe_allow_html=True)
         
         if c_nav3.button("Día Sig. ►", use_container_width=True):
             st.session_state["fecha_seleccionada"] += timedelta(days=1)
@@ -197,16 +194,14 @@ with tab_cal:
                     html_dia += f"""
                         <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
                             📌 {ev.get("title")}<br>
-                            <small>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00 hs</small>
+                            <small style='font-size: 0.8rem;'>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00 hs</small>
                         </div>
                     """
             html_dia += "</td></tr>"
         html_dia += "</tbody></table>"
         st.markdown(html_dia, unsafe_allow_html=True)
 
-    # =========================================================================
     # 2. VISTA POR SEMANA
-    # =========================================================================
     elif periodo_vista == "Por Semana":
         f_inicio = f_act - timedelta(days=f_act.weekday())
         f_fin = f_inicio + timedelta(days=6)
@@ -216,7 +211,7 @@ with tab_cal:
             st.session_state["fecha_seleccionada"] -= timedelta(days=7)
             st.rerun()
             
-        c_nav2.markdown(f"<h3 style='text-align:center; margin:0;'>Semana del {f_inicio.strftime('%d/%m')} al {f_fin.strftime('%d/%m/%Y')}</h3>", unsafe_allow_html=True)
+        c_nav2.markdown(f"<h2 style='text-align:center; margin:0;'>Semana del {f_inicio.strftime('%d/%m')} al {f_fin.strftime('%d/%m/%Y')}</h2>", unsafe_allow_html=True)
         
         if c_nav3.button("Sem. Siguiente ►", use_container_width=True):
             st.session_state["fecha_seleccionada"] += timedelta(days=7)
@@ -224,14 +219,13 @@ with tab_cal:
             
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # En teléfono mostramos días laborables (Lun-Vie) o reducidos para optimizar espacio
         dias_nombres = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
         cant_dias = 5 if "📱" in modo_vista else 7
         fechas_semana = [f_inicio + timedelta(days=i) for i in range(cant_dias)]
         
         html_semana = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th>"
         for idx, f in enumerate(fechas_semana):
-            html_semana += f"<th>{dias_nombres[idx]}<br><span style='font-weight:400; font-size:0.75rem;'>{f.strftime('%d/%m')}</span></th>"
+            html_semana += f"<th>{dias_nombres[idx]}<br><span style='font-weight:400; font-size:0.85rem;'>{f.strftime('%d/%m')}</span></th>"
         html_semana += "</tr></thead><tbody>"
         
         for hora in range(7, 19):
@@ -247,7 +241,7 @@ with tab_cal:
                             html_semana += f"""
                                 <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
                                     📌 {ev.get("title")}<br>
-                                    <small>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00</small>
+                                    <small style='font-size: 0.8rem;'>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00</small>
                                 </div>
                             """
                 html_semana += "</td>"
@@ -255,9 +249,7 @@ with tab_cal:
         html_semana += "</tbody></table>"
         st.markdown(html_semana, unsafe_allow_html=True)
 
-    # =========================================================================
     # 3. VISTA POR MES
-    # =========================================================================
     elif periodo_vista == "Por Mes":
         c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
         if c_nav1.button("◄ Mes Anterior", use_container_width=True):
@@ -268,7 +260,7 @@ with tab_cal:
                 st.session_state["mes_visita"] -= 1
             st.rerun()
             
-        c_nav2.markdown(f"<h3 style='text-align:center;'>{MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}</h3>", unsafe_allow_html=True)
+        c_nav2.markdown(f"<h2 style='text-align:center; margin:0;'>{MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}</h2>", unsafe_allow_html=True)
         
         if c_nav3.button("Mes Siguiente ►", use_container_width=True):
             if st.session_state["mes_visita"] == 12:
@@ -278,10 +270,11 @@ with tab_cal:
                 st.session_state["mes_visita"] += 1
             st.rerun()
 
+        st.markdown("<br>", unsafe_allow_html=True)
         headers = st.columns(7)
         dias_hdr = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
         for idx, h in enumerate(dias_hdr):
-            headers[idx].markdown(f"**{h}**")
+            headers[idx].markdown(f"### {h}")
 
         cal_semanas = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
         
@@ -306,7 +299,7 @@ with tab_cal:
                         for ev in evs:
                             est = ev.get("estilo", COLOR_JARDINERIA_BASE)
                             st.markdown(
-                                f"""<div style='background-color:{est["bg"]}; color:{est["text"]}; border-left: 3px solid {est["border"]}; padding:2px 4px; border-radius:4px; font-size:0.7rem; margin-top:2px;'>
+                                f"""<div style='background-color:{est["bg"]}; color:{est["text"]}; border-left: 4px solid {est["border"]}; padding:4px 6px; border-radius:6px; font-size:0.85rem; font-weight:600; margin-top:3px;'>
                                 {ev.get("inicio", 8)}:00 {ev.get("title", "")}
                                 </div>""",
                                 unsafe_allow_html=True
@@ -316,9 +309,7 @@ with tab_cal:
 
     st.divider()
 
-    # =========================================================================
-    # PANEL INFERIOR DE GESTIÓN (AGREGAR / EDITAR / ELIMINAR)
-    # =========================================================================
+    # PANEL INFERIOR DE GESTIÓN
     col_add, col_edit = st.columns(2)
     
     with col_add:
