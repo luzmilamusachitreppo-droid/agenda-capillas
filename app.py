@@ -220,7 +220,7 @@ with tab_cal:
     # COLUMNA DERECHA: PANEL LATERAL
     # ----------------------------------------------------
     with col_panel_derecho:
-        with st.popover("➕ Nuevo agendamiento", use_container_width=True):
+        with st.popover("➕ Nueva tarea", use_container_width=True):
             st.markdown("#### Agendar Tarea")
             with st.form("form_nuevo_turno_top", clear_on_submit=True):
                 f_t = st.date_input("Fecha", value=f_sel)
@@ -275,11 +275,11 @@ with tab_cal:
 
         st.divider()
 
-        # Bloc de Agendamientos
+        # Bloc de Tareas Pendientes
         evs_dia_sel = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str]
         
         c_bloc_hdr, c_bloc_add = st.columns([3, 1])
-        c_bloc_hdr.markdown(f"### 📋 Agendamientos ({len(evs_dia_sel)})")
+        c_bloc_hdr.markdown(f"### 📋 Tareas pendientes ({len(evs_dia_sel)})")
         
         with c_bloc_add.popover("➕", help="Agregar tarea a esta fecha"):
             with st.form("form_add_bloc_rapido", clear_on_submit=True):
