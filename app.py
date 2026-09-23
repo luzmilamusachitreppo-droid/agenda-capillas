@@ -49,7 +49,7 @@ PDF_CHECKLIST_ITEMS = {
         "6. Limpieza y sacudido de imágenes, altares y elementos litúrgicos.",
         "7. Vaciado y desinfección de papeleros y cestos de basura."
     ],
-    "Resto Baños y Sanitarios": [
+    "🚻 Baños y Sanitarios": [
         "1. Limpieza y desinfección profunda de inodoros y bidet.",
         "2. Limpieza de piletas, lavamanos y griferías.",
         "3. Limpieza y secado de espejos y azulejos.",
@@ -115,6 +115,9 @@ if "respuestas_checklist" not in st.session_state:
 if "observaciones_checklist" not in st.session_state:
     st.session_state["observaciones_checklist"] = {}
 
+if "fotos_checklist" not in st.session_state:
+    st.session_state["fotos_checklist"] = {}
+
 if "tareas_personalizadas" not in st.session_state:
     st.session_state["tareas_personalizadas"] = {}
 
@@ -142,7 +145,6 @@ st.markdown("""
         color: #334155;
     }
     
-    /* DÍA HOY (ACTUAL REAL): Borde azul remarcado y fondo suave */
     .day-num-hoy {
         font-size: 1.1rem;
         font-weight: bold;
@@ -154,7 +156,6 @@ st.markdown("""
         display: inline-block;
     }
     
-    /* DÍA SELECCIONADO */
     .day-num-selected {
         font-size: 1.1rem;
         font-weight: bold;
@@ -240,7 +241,7 @@ def render_agenda_desktop():
 
         st.divider()
 
-        # Encabezados de días con diferenciación de HOY y SELECCIONADO
+        # Encabezados de días
         cols_hdr = st.columns([0.6] + [1.8]*7)
         cols_hdr[0].write("")
         
@@ -459,7 +460,7 @@ with tab_cal:
         render_agenda_desktop()
 
 # ==========================================
-# 2. PESTAÑA CHECKLIST DIGITAL
+# 2. PESTAÑA CHECKLIST DIGITAL (CON FOTOS)
 # ==========================================
 with tab_check:
     st.header("📝 Checklist Digital de Control")
@@ -481,42 +482,46 @@ with tab_check:
         st.session_state["respuestas_checklist"][clave_base] = {}
     if clave_base not in st.session_state["observaciones_checklist"]:
         st.session_state["observaciones_checklist"][clave_base] = {}
+    if clave_base not in st.session_state["fotos_checklist"]:
+        st.session_state["fotos_checklist"][clave_base] = {}
     if clave_base not in st.session_state["tareas_personalizadas"]:
         st.session_state["tareas_personalizadas"][clave_base] = []
 
     st.markdown(f"### Revisión: **{capilla_trabajo}** ({f_sel.strftime('%d/%m/%Y')})")
     
+    # Función para renderizar filas de items con tilde, observación y foto
+    def render_fila_item(item_nombre):
+        c_chk, c_obs, c_foto = st.columns([2.2, 1.8, 1.5])
+        
+        with c_chk:
+            v_act = st.session_state["respuestas_checklist"][clave_base].get(item_nombre, False)
+            chk = st.checkbox(item_nombre, value=v_act, key=f"chk_{clave_base}_{item_nombre}")
+            st.session_state["respuestas_checklist"][clave_base][item_nombre] = chk
+        
+        with c_obs:
+            obs_act = st.session_state["observaciones_checklist"][clave_base].get(item_nombre, "")
+            obs_val = st.text_input("Observación:", value=obs_act, key=f"obs_{clave_base}_{item_nombre}", placeholder="Detalles...")
+            st.session_state["observaciones_checklist"][clave_base][item_nombre] = obs_val
+            
+        with c_foto:
+            foto_subida = st.file_uploader("📷 Foto:", type=["png", "jpg", "jpeg"], key=f"foto_{clave_base}_{item_nombre}")
+            if foto_subida is not None:
+                st.session_state["fotos_checklist"][clave_base][item_nombre] = foto_subida
+                st.image(foto_subida, caption="Foto adjunta", width=120)
+
     if "Limpieza" in tipo_checklist:
         for cat, items in PDF_CHECKLIST_ITEMS.items():
             with st.expander(cat, expanded=True):
                 for item in items:
-                    c_chk, c_obs = st.columns([3, 2])
-                    
-                    with c_chk:
-                        v_act = st.session_state["respuestas_checklist"][clave_base].get(item, False)
-                        chk = st.checkbox(item, value=v_act, key=f"chk_{clave_base}_{item}")
-                        st.session_state["respuestas_checklist"][clave_base][item] = chk
-                    
-                    with c_obs:
-                        obs_act = st.session_state["observaciones_checklist"][clave_base].get(item, "")
-                        obs_val = st.text_input("Observaciones:", value=obs_act, key=f"obs_{clave_base}_{item}", placeholder="Detalles u observaciones...")
-                        st.session_state["observaciones_checklist"][clave_base][item] = obs_val
+                    render_fila_item(item)
+                    st.markdown("<hr style='margin: 4px 0; border-top: 1px dashed #e2e8f0;'>", unsafe_allow_html=True)
     else:
         with st.expander("🌿 Jardinería y Exteriores", expanded=True):
             for item in CHECKLIST_JARDINERIA_DEFAULT:
-                c_chk, c_obs = st.columns([3, 2])
-                
-                with c_chk:
-                    v_act = st.session_state["respuestas_checklist"][clave_base].get(item, False)
-                    chk = st.checkbox(item, value=v_act, key=f"chk_{clave_base}_{item}")
-                    st.session_state["respuestas_checklist"][clave_base][item] = chk
-                
-                with c_obs:
-                    obs_act = st.session_state["observaciones_checklist"][clave_base].get(item, "")
-                    obs_val = st.text_input("Observaciones:", value=obs_act, key=f"obs_{clave_base}_{item}", placeholder="Detalles u observaciones...")
-                    st.session_state["observaciones_checklist"][clave_base][item] = obs_val
+                render_fila_item(item)
+                st.markdown("<hr style='margin: 4px 0; border-top: 1px dashed #e2e8f0;'>", unsafe_allow_html=True)
 
-    # BOTÓN PARA AGREGAR TAREAS ADICIONALES/PERSONALIZADAS CON SIGNOS (+)
+    # BOTÓN PARA AGREGAR TAREAS PERSONALIZADAS
     st.markdown("---")
     with st.popover("➕ Añadir tarea personalizada al checklist", use_container_width=True):
         st.markdown("#### Nueva Tarea Extra")
@@ -531,15 +536,8 @@ with tab_check:
     if st.session_state["tareas_personalizadas"][clave_base]:
         with st.expander("⭐ Tareas Personalizadas Agregadas", expanded=True):
             for t_custom in st.session_state["tareas_personalizadas"][clave_base]:
-                c_chk, c_obs = st.columns([3, 2])
-                with c_chk:
-                    v_act = st.session_state["respuestas_checklist"][clave_base].get(t_custom, False)
-                    chk = st.checkbox(f"📌 {t_custom}", value=v_act, key=f"chk_custom_{clave_base}_{t_custom}")
-                    st.session_state["respuestas_checklist"][clave_base][t_custom] = chk
-                with c_obs:
-                    obs_act = st.session_state["observaciones_checklist"][clave_base].get(t_custom, "")
-                    obs_val = st.text_input("Observaciones:", value=obs_act, key=f"obs_custom_{clave_base}_{t_custom}", placeholder="Detalles...")
-                    st.session_state["observaciones_checklist"][clave_base][t_custom] = obs_val
+                render_fila_item(f"📌 {t_custom}")
+                st.markdown("<hr style='margin: 4px 0; border-top: 1px dashed #e2e8f0;'>", unsafe_allow_html=True)
 
     # Observaciones generales del checklist
     st.markdown("#### 💬 Observaciones Generales de la Inspección")
