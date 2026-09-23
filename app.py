@@ -191,7 +191,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# PESTAÑAS PRINCIPALES DE LA APLICACIÓN
+# PESTAÑAS PRINCIPALES
 tab_cal, tab_check, tab_capillas = st.tabs([
     "📅 1. Calendario y Agenda", 
     "📝 2. Checklist Digital", 
@@ -304,7 +304,7 @@ with tab_cal:
         html_semana += "</tbody></table>"
         st.markdown(html_semana, unsafe_allow_html=True)
 
-    # 3. VISTA POR MES
+    # 3. VISTA POR MES (CON EDICIÓN DIRECTA EN CADA EVENTO ENTRANDO A UN POPOVER)
     elif periodo_vista == "Por Mes":
         c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
         if c_nav1.button("◄ Mes Anterior", use_container_width=True):
@@ -356,15 +356,42 @@ with tab_cal:
                                 st.session_state["fecha_seleccionada"] = f_curr
                                 st.rerun()
 
+                            # POPUP / NOTA FLOTANTE PARA EDITAR/BORRAR AL TAPEAR EL EVENTO
                             evs = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
                             for ev in evs:
-                                est = ev.get("estilo", COLOR_JARDINERIA_BASE)
-                                st.markdown(
-                                    f"""<div style='background-color:{est["bg"]}; color:{est["text"]}; border-left: 4px solid {est["border"]}; padding:4px 6px; border-radius:6px; font-size:0.85rem; font-weight:600; margin-top:3px;'>
-                                    {ev.get("inicio", 8)}:00 {ev.get("title", "")}
-                                    </div>""",
-                                    unsafe_allow_html=True
-                                )
+                                lbl_btn = f"{ev.get('inicio', 8)}:00 {ev.get('title', '')}"
+                                with st.popover(lbl_btn, use_container_width=True):
+                                    st.markdown(f"#### 📌 Nota de Tarea")
+                                    with st.form(f"pop_edit_{ev['id']}"):
+                                        n_tit = st.text_input("Título", value=ev.get("title"))
+                                        
+                                        # Buscar color actual
+                                        c_def = list(PALETA_COLORES.keys())[0]
+                                        for k, v in PALETA_COLORES.items():
+                                            if v["bg"] == ev.get("estilo", {}).get("bg"):
+                                                c_def = k
+                                                break
+                                        n_col = st.selectbox("Color", options=list(PALETA_COLORES.keys()), index=list(PALETA_COLORES.keys()).index(c_def))
+                                        
+                                        col_i, col_f = st.columns(2)
+                                        n_i = col_i.number_input("Inicio", min_value=0, max_value=23, value=int(ev.get("inicio", 8)))
+                                        n_f = col_f.number_input("Fin", min_value=1, max_value=24, value=int(ev.get("fin", 12)))
+                                        
+                                        guardar_ev = st.form_submit_button("💾 Guardar Cambios", use_container_width=True, type="primary")
+                                        borrar_ev = st.form_submit_button("🗑️ Borrar Tarea", use_container_width=True)
+                                        
+                                        if guardar_ev:
+                                            ev["title"] = n_tit
+                                            ev["inicio"] = int(n_i)
+                                            ev["fin"] = int(n_f)
+                                            ev["estilo"] = PALETA_COLORES[n_col]
+                                            st.success("¡Tarea actualizada!")
+                                            st.rerun()
+                                            
+                                        if borrar_ev:
+                                            st.session_state["eventos_calendar"] = [e for e in st.session_state["eventos_calendar"] if e["id"] != ev["id"]]
+                                            st.success("¡Tarea borrada!")
+                                            st.rerun()
                         else:
                             st.write("")
 
@@ -395,75 +422,29 @@ with tab_cal:
 
     st.divider()
 
-    # GESTIÓN DE EVENTOS DEL CALENDARIO
-    st.header("⚙️ Gestión de Eventos del Calendario")
-    col_add, col_edit = st.columns(2)
-    
-    with col_add:
-        with st.expander("➕ Agendar nueva tarea", expanded=True):
-            with st.form("form_nueva_tarea", clear_on_submit=True):
-                f_tarea = st.date_input("Fecha", value=f_act)
-                titulo = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Alberdi")
-                color = st.selectbox("Color / Categoría", options=list(PALETA_COLORES.keys()))
-                
-                ch1, ch2 = st.columns(2)
-                h_ini = ch1.number_input("Hora Inicio", min_value=0, max_value=23, value=8)
-                h_fin = ch2.number_input("Hora Fin", min_value=1, max_value=24, value=12)
-                
-                if st.form_submit_button("Agendar Tarea", use_container_width=True, type="primary"):
-                    if titulo.strip():
-                        st.session_state["eventos_calendar"].append({
-                            "id": str(uuid.uuid4()),
-                            "title": titulo,
-                            "fecha": f_tarea.strftime("%Y-%m-%d"),
-                            "inicio": int(h_ini),
-                            "fin": int(h_fin),
-                            "estilo": PALETA_COLORES[color]
-                        })
-                        st.success("¡Tarea agendada exitosamente!")
-                        st.rerun()
-
-    with col_edit:
-        with st.expander("🗑️ Modificar o Eliminar tarea existente", expanded=True):
-            evs_disponibles = st.session_state["eventos_calendar"]
-            
-            if evs_disponibles:
-                opciones = {f"{e['fecha']} - {e['title']} ({e['inicio']}:00 hs)": e for e in evs_disponibles}
-                sel_lbl = st.selectbox("Seleccioná la tarea:", list(opciones.keys()))
-                ev_sel = opciones[sel_lbl]
-                
-                with st.form("form_editar_tarea"):
-                    n_titulo = st.text_input("Título", value=ev_sel["title"])
-                    
-                    c_def = list(PALETA_COLORES.keys())[0]
-                    for k, v in PALETA_COLORES.items():
-                        if v["bg"] == ev_sel.get("estilo", {}).get("bg"):
-                            c_def = k
-                            break
-                            
-                    n_color = st.selectbox("Color", options=list(PALETA_COLORES.keys()), index=list(PALETA_COLORES.keys()).index(c_def))
-                    
-                    ce1, ce2 = st.columns(2)
-                    n_ini = ce1.number_input("Hora Inicio", min_value=0, max_value=23, value=int(ev_sel["inicio"]))
-                    n_fn = ce2.number_input("Hora Fin", min_value=1, max_value=24, value=int(ev_sel["fin"]))
-                    
-                    b_guardar = st.form_submit_button("💾 Guardar Cambios", use_container_width=True, type="primary")
-                    b_borrar = st.form_submit_button("🗑️ ELIMINAR ESTA TAREA", use_container_width=True)
-                    
-                    if b_guardar:
-                        ev_sel["title"] = n_titulo
-                        ev_sel["inicio"] = int(n_ini)
-                        ev_sel["fin"] = int(n_fn)
-                        ev_sel["estilo"] = PALETA_COLORES[n_color]
-                        st.success("¡Tarea actualizada!")
-                        st.rerun()
-                        
-                    if b_borrar:
-                        st.session_state["eventos_calendar"] = [e for e in st.session_state["eventos_calendar"] if e["id"] != ev_sel["id"]]
-                        st.success("¡Tarea eliminada del calendario!")
-                        st.rerun()
-            else:
-                st.info("No hay tareas registradas para eliminar.")
+    # FORMULARIO PARA AGREGAR NUEVAS TAREAS
+    st.header("➕ Agendar nueva tarea al calendario")
+    with st.form("form_nueva_tarea", clear_on_submit=True):
+        f_tarea = st.date_input("Fecha", value=f_act)
+        titulo = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Alberdi")
+        color = st.selectbox("Color / Categoría", options=list(PALETA_COLORES.keys()))
+        
+        ch1, ch2 = st.columns(2)
+        h_ini = ch1.number_input("Hora Inicio", min_value=0, max_value=23, value=8)
+        h_fin = ch2.number_input("Hora Fin", min_value=1, max_value=24, value=12)
+        
+        if st.form_submit_button("Agendar Tarea", use_container_width=True, type="primary"):
+            if titulo.strip():
+                st.session_state["eventos_calendar"].append({
+                    "id": str(uuid.uuid4()),
+                    "title": titulo,
+                    "fecha": f_tarea.strftime("%Y-%m-%d"),
+                    "inicio": int(h_ini),
+                    "fin": int(h_fin),
+                    "estilo": PALETA_COLORES[color]
+                })
+                st.success("¡Tarea agendada exitosamente!")
+                st.rerun()
 
 # ==========================================
 # 2. PESTAÑA CHECKLIST DIGITAL
@@ -509,7 +490,6 @@ with tab_check:
     total_puntos = 0
     puntos_completados = 0
 
-    # Renderiza el item y un desplegable para agregar comentario opcional
     def render_item_con_observacion_opcional(item_texto, key_suffix, placeholder_ejemplo="Agregar detalle u observación..."):
         global total_puntos, puntos_completados
         total_puntos += 1
@@ -541,7 +521,6 @@ with tab_check:
     if "Limpieza" in tipo_checklist:
         for categoria, items in PDF_CHECKLIST_ITEMS.items():
             with st.expander(f"{categoria}", expanded=True):
-                # 1. Tareas del PDF
                 for item in items:
                     if "Baños" in categoria:
                         ej = "Ej: En el baño 2 de mujeres hay sarro"
@@ -554,13 +533,11 @@ with tab_check:
 
                     render_item_con_observacion_opcional(item, item, placeholder_ejemplo=ej)
 
-                # 2. Tareas extra
                 extras_cat = st.session_state["tareas_extra_checklist"][clave_base].get(categoria, [])
                 for ex_item in extras_cat:
                     render_item_con_observacion_opcional(f"➕ {ex_item}", f"{categoria}_{ex_item}", placeholder_ejemplo="Detalle adicional...")
 
                 st.markdown("---")
-                # 3. Formulario para agregar tarea extra
                 with st.form(f"form_extra_{categoria}", clear_on_submit=True):
                     nueva_t = st.text_input(f"Agregar tarea extra en {categoria}:", placeholder="Ej: Cambiar foco roto")
                     if st.form_submit_button("➕ Añadir a esta habitación"):
