@@ -130,6 +130,16 @@ st.markdown("""
         font-weight: normal;
         color: #64748b;
     }
+    .month-badge {
+        font-size: 0.68rem;
+        font-weight: bold;
+        color: #0284c7;
+        background-color: #e0f2fe;
+        border-radius: 4px;
+        padding: 1px 4px;
+        margin-top: 2px;
+        display: inline-block;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -169,11 +179,21 @@ with tab_cal:
 
         # Días de la semana seleccionada (Lunes a Domingo)
         inicio_semana = f_sel - timedelta(days=f_sel.weekday())
+        fin_semana = inicio_semana + timedelta(days=6)
         dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
         
-        # Título sincronizado con el mes/año
-        mes_semana_str = MESES_ESP[inicio_semana.month - 1]
-        c_titulo_m.markdown(f"<h3 style='margin:0;'>{mes_semana_str}. {inicio_semana.year}</h3>", unsafe_allow_html=True)
+        # Título sincronizado con el mes/año (si abarca dos meses, muestra ambos)
+        mes_inicio_str = MESES_ESP[inicio_semana.month - 1]
+        mes_fin_str = MESES_ESP[fin_semana.month - 1]
+        
+        if inicio_semana.month == fin_semana.month:
+            titulo_semana = f"{mes_inicio_str}. {inicio_semana.year}"
+        elif inicio_semana.year == fin_semana.year:
+            titulo_semana = f"{mes_inicio_str}. - {mes_fin_str}. {inicio_semana.year}"
+        else:
+            titulo_semana = f"{mes_inicio_str}. {inicio_semana.year} - {mes_fin_str}. {fin_semana.year}"
+
+        c_titulo_m.markdown(f"<h3 style='margin:0;'>{titulo_semana}</h3>", unsafe_allow_html=True)
         st.divider()
 
         # Encabezados de días (7 días)
@@ -184,8 +204,14 @@ with tab_cal:
         for idx, d_f in enumerate(dias_semana):
             es_hoy = (d_f == f_sel)
             clase_num = "day-num" if es_hoy else "day-num-inactive"
+            
+            # Si cambia el mes dentro de la semana o es el día 1, mostramos la etiqueta del mes
+            badge_mes = ""
+            if d_f.day == 1 or idx == 0:
+                badge_mes = f"<br><span class='month-badge'>{MESES_ESP[d_f.month-1]}</span>"
+
             cols_hdr[idx+1].markdown(
-                f"<div class='day-header'>{dias_nombres[idx]}<br><span class='{clase_num}'>{d_f.day}</span></div>", 
+                f"<div class='day-header'>{dias_nombres[idx]}<br><span class='{clase_num}'>{d_f.day}</span>{badge_mes}</div>", 
                 unsafe_allow_html=True
             )
 
@@ -275,36 +301,10 @@ with tab_cal:
 
         st.divider()
 
-        # Bloc de Tareas Pendientes
+        # Bloc de Tareas Pendientes (se quitó el botón (+) duplicado)
         evs_dia_sel = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str]
         
-        c_bloc_hdr, c_bloc_add = st.columns([3, 1])
-        c_bloc_hdr.markdown(f"### 📋 Tareas pendientes ({len(evs_dia_sel)})")
-        
-        with c_bloc_add.popover("➕", help="Agregar tarea a esta fecha"):
-            with st.form("form_add_bloc_rapido", clear_on_submit=True):
-                st.markdown(f"**Agregar a {f_sel.strftime('%d/%m/%Y')}**")
-                tit_b = st.text_input("Título", placeholder="Ej: Visita fin de semana")
-                nota_b = st.text_input("Nota", placeholder="Opcional")
-                cat_b = st.selectbox("Color", options=list(PALETA_COLORES.keys()), key="cat_b_sel")
-                c_ib, c_fb = st.columns(2)
-                h_ib = c_ib.number_input("Inicio", min_value=7, max_value=20, value=8, key="hb_i")
-                h_fb = c_fb.number_input("Fin", min_value=8, max_value=21, value=10, key="hb_f")
-                
-                if st.form_submit_button("Añadir", type="primary", use_container_width=True):
-                    if tit_b.strip():
-                        st.session_state["eventos_calendar"].append({
-                            "id": str(uuid.uuid4()),
-                            "title": tit_b.strip(),
-                            "fecha": f_sel_str,
-                            "inicio": int(h_ib),
-                            "fin": int(h_fb),
-                            "estilo": PALETA_COLORES[cat_b],
-                            "nota": nota_b.strip()
-                        })
-                        st.success("¡Añadido!")
-                        st.rerun()
-
+        st.markdown(f"### 📋 Tareas pendientes ({len(evs_dia_sel)})")
         st.caption(f"Día: {f_sel.strftime('%d/%m/%Y')}")
 
         if not evs_dia_sel:
