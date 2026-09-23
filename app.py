@@ -141,6 +141,13 @@ st.markdown("""
         margin-top: 2px;
         display: inline-block;
     }
+    
+    /* Línea divisoria fina de horarios */
+    .hora-row-separator {
+        border-bottom: 1px solid #e2e8f0;
+        margin-top: 4px;
+        margin-bottom: 8px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -207,7 +214,7 @@ with tab_cal:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Filas por Horas (8:00 a 16:00 hs)
+        # Filas por Horas (8:00 a 16:00 hs) con línea divisoria fina
         for hora in range(8, 17):
             cols_h = st.columns([0.6] + [1.8]*7)
             cols_h[0].markdown(f"<span style='color:#64748b; font-size:0.75rem; font-weight:600;'>{hora:02d}:00</span>", unsafe_allow_html=True)
@@ -231,6 +238,9 @@ with tab_cal:
                             """, unsafe_allow_html=True)
                     else:
                         st.write("")
+            
+            # Línea fina divisoria entre renglones de hora
+            st.markdown("<div class='hora-row-separator'></div>", unsafe_allow_html=True)
 
     # ----------------------------------------------------
     # COLUMNA DERECHA: PANEL LATERAL
@@ -266,7 +276,7 @@ with tab_cal:
         st.text_input("🔍 Buscar", placeholder="Buscar tarea...", label_visibility="collapsed")
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Mini Calendario Mensual Sincronizado (Corregido con inicio en Lunes)
+        # Mini Calendario Mensual Sincronizado
         st.markdown(f"**{MESES_ESP_CORTO[f_sel.month-1].upper()} DE {f_sel.year}**")
         
         cal_obj = calendar.Calendar(firstweekday=0) # 0 = Lunes
