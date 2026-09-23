@@ -88,7 +88,7 @@ if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
 if "fecha_seleccionada" not in st.session_state:
-    st.session_state["fecha_seleccionada"] = date(2026, 9, 2)
+    st.session_state["fecha_seleccionada"] = date(2026, 9, 3)
 
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in st.session_state["lista_capillas"]}
@@ -103,29 +103,30 @@ st.markdown("""
     
     .block-evento {
         background-color: #d1e7dd;
-        border-left: 4px solid #0f5132;
+        border-left: 3px solid #0f5132;
         color: #0f5132;
-        border-radius: 6px;
-        padding: 6px 10px;
-        font-size: 0.82rem;
+        border-radius: 5px;
+        padding: 4px 6px;
+        font-size: 0.78rem;
         font-weight: 600;
         margin-bottom: 4px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        word-wrap: break-word;
     }
     
     .day-header {
         text-align: center;
         font-weight: bold;
-        font-size: 0.95rem;
+        font-size: 0.88rem;
         color: #334155;
     }
     .day-num {
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         font-weight: bold;
         color: #0284c7;
     }
     .day-num-inactive {
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         font-weight: normal;
         color: #64748b;
     }
@@ -143,13 +144,13 @@ tab_cal, tab_check, tab_capillas = st.tabs([
 # 1. PESTAÑA CALENDARIO
 # ==========================================
 with tab_cal:
-    col_grilla, col_panel_derecho = st.columns([3, 1.1], gap="medium")
+    col_grilla, col_panel_derecho = st.columns([3.5, 1.1], gap="medium")
 
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
 
     # ----------------------------------------------------
-    # COLUMNA IZQUIERDA: GRILLA SEMANAL DE AGENDA
+    # COLUMNA IZQUIERDA: GRILLA SEMANAL DE AGENDA (7 DÍAS)
     # ----------------------------------------------------
     with col_grilla:
         c_act, c_nav_l, c_nav_r, c_titulo_m, _ = st.columns([1, 0.4, 0.4, 3, 1])
@@ -166,20 +167,20 @@ with tab_cal:
             st.session_state["fecha_seleccionada"] += timedelta(days=7)
             st.rerun()
 
-        # Días de la semana seleccionada
+        # Días de la semana seleccionada (Lunes a Domingo)
         inicio_semana = f_sel - timedelta(days=f_sel.weekday())
-        dias_semana = [inicio_semana + timedelta(days=i) for i in range(5)] # Lun a Vie
+        dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
         
-        # Título sincronizado con el mes/año de la semana visible
+        # Título sincronizado con el mes/año
         mes_semana_str = MESES_ESP[inicio_semana.month - 1]
         c_titulo_m.markdown(f"<h3 style='margin:0;'>{mes_semana_str}. {inicio_semana.year}</h3>", unsafe_allow_html=True)
         st.divider()
 
-        # Encabezados de días
-        cols_hdr = st.columns([0.8] + [2]*5)
+        # Encabezados de días (7 días)
+        cols_hdr = st.columns([0.6] + [1.8]*7)
         cols_hdr[0].write("")
         
-        dias_nombres = ["Lun", "Mar", "Mié", "Jue", "Vie"]
+        dias_nombres = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
         for idx, d_f in enumerate(dias_semana):
             es_hoy = (d_f == f_sel)
             clase_num = "day-num" if es_hoy else "day-num-inactive"
@@ -192,8 +193,8 @@ with tab_cal:
 
         # Filas por Horas (8:00 a 16:00 hs)
         for hora in range(8, 17):
-            cols_h = st.columns([0.8] + [2]*5)
-            cols_h[0].markdown(f"<span style='color:#64748b; font-size:0.8rem; font-weight:600;'>{hora:02d}:00</span>", unsafe_allow_html=True)
+            cols_h = st.columns([0.6] + [1.8]*7)
+            cols_h[0].markdown(f"<span style='color:#64748b; font-size:0.75rem; font-weight:600;'>{hora:02d}:00</span>", unsafe_allow_html=True)
             
             for idx, d_f in enumerate(dias_semana):
                 d_str = d_f.strftime("%Y-%m-%d")
@@ -209,7 +210,7 @@ with tab_cal:
                             st.markdown(f"""
                                 <div class="block-evento" style="background-color: {bg_c}; color: {tx_c}; border-left-color: {border_c};">
                                     {ev['title']}<br>
-                                    <span style="font-size:0.75rem; opacity:0.85;">⏱️ {ev['inicio']:02d}:00 - {ev['fin']:02d}:00 hs</span>
+                                    <span style="font-size:0.7rem; opacity:0.85;">⏱️ {ev['inicio']:02d}:00 - {ev['fin']:02d}:00 hs</span>
                                 </div>
                             """, unsafe_allow_html=True)
                     else:
@@ -219,13 +220,12 @@ with tab_cal:
     # COLUMNA DERECHA: PANEL LATERAL
     # ----------------------------------------------------
     with col_panel_derecho:
-        # Botón superior desplegable para agregar agendamiento
         with st.popover("➕ Nuevo agendamiento", use_container_width=True):
             st.markdown("#### Agendar Tarea")
             with st.form("form_nuevo_turno_top", clear_on_submit=True):
                 f_t = st.date_input("Fecha", value=f_sel)
-                tit_t = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Barrio 1")
-                nota_t = st.text_input("Detalle", placeholder="Ej: Mantenimiento general")
+                tit_t = st.text_input("Título / Capilla", placeholder="Ej: Evento Parroquial")
+                nota_t = st.text_input("Detalle", placeholder="Ej: Reunión especial")
                 cat_t = st.selectbox("Categoría / Color", options=list(PALETA_COLORES.keys()))
                 
                 c_i, c_f = st.columns(2)
@@ -247,7 +247,6 @@ with tab_cal:
                         st.success("¡Agendado!")
                         st.rerun()
 
-        # Buscador
         st.text_input("🔍 Buscar", placeholder="Buscar tarea...", label_visibility="collapsed")
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -263,7 +262,7 @@ with tab_cal:
 
         for sem in cal_m:
             cols_m = st.columns(7)
-            sem_rot = [sem[-1]] + sem[:-1] # Domingo primero
+            sem_rot = [sem[-1]] + sem[:-1]
             for i, d_num in enumerate(sem_rot):
                 if d_num != 0:
                     f_m_curr = date(f_sel.year, f_sel.month, d_num)
@@ -276,17 +275,16 @@ with tab_cal:
 
         st.divider()
 
-        # Bloc del Día Seleccionado con botón para AGREGAR
+        # Bloc de Agendamientos
         evs_dia_sel = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str]
         
         c_bloc_hdr, c_bloc_add = st.columns([3, 1])
         c_bloc_hdr.markdown(f"### 📋 Agendamientos ({len(evs_dia_sel)})")
         
-        # Botón extra para agregar directo desde el bloc del día
         with c_bloc_add.popover("➕", help="Agregar tarea a esta fecha"):
             with st.form("form_add_bloc_rapido", clear_on_submit=True):
                 st.markdown(f"**Agregar a {f_sel.strftime('%d/%m/%Y')}**")
-                tit_b = st.text_input("Título", placeholder="Ej: Visita de inspección")
+                tit_b = st.text_input("Título", placeholder="Ej: Visita fin de semana")
                 nota_b = st.text_input("Nota", placeholder="Opcional")
                 cat_b = st.selectbox("Color", options=list(PALETA_COLORES.keys()), key="cat_b_sel")
                 c_ib, c_fb = st.columns(2)
