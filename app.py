@@ -4,15 +4,15 @@ import calendar
 from datetime import datetime, date, timedelta
 import uuid
 
-# Configuración de página
+# Configuración de página con layout amplio
 st.set_page_config(
-    page_title="Agenda - Jardinería y Limpieza",
-    page_icon="🌿",
+    page_title="Agenda de Capillas",
+    page_icon="📅",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Paleta de colores pastel estéticos
+# Paleta de colores Pastel
 PALETA_COLORES = {
     "💚 Verde Pastel": {"bg": "#d1e7dd", "border": "#0f5132", "text": "#0f5132"},
     "💜 Violeta Pastel": {"bg": "#e2d9f3", "border": "#593196", "text": "#593196"},
@@ -39,7 +39,6 @@ ROTACION_JARDINERIA = {
 
 MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
-# ITEMS EXTRAÍDOS DEL PDF DE LIMPIEZA
 PDF_CHECKLIST_ITEMS = {
     "🚶 Pasillos": [
         "1. Limpieza de pisos: Barridos, desinfectados y sin manchas o líquidos derramados.",
@@ -100,12 +99,12 @@ def generar_eventos_jardineria(anio=2026):
                     "inicio": tarea['inicio'],
                     "fin": tarea['fin'],
                     "estilo": COLOR_JARDINERIA_BASE,
-                    "nota": "Trabajo rotativo programado"
+                    "nota": "Trabajo de jardinería programado"
                 })
         curr += delta
     return eventos
 
-# Session State
+# Variables de Sesión
 if "lista_capillas" not in st.session_state:
     st.session_state["lista_capillas"] = CAPILLAS_DEFAULT.copy()
 
@@ -133,59 +132,27 @@ if "comentarios_checklist" not in st.session_state:
 if "tareas_extra_checklist" not in st.session_state:
     st.session_state["tareas_extra_checklist"] = {}
 
-# Estilos CSS
+# Estilos CSS Limpios
 st.markdown("""
     <style>
-    .stApp { background-color: #fafafa; }
+    .stApp { background-color: #f8fafc; }
     
-    /* Botón flotante del evento en la agenda por horas */
-    div[data-testid="stPopover"] > button {
-        border-radius: 8px !important;
-        border: none !important;
-        padding: 10px 14px !important;
-        font-weight: 600 !important;
-        text-align: left !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.06) !important;
-        width: 100% !important;
-        display: flex !important;
-        justify-content: float-left !important;
-    }
-    
-    .week-table {
-        width: 100%;
-        border-collapse: collapse;
-        background: #ffffff;
+    /* Estilo del Bloc de Notas Lateral */
+    .bloc-notas {
+        background-color: #ffffff;
         border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        border: 1px solid #e0e0e0;
+        padding: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     
-    .week-table th {
-        background: #f4f5f7;
-        padding: 12px 6px;
-        font-weight: 700;
-        font-size: 0.95rem;
-        color: #2d3748;
-        border-bottom: 2px solid #e2e8f0;
-        border-right: 1px solid #edf2f7;
-        text-align: center;
-    }
-    
-    .week-table td {
-        border-bottom: 1px solid #edf2f7;
-        border-right: 1px solid #edf2f7;
-        vertical-align: middle;
-        padding: 6px;
-    }
-    
-    .time-col {
-        width: 90px !important;
-        background: #f8fafc;
-        font-size: 0.88rem;
-        font-weight: 700;
-        color: #4a5568;
-        text-align: center;
+    /* Indicador visual de tareas en la casilla */
+    .dot-indicator {
+        font-size: 11px;
+        color: #2563eb;
+        font-weight: bold;
+        display: block;
+        margin-top: 2px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -197,176 +164,134 @@ tab_cal, tab_check, tab_capillas = st.tabs([
     "⛪ 3. Resumen de Capillas"
 ])
 
-# Función para renderizar la tarjeta emergente (estilo AgendaPro)
-def render_popover_evento(ev):
-    est = ev.get("estilo", COLOR_JARDINERIA_BASE)
-    lbl_btn = f"📌 {ev.get('title')} ({ev.get('inicio'):02d}:00 - {ev.get('fin'):02d}:00 hs)"
-    
-    with st.popover(lbl_btn, use_container_width=True):
-        st.markdown(f"### {ev.get('title')}")
-        st.caption(f"📅 Fecha: {ev.get('fecha')} | ⏱️ {ev.get('inicio'):02d}:00 a {ev.get('fin'):02d}:00 hs")
-        
-        if ev.get("nota"):
-            st.info(f"💬 **Detalle:** {ev.get('nota')}")
-            
-        st.divider()
-        
-        # Opciones de Edición / Borrado
-        with st.expander("✏️ Editar o Eliminar Turno", expanded=False):
-            with st.form(f"pop_form_{ev['id']}"):
-                n_tit = st.text_input("Título de la tarea / Capilla", value=ev.get("title"))
-                n_nota = st.text_input("Observación extra", value=ev.get("nota", ""))
-                
-                c_def = list(PALETA_COLORES.keys())[0]
-                for k, v in PALETA_COLORES.items():
-                    if v["bg"] == ev.get("estilo", {}).get("bg"):
-                        c_def = k
-                        break
-                n_col = st.selectbox("Color de etiqueta", options=list(PALETA_COLORES.keys()), index=list(PALETA_COLORES.keys()).index(c_def))
-                
-                col1, col2 = st.columns(2)
-                n_i = col1.number_input("Hora Inicio", min_value=0, max_value=23, value=int(ev.get("inicio", 8)))
-                n_f = col2.number_input("Hora Fin", min_value=1, max_value=24, value=int(ev.get("fin", 12)))
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                btn_guardar = st.form_submit_button("💾 Guardar Cambios", use_container_width=True, type="primary")
-                btn_borrar = st.form_submit_button("🗑️ ELIMINAR ESTA TAREA", use_container_width=True)
-                
-                if btn_guardar:
-                    ev["title"] = n_tit
-                    ev["nota"] = n_nota
-                    ev["inicio"] = int(n_i)
-                    ev["fin"] = int(n_f)
-                    ev["estilo"] = PALETA_COLORES[n_col]
-                    st.success("¡Tarea actualizada!")
-                    st.rerun()
-                    
-                if btn_borrar:
-                    st.session_state["eventos_calendar"] = [e for e in st.session_state["eventos_calendar"] if e["id"] != ev["id"]]
-                    st.success("¡Tarea borrada exitosamente!")
-                    st.rerun()
-
 # ==========================================
-# 1. PESTAÑA CALENDARIO Y AGENDA
+# 1. PESTAÑA CALENDARIO Y AGENDA (DISPOSICIÓN LIMPIA Y BLOC LATERAL)
 # ==========================================
 with tab_cal:
-    col_v1, col_v2 = st.columns([1, 1])
+    # Encabezado del mes y navegación
+    c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
+    if c_nav1.button("◄ Mes Anterior", use_container_width=True):
+        if st.session_state["mes_visita"] == 1:
+            st.session_state["mes_visita"] = 12
+            st.session_state["anio_visita"] -= 1
+        else:
+            st.session_state["mes_visita"] -= 1
+        st.rerun()
+        
+    c_nav2.markdown(f"<h2 style='text-align:center; margin:0;'>{MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}</h2>", unsafe_allow_html=True)
     
-    with col_v1:
-        modo_vista = st.radio("Dispositivo:", ["📱 Teléfono", "🖥️ Computadora"], horizontal=True)
+    if c_nav3.button("Mes Siguiente ►", use_container_width=True):
+        if st.session_state["mes_visita"] == 12:
+            st.session_state["mes_visita"] = 1
+            st.session_state["anio_visita"] += 1
+        else:
+            st.session_state["mes_visita"] += 1
+        st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # LAYOUT DE 2 COLUMNAS: CALENDARIO (70%) Y BLOC DE NOTAS (30%)
+    col_calendario, col_bloc = st.columns([2.3, 1], gap="medium")
+
+    # COLUMNA IZQUIERDA: CALENDARIO LIMPIO
+    with col_calendario:
+        headers = st.columns(7)
+        dias_hdr = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+        for idx, h in enumerate(dias_hdr):
+            headers[idx].markdown(f"<h4 style='text-align:center;'>{h}</h4>", unsafe_allow_html=True)
+
+        cal_semanas = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
         
-    with col_v2:
-        periodo_vista = st.radio("Vista por:", ["Por Día", "Por Semana", "Por Mes"], horizontal=True, index=2)
-
-    st.divider()
-
-    f_act = st.session_state["fecha_seleccionada"]
-    es_movil = "📱" in modo_vista
-
-    # VISTA POR MES
-    if periodo_vista == "Por Mes":
-        c_nav1, c_nav2, c_nav3 = st.columns([1, 2, 1])
-        if c_nav1.button("◄ Mes Anterior", use_container_width=True):
-            if st.session_state["mes_visita"] == 1:
-                st.session_state["mes_visita"] = 12
-                st.session_state["anio_visita"] -= 1
-            else:
-                st.session_state["mes_visita"] -= 1
-            st.rerun()
+        for semana in cal_semanas:
+            cols_dia = st.columns(7)
+            semana_rot = [semana[-1]] + semana[:-1] # Ajustar domingo primero
             
-        c_nav2.markdown(f"<h2 style='text-align:center; margin:0;'>{MESES_ESP[st.session_state['mes_visita']-1]} {st.session_state['anio_visita']}</h2>", unsafe_allow_html=True)
+            for idx, dia_num in enumerate(semana_rot):
+                with cols_dia[idx]:
+                    if dia_num != 0:
+                        f_str = f"{st.session_state['anio_visita']}-{st.session_state['mes_visita']:02d}-{dia_num:02d}"
+                        f_curr = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
+                        
+                        # Conteo de tareas para mostrar etiqueta
+                        evs_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
+                        cant_tareas = len(evs_dia)
+                        
+                        es_seleccionado = (f_curr == st.session_state["fecha_seleccionada"])
+                        
+                        # Texto del botón
+                        txt_btn = f"★ {dia_num}" if es_seleccionado else f"{dia_num}"
+                        if cant_tareas > 0 and not es_seleccionado:
+                            txt_btn += f" ({cant_tareas})"
+                            
+                        btn_type = "primary" if es_seleccionado else "secondary"
+                        
+                        if st.button(txt_btn, key=f"btn_cal_{st.session_state['mes_visita']}_{dia_num}", type=btn_type, use_container_width=True):
+                            st.session_state["fecha_seleccionada"] = f_curr
+                            st.rerun()
+                    else:
+                        st.write("")
+
+    # COLUMNA DERECHA: BLOC DE NOTAS LATERAL DEL DÍA SELECCIONADO
+    with col_bloc:
+        f_sel = st.session_state["fecha_seleccionada"]
+        f_sel_str = f_sel.strftime("%Y-%m-%d")
+        dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
         
-        if c_nav3.button("Mes Siguiente ►", use_container_width=True):
-            if st.session_state["mes_visita"] == 12:
-                st.session_state["mes_visita"] = 1
-                st.session_state["anio_visita"] += 1
-            else:
-                st.session_state["mes_visita"] += 1
-            st.rerun()
+        st.markdown(f"### 📝 Bloc del día")
+        st.markdown(f"**{dias_semana_esp[f_sel.weekday()]} {f_sel.strftime('%d/%m/%Y')}**")
+        st.divider()
+
+        # Botón para desplegar el formulario de agendar
+        with st.popover("➕ Agendar nueva tarea", use_container_width=True):
+            st.markdown("#### Agendar en este día")
+            with st.form("form_nueva_tarea_bloc", clear_on_submit=True):
+                titulo_n = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Barrio 1")
+                nota_n = st.text_input("Detalle u observación", placeholder="Ej: Traer cortadora de césped")
+                color_n = st.selectbox("Color", options=list(PALETA_COLORES.keys()))
+                
+                c1, c2 = st.columns(2)
+                h_i = c1.number_input("Desde (hs)", min_value=0, max_value=23, value=8)
+                h_f = c2.number_input("Hasta (hs)", min_value=1, max_value=24, value=12)
+                
+                if st.form_submit_button("Guardar Tarea", type="primary", use_container_width=True):
+                    if titulo_n.strip():
+                        st.session_state["eventos_calendar"].append({
+                            "id": str(uuid.uuid4()),
+                            "title": titulo_n.strip(),
+                            "fecha": f_sel_str,
+                            "inicio": int(h_i),
+                            "fin": int(h_f),
+                            "estilo": PALETA_COLORES[color_n],
+                            "nota": nota_n.strip()
+                        })
+                        st.success("¡Tarea guardada!")
+                        st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        if not es_movil:
-            headers = st.columns(7)
-            dias_hdr = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
-            for idx, h in enumerate(dias_hdr):
-                headers[idx].markdown(f"### {h}")
-
-            cal_semanas = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
-            
-            for semana in cal_semanas:
-                cols_dia = st.columns(7)
-                semana_rot = [semana[-1]] + semana[:-1]
-                for idx, dia_num in enumerate(semana_rot):
-                    with cols_dia[idx]:
-                        if dia_num != 0:
-                            f_str = f"{st.session_state['anio_visita']}-{st.session_state['mes_visita']:02d}-{dia_num:02d}"
-                            f_curr = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
+        # Listado de tareas del día seleccionado
+        evs_del_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str]
+        
+        if not evs_del_dia:
+            st.info("No hay tareas agendadas para este día.")
+        else:
+            for ev in evs_del_dia:
+                with st.container():
+                    col_t, col_del = st.columns([4, 1])
+                    
+                    with col_t:
+                        st.markdown(f"**📌 {ev['title']}**")
+                        st.caption(f"⏱️ {ev['inicio']:02d}:00 a {ev['fin']:02d}:00 hs")
+                        if ev.get("nota"):
+                            st.caption(f"💬 {ev['nota']}")
                             
-                            es_hoy = (f_curr == st.session_state["fecha_seleccionada"])
-                            lbl_dia = f"★ {dia_num}" if es_hoy else f"{dia_num}"
-                            btn_type = "primary" if es_hoy else "secondary"
+                    with col_del:
+                        # Botón de basura para borrar tarea
+                        if st.button("🗑️", key=f"del_{ev['id']}", help="Eliminar tarea"):
+                            st.session_state["eventos_calendar"] = [e for e in st.session_state["eventos_calendar"] if e["id"] != ev["id"]]
+                            st.rerun()
                             
-                            if st.button(lbl_dia, key=f"btn_m_{st.session_state['mes_visita']}_{dia_num}", type=btn_type, use_container_width=True):
-                                st.session_state["fecha_seleccionada"] = f_curr
-                                st.rerun()
-
-                            # Eventos dentro del cuadro de día
-                            evs = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
-                            for ev in evs:
-                                render_popover_evento(ev)
-                        else:
-                            st.write("")
-
-    # AGENDA POR HORAS / DÍA SELECCIONADO (ESTILO AGENDAPRO CON POPUP INTERACTIVO)
-    st.markdown("<br>", unsafe_allow_html=True)
-    dias_nom = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-    f_sel = st.session_state["fecha_seleccionada"]
-    f_sel_str = f_sel.strftime("%Y-%m-%d")
-    
-    st.markdown(f"### 📅 Agenda de turnos: {dias_nom[f_sel.weekday()]} {f_sel.strftime('%d/%m/%Y')}")
-    st.caption("Hacé clic en cualquier bloque de tarea programado para ver el detalle estilo tarjeta flotante, editar o borrar.")
-
-    for hora in range(7, 19):
-        col_h, col_ev = st.columns([1, 6])
-        with col_h:
-            st.markdown(f"**{hora:02d}:00 hs**")
-            
-        with col_ev:
-            evs_hora = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str and e.get("inicio", 8) == hora]
-            if evs_hora:
-                for ev in evs_hora:
-                    render_popover_evento(ev)
-            else:
-                st.write("")
-
-    st.divider()
-
-    # FORMULARIO PARA AGREGAR NUEVA TAREA
-    with st.expander("➕ Agendar nueva tarea al calendario", expanded=False):
-        with st.form("form_nueva_tarea", clear_on_submit=True):
-            f_tarea = st.date_input("Fecha", value=f_act)
-            titulo = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Alberdi")
-            nota_t = st.text_input("Observación / Detalle extra", placeholder="Ej: Llevar bolsas de basura")
-            color = st.selectbox("Color / Categoría", options=list(PALETA_COLORES.keys()))
-            
-            ch1, ch2 = st.columns(2)
-            h_ini = ch1.number_input("Hora Inicio", min_value=0, max_value=23, value=8)
-            h_fin = ch2.number_input("Hora Fin", min_value=1, max_value=24, value=12)
-            
-            if st.form_submit_button("Agendar Tarea", use_container_width=True, type="primary"):
-                if titulo.strip():
-                    st.session_state["eventos_calendar"].append({
-                        "id": str(uuid.uuid4()),
-                        "title": titulo,
-                        "fecha": f_tarea.strftime("%Y-%m-%d"),
-                        "inicio": int(h_ini),
-                        "fin": int(h_fin),
-                        "estilo": PALETA_COLORES[color],
-                        "nota": nota_t.strip()
-                    })
-                    st.success("¡Tarea agendada exitosamente!")
-                    st.rerun()
+                    st.markdown("---")
 
 # ==========================================
 # 2. PESTAÑA CHECKLIST DIGITAL
