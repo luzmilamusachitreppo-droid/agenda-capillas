@@ -171,18 +171,15 @@ with tab_cal:
     # COLUMNA IZQUIERDA: GRILLA SEMANAL DE AGENDA (7 DÍAS)
     # ----------------------------------------------------
     with col_grilla:
-        c_act, c_nav_l, c_nav_r, c_titulo_m, _ = st.columns([1, 0.4, 0.4, 3, 1])
+        # Encabezado con flechas a los lados del nombre del mes
+        c_act, c_nav_l, c_titulo_m, c_nav_r, _ = st.columns([1, 0.4, 2.5, 0.4, 1])
         
         if c_act.button("Hoy", use_container_width=True):
             st.session_state["fecha_seleccionada"] = date.today()
             st.rerun()
 
-        if c_nav_l.button("◄"):
+        if c_nav_l.button("◄", use_container_width=True):
             st.session_state["fecha_seleccionada"] -= timedelta(days=7)
-            st.rerun()
-
-        if c_nav_r.button("►"):
-            st.session_state["fecha_seleccionada"] += timedelta(days=7)
             st.rerun()
 
         # Días de la semana seleccionada (Lunes a Domingo)
@@ -193,7 +190,12 @@ with tab_cal:
         mes_principal = dias_semana[3]
         titulo_semana = f"{MESES_ESP[mes_principal.month - 1]} {mes_principal.year}"
 
-        c_titulo_m.markdown(f"<h3 style='margin:0;'>{titulo_semana}</h3>", unsafe_allow_html=True)
+        c_titulo_m.markdown(f"<h3 style='margin:0; text-align:center;'>{titulo_semana}</h3>", unsafe_allow_html=True)
+
+        if c_nav_r.button("►", use_container_width=True):
+            st.session_state["fecha_seleccionada"] += timedelta(days=7)
+            st.rerun()
+
         st.divider()
 
         # Encabezados de días (7 días)
