@@ -89,7 +89,7 @@ if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
 if "fecha_seleccionada" not in st.session_state:
-    st.session_state["fecha_seleccionada"] = date(2026, 10, 4)
+    st.session_state["fecha_seleccionada"] = date(2026, 11, 1)
 
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in st.session_state["lista_capillas"]}
@@ -189,7 +189,9 @@ with tab_cal:
         inicio_semana = f_sel - timedelta(days=f_sel.weekday())
         dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
         
-        titulo_semana = f"{MESES_ESP[f_sel.month - 1]} {f_sel.year}"
+        # El mes principal de la semana se determina por el día Jueves (índice 3, mayoritario)
+        mes_principal = dias_semana[3]
+        titulo_semana = f"{MESES_ESP[mes_principal.month - 1]} {mes_principal.year}"
 
         c_titulo_m.markdown(f"<h3 style='margin:0;'>{titulo_semana}</h3>", unsafe_allow_html=True)
         st.divider()
@@ -276,11 +278,12 @@ with tab_cal:
         st.text_input("🔍 Buscar", placeholder="Buscar tarea...", label_visibility="collapsed")
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Mini Calendario Mensual Sincronizado
-        st.markdown(f"**{MESES_ESP_CORTO[f_sel.month-1].upper()} DE {f_sel.year}**")
+        # Mini Calendario Mensual Sincronizado (basado en el mes principal de la semana)
+        mes_panel = mes_principal
+        st.markdown(f"**{MESES_ESP_CORTO[mes_panel.month-1].upper()} DE {mes_panel.year}**")
         
         cal_obj = calendar.Calendar(firstweekday=0) # 0 = Lunes
-        cal_m = cal_obj.monthdayscalendar(f_sel.year, f_sel.month)
+        cal_m = cal_obj.monthdayscalendar(mes_panel.year, mes_panel.month)
         
         hdr_m = st.columns(7)
         d_min = ["L", "M", "M", "J", "V", "S", "D"]
@@ -291,11 +294,11 @@ with tab_cal:
             cols_m = st.columns(7)
             for i, d_num in enumerate(sem):
                 if d_num != 0:
-                    f_m_curr = date(f_sel.year, f_sel.month, d_num)
+                    f_m_curr = date(mes_panel.year, mes_panel.month, d_num)
                     es_sel = (f_m_curr == st.session_state["fecha_seleccionada"])
                     
                     btn_t = "primary" if es_sel else "secondary"
-                    if cols_m[i].button(str(d_num), key=f"m_btn_{f_sel.month}_{d_num}", type=btn_t, use_container_width=True):
+                    if cols_m[i].button(str(d_num), key=f"m_btn_{mes_panel.month}_{d_num}", type=btn_t, use_container_width=True):
                         st.session_state["fecha_seleccionada"] = f_m_curr
                         st.rerun()
                 else:
