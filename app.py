@@ -24,7 +24,7 @@ PALETA_COLORES = {
 
 COLOR_JARDINERIA_BASE = PALETA_COLORES["💚 Verde Pastel"]
 
-CAPILLAS_BASE = [
+CAPILLAS_DEFAULT = [
     "Barrio 1", "Barrio 2", "Barrio 3", "Barrio 4", 
     "Alberdi", "Güiraldes", "Puerto Tirol"
 ]
@@ -105,6 +105,9 @@ def generar_eventos_jardineria(anio=2026):
     return eventos
 
 # Session State
+if "lista_capillas" not in st.session_state:
+    st.session_state["lista_capillas"] = CAPILLAS_DEFAULT.copy()
+
 if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
@@ -118,10 +121,13 @@ if "anio_visita" not in st.session_state:
     st.session_state["anio_visita"] = 2026
 
 if "estados_capillas" not in st.session_state:
-    st.session_state["estados_capillas"] = {c: "Pendiente" for c in CAPILLAS_BASE}
+    st.session_state["estados_capillas"] = {c: "Pendiente" for c in st.session_state["lista_capillas"]}
 
 if "respuestas_checklist" not in st.session_state:
     st.session_state["respuestas_checklist"] = {}
+
+if "comentarios_checklist" not in st.session_state:
+    st.session_state["comentarios_checklist"] = {}
 
 if "tareas_extra_checklist" not in st.session_state:
     st.session_state["tareas_extra_checklist"] = {}
@@ -464,51 +470,85 @@ with tab_cal:
 # ==========================================
 with tab_check:
     st.header("📝 Checklist Digital de Control")
-    st.caption("Completá la planilla de control de cada capilla desde el celular.")
+    st.caption("Completá la planilla de control y agregá observaciones detalladas por cada tarea.")
 
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
 
     col_cap_sel, col_tipo_sel = st.columns(2)
-    capilla_trabajo = col_cap_sel.selectbox("⛪ Seleccionar Capilla:", CAPILLAS_BASE, index=0, key="chk_cap_sel")
-    tipo_checklist = col_tipo_sel.radio("Tipo de Trabajo:", ["🧹 Limpieza (Según PDF)", "🌿 Jardinería"], horizontal=True, key="chk_tipo_sel")
+    
+    with col_cap_sel:
+        capilla_trabajo = st.selectbox(
+            "⛪ Elegir Capilla a revisar:", 
+            st.session_state["lista_capillas"], 
+            index=0, 
+            key="chk_cap_sel",
+            help="Hacé clic para cambiar la capilla que estás controlando"
+        )
+        
+    with col_tipo_sel:
+        tipo_checklist = st.radio(
+            "Tipo de Trabajo:", 
+            ["🧹 Limpieza (Según PDF)", "🌿 Jardinería"], 
+            horizontal=True, 
+            key="chk_tipo_sel"
+        )
 
     clave_base = f"{f_sel_str}_{capilla_trabajo}_{tipo_checklist}"
     if clave_base not in st.session_state["respuestas_checklist"]:
         st.session_state["respuestas_checklist"][clave_base] = {}
 
+    if clave_base not in st.session_state["comentarios_checklist"]:
+        st.session_state["comentarios_checklist"][clave_base] = {}
+
     if clave_base not in st.session_state["tareas_extra_checklist"]:
         st.session_state["tareas_extra_checklist"][clave_base] = {}
 
-    st.subheader(f"Lista para {capilla_trabajo} - {f_sel.strftime('%d/%m/%Y')}")
+    st.markdown(f"### Lista de revisión para **{capilla_trabajo}** — {f_sel.strftime('%d/%m/%Y')}")
 
     total_puntos = 0
     puntos_completados = 0
+
+    # Función auxiliar para renderizar cada item con su casilla y caja de comentario
+    def render_item_con_comentario(item_texto, key_suffix):
+        global total_puntos, puntos_completados
+        total_puntos += 1
+        
+        col_chk, col_comm = st.columns([2, 1])
+        
+        k_item = f"{clave_base}_{key_suffix}"
+        v_actual = st.session_state["respuestas_checklist"][clave_base].get(key_suffix, False)
+        
+        with col_chk:
+            chk = st.checkbox(item_texto, value=v_actual, key=k_item)
+            st.session_state["respuestas_checklist"][clave_base][key_suffix] = chk
+            if chk:
+                puntos_completados += 1
+                
+        with col_comm:
+            c_actual = st.session_state["comentarios_checklist"][clave_base].get(key_suffix, "")
+            comm = st.text_input(
+                "💬 Observación", 
+                value=c_actual, 
+                key=f"comm_{k_item}", 
+                placeholder="Ej: Baño 2 mujeres tiene sarro",
+                label_visibility="collapsed"
+            )
+            st.session_state["comentarios_checklist"][clave_base][key_suffix] = comm
 
     if "Limpieza" in tipo_checklist:
         for categoria, items in PDF_CHECKLIST_ITEMS.items():
             with st.expander(f"{categoria}", expanded=True):
                 # 1. Tareas del PDF
                 for item in items:
-                    total_puntos += 1
-                    k_item = f"{clave_base}_{item}"
-                    v_actual = st.session_state["respuestas_checklist"][clave_base].get(item, False)
-                    chk = st.checkbox(item, value=v_actual, key=k_item)
-                    st.session_state["respuestas_checklist"][clave_base][item] = chk
-                    if chk:
-                        puntos_completados += 1
+                    render_item_con_comentario(item, item)
 
-                # 2. Tareas extra
+                # 2. Tareas extra agregadas por el usuario
                 extras_cat = st.session_state["tareas_extra_checklist"][clave_base].get(categoria, [])
                 for ex_item in extras_cat:
-                    total_puntos += 1
-                    k_ex = f"{clave_base}_{categoria}_{ex_item}"
-                    v_ex = st.session_state["respuestas_checklist"][clave_base].get(ex_item, False)
-                    chk_ex = st.checkbox(f"➕ {ex_item}", value=v_ex, key=k_ex)
-                    st.session_state["respuestas_checklist"][clave_base][ex_item] = chk_ex
-                    if chk_ex:
-                        puntos_completados += 1
+                    render_item_con_comentario(f"➕ {ex_item}", f"{categoria}_{ex_item}")
 
+                st.markdown("---")
                 # 3. Formulario para agregar tarea extra a esta habitación
                 with st.form(f"form_extra_{categoria}", clear_on_submit=True):
                     nueva_t = st.text_input(f"Agregar tarea extra en {categoria}:", placeholder="Ej: Cambiar foco roto")
@@ -522,24 +562,13 @@ with tab_check:
     else:
         with st.expander("🌿 Control de Jardinería", expanded=True):
             for item in CHECKLIST_JARDINERIA_DEFAULT:
-                total_puntos += 1
-                k_item = f"{clave_base}_{item}"
-                v_actual = st.session_state["respuestas_checklist"][clave_base].get(item, False)
-                chk = st.checkbox(item, value=v_actual, key=k_item)
-                st.session_state["respuestas_checklist"][clave_base][item] = chk
-                if chk:
-                    puntos_completados += 1
+                render_item_con_comentario(item, item)
 
             extras_j = st.session_state["tareas_extra_checklist"][clave_base].get("Jardineria", [])
             for ex_item in extras_j:
-                total_puntos += 1
-                k_ex = f"{clave_base}_Jardineria_{ex_item}"
-                v_ex = st.session_state["respuestas_checklist"][clave_base].get(ex_item, False)
-                chk_ex = st.checkbox(f"➕ {ex_item}", value=v_ex, key=k_ex)
-                st.session_state["respuestas_checklist"][clave_base][ex_item] = chk_ex
-                if chk_ex:
-                    puntos_completados += 1
+                render_item_con_comentario(f"➕ {ex_item}", f"Jardineria_{ex_item}")
 
+            st.markdown("---")
             with st.form("form_extra_jardineria", clear_on_submit=True):
                 nueva_tj = st.text_input("Agregar tarea extra de Jardinería:", placeholder="Ej: Riego de maceteros traseros")
                 if st.form_submit_button("➕ Añadir a Jardinería"):
@@ -563,7 +592,19 @@ with tab_capillas:
     st.header("⛪ Resumen y Control de Estado de Capillas")
     st.caption("Seguimiento del estado general de cada ubicación.")
     
-    for c in CAPILLAS_BASE:
+    with st.expander("➕ ¿Querés agregar una nueva capilla?", expanded=False):
+        with st.form("form_nueva_capilla", clear_on_submit=True):
+            nueva_cap_nombre = st.text_input("Nombre de la capilla:", placeholder="Ej: Barrio San José")
+            if st.form_submit_button("Agregar Capilla"):
+                if nueva_cap_nombre.strip() and nueva_cap_nombre.strip() not in st.session_state["lista_capillas"]:
+                    st.session_state["lista_capillas"].append(nueva_cap_nombre.strip())
+                    st.session_state["estados_capillas"][nueva_cap_nombre.strip()] = "Pendiente"
+                    st.success(f"¡Capilla {nueva_cap_nombre.strip()} agregada!")
+                    st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    for c in st.session_state["lista_capillas"]:
         estado_act = st.session_state["estados_capillas"].get(c, "Pendiente")
         st.subheader(c)
         nuevo_est = st.selectbox(
