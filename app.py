@@ -97,7 +97,7 @@ if "estados_capillas" not in st.session_state:
 if "respuestas_checklist" not in st.session_state:
     st.session_state["respuestas_checklist"] = {}
 
-# Estilos CSS (Incluye adaptación exclusiva para celulares)
+# ESTILOS BASE CSS
 st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
@@ -142,45 +142,46 @@ st.markdown("""
         display: inline-block;
     }
     
-    /* Línea divisoria fina de horarios */
     .hora-row-separator {
         border-bottom: 1px solid #e2e8f0;
         margin-top: 4px;
         margin-bottom: 8px;
     }
 
-    /* ---------------------------------------------------
-       ADAPTACIÓN EXCLUSIVA PARA VISTA EN CELULARES
-    --------------------------------------------------- */
-    @media (max-width: 768px) {
-        /* Permite desplazamiento horizontal suave en la grilla sin romper el diseño */
-        [data-testid="stHorizontalBlock"] {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        /* Ajuste de tamaño de fuente para pantallas reducidas */
-        .block-evento {
-            font-size: 0.70rem;
-            padding: 3px 4px;
-        }
-        
-        .day-header {
-            font-size: 0.75rem;
-        }
-        
-        .day-num, .day-num-inactive {
-            font-size: 0.90rem;
-        }
+    /* ESTILOS ESPECÍFICOS MODO CELULAR */
+    .mobile-frame {
+        max-width: 420px;
+        margin: 0 auto;
+        border: 2px solid #cbd5e1;
+        border-radius: 16px;
+        padding: 12px;
+        background-color: #ffffff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
 
-        /* Ajuste táctil conveniente para botones en dispositivos móviles */
-        .stButton>button {
-            padding: 4px 8px;
-            font-size: 0.85rem;
-        }
+    .mobile-frame [data-testid="stHorizontalBlock"] {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .mobile-frame .block-evento {
+        font-size: 0.68rem;
+        padding: 2px 4px;
     }
     </style>
 """, unsafe_allow_html=True)
+
+# ----------------------------------------------------
+# SELECTOR DE MODO DE VISTA (Computadora vs Celular)
+# ----------------------------------------------------
+c_vista_l, c_vista_r = st.columns([2, 1])
+with c_vista_r:
+    modo_dispositivo = st.radio(
+        "🖥️ Modo de Vista:",
+        ["💻 Computadora", "📱 Celular"],
+        horizontal=True,
+        key="selector_modo_dispositivo"
+    )
 
 # PESTAÑAS PRINCIPALES
 tab_cal, tab_check, tab_capillas = st.tabs([
@@ -190,46 +191,47 @@ tab_cal, tab_check, tab_capillas = st.tabs([
 ])
 
 # ==========================================
-# 1. PESTAÑA CALENDARIO
+# FUNCIÓN RENDERING AGENDA
 # ==========================================
-with tab_cal:
-    col_grilla, col_panel_derecho = st.columns([3.5, 1.1], gap="medium")
-
+def render_agenda(es_mobile=False):
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
 
-    # ----------------------------------------------------
-    # COLUMNA IZQUIERDA: GRILLA SEMANAL DE AGENDA (7 DÍAS)
-    # ----------------------------------------------------
+    # Si es modo celular, ordenamos en una sola columna vertical.
+    # Si es computadora, usamos las proporciones originales.
+    if es_mobile:
+        col_grilla = st.container()
+        col_panel_derecho = st.container()
+    else:
+        col_grilla, col_panel_derecho = st.columns([3.5, 1.1], gap="medium")
+
+    # --- GRILLA SEMANAL DE AGENDA ---
     with col_grilla:
-        # Encabezado con flechas a los lados del nombre del mes
         c_act, c_nav_l, c_titulo_m, c_nav_r, _ = st.columns([1, 0.4, 2.5, 0.4, 1])
         
-        if c_act.button("Hoy", use_container_width=True):
+        if c_act.button("Hoy", use_container_width=True, key=f"btn_hoy_{es_mobile}"):
             st.session_state["fecha_seleccionada"] = date.today()
             st.rerun()
 
-        if c_nav_l.button("◄", use_container_width=True):
+        if c_nav_l.button("◄", use_container_width=True, key=f"btn_prev_{es_mobile}"):
             st.session_state["fecha_seleccionada"] -= timedelta(days=7)
             st.rerun()
 
-        # Días de la semana seleccionada (Lunes a Domingo)
         inicio_semana = f_sel - timedelta(days=f_sel.weekday())
         dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
         
-        # El mes principal de la semana se determina por el día Jueves (índice 3, mayoritario)
         mes_principal = dias_semana[3]
         titulo_semana = f"{MESES_ESP[mes_principal.month - 1]} {mes_principal.year}"
 
         c_titulo_m.markdown(f"<h3 style='margin:0; text-align:center;'>{titulo_semana}</h3>", unsafe_allow_html=True)
 
-        if c_nav_r.button("►", use_container_width=True):
+        if c_nav_r.button("►", use_container_width=True, key=f"btn_next_{es_mobile}"):
             st.session_state["fecha_seleccionada"] += timedelta(days=7)
             st.rerun()
 
         st.divider()
 
-        # Encabezados de días (7 días)
+        # Encabezados de días
         cols_hdr = st.columns([0.6] + [1.8]*7)
         cols_hdr[0].write("")
         
@@ -249,7 +251,7 @@ with tab_cal:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Filas por Horas (8:00 a 16:00 hs) con línea divisoria fina
+        # Filas de Horarios
         for hora in range(8, 17):
             cols_h = st.columns([0.6] + [1.8]*7)
             cols_h[0].markdown(f"<span style='color:#64748b; font-size:0.75rem; font-weight:600;'>{hora:02d}:00</span>", unsafe_allow_html=True)
@@ -274,16 +276,16 @@ with tab_cal:
                     else:
                         st.write("")
             
-            # Línea fina divisoria entre renglones de hora
             st.markdown("<div class='hora-row-separator'></div>", unsafe_allow_html=True)
 
-    # ----------------------------------------------------
-    # COLUMNA DERECHA: PANEL LATERAL
-    # ----------------------------------------------------
+    # --- PANEL DERECHO / INFERIOR ---
     with col_panel_derecho:
+        if es_mobile:
+            st.markdown("<br><hr>### 📱 Panel de Gestión", unsafe_allow_html=True)
+
         with st.popover("➕ Nueva tarea", use_container_width=True):
             st.markdown("#### Agendar Tarea")
-            with st.form("form_nuevo_turno_top", clear_on_submit=True):
+            with st.form(f"form_nuevo_turno_{es_mobile}", clear_on_submit=True):
                 f_t = st.date_input("Fecha", value=f_sel)
                 tit_t = st.text_input("Título / Capilla", placeholder="Ej: Evento Parroquial")
                 nota_t = st.text_input("Detalle", placeholder="Ej: Reunión especial")
@@ -308,14 +310,14 @@ with tab_cal:
                         st.success("¡Agendado!")
                         st.rerun()
 
-        st.text_input("🔍 Buscar", placeholder="Buscar tarea...", label_visibility="collapsed")
+        st.text_input("🔍 Buscar", placeholder="Buscar tarea...", label_visibility="collapsed", key=f"search_{es_mobile}")
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Mini Calendario Mensual Sincronizado (basado en el mes principal de la semana)
+        # Mini Calendario Mensual
         mes_panel = mes_principal
         st.markdown(f"**{MESES_ESP_CORTO[mes_panel.month-1].upper()} DE {mes_panel.year}**")
         
-        cal_obj = calendar.Calendar(firstweekday=0) # 0 = Lunes
+        cal_obj = calendar.Calendar(firstweekday=0)
         cal_m = cal_obj.monthdayscalendar(mes_panel.year, mes_panel.month)
         
         hdr_m = st.columns(7)
@@ -331,7 +333,7 @@ with tab_cal:
                     es_sel = (f_m_curr == st.session_state["fecha_seleccionada"])
                     
                     btn_t = "primary" if es_sel else "secondary"
-                    if cols_m[i].button(str(d_num), key=f"m_btn_{mes_panel.month}_{d_num}", type=btn_t, use_container_width=True):
+                    if cols_m[i].button(str(d_num), key=f"m_btn_{mes_panel.month}_{d_num}_{es_mobile}", type=btn_t, use_container_width=True):
                         st.session_state["fecha_seleccionada"] = f_m_curr
                         st.rerun()
                 else:
@@ -357,10 +359,21 @@ with tab_cal:
                         if ev.get("nota"):
                             st.caption(f"💬 {ev['nota']}")
                     with c_del:
-                        if st.button("🗑️", key=f"del_p_{ev['id']}", help="Eliminar"):
+                        if st.button("🗑️", key=f"del_p_{ev['id']}_{es_mobile}", help="Eliminar"):
                             st.session_state["eventos_calendar"] = [e for e in st.session_state["eventos_calendar"] if e["id"] != ev["id"]]
                             st.rerun()
                     st.markdown("---")
+
+# ==========================================
+# 1. PESTAÑA CALENDARIO
+# ==========================================
+with tab_cal:
+    if modo_dispositivo == "📱 Celular":
+        st.markdown('<div class="mobile-frame">', unsafe_allow_html=True)
+        render_agenda(es_mobile=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        render_agenda(es_mobile=False)
 
 # ==========================================
 # 2. PESTAÑA CHECKLIST DIGITAL
