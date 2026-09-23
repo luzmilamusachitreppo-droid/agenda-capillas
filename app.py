@@ -36,7 +36,8 @@ ROTACION_JARDINERIA = {
     4: [{"nombre": "Barrio 4", "inicio": 8, "fin": 12}]
 }
 
-MESES_ESP = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+MESES_ESP_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 PDF_CHECKLIST_ITEMS = {
     "🚶 Pasillos": [
@@ -179,19 +180,10 @@ with tab_cal:
 
         # Días de la semana seleccionada (Lunes a Domingo)
         inicio_semana = f_sel - timedelta(days=f_sel.weekday())
-        fin_semana = inicio_semana + timedelta(days=6)
         dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
         
-        # Título sincronizado con el mes/año (si abarca dos meses, muestra ambos)
-        mes_inicio_str = MESES_ESP[inicio_semana.month - 1]
-        mes_fin_str = MESES_ESP[fin_semana.month - 1]
-        
-        if inicio_semana.month == fin_semana.month:
-            titulo_semana = f"{mes_inicio_str}. {inicio_semana.year}"
-        elif inicio_semana.year == fin_semana.year:
-            titulo_semana = f"{mes_inicio_str}. - {mes_fin_str}. {inicio_semana.year}"
-        else:
-            titulo_semana = f"{mes_inicio_str}. {inicio_semana.year} - {mes_fin_str}. {fin_semana.year}"
+        # Muestra SÓLO el mes correspondiente a la fecha seleccionada (sin juntar dos meses)
+        titulo_semana = f"{MESES_ESP[f_sel.month - 1]} {f_sel.year}"
 
         c_titulo_m.markdown(f"<h3 style='margin:0;'>{titulo_semana}</h3>", unsafe_allow_html=True)
         st.divider()
@@ -205,10 +197,10 @@ with tab_cal:
             es_hoy = (d_f == f_sel)
             clase_num = "day-num" if es_hoy else "day-num-inactive"
             
-            # Si cambia el mes dentro de la semana o es el día 1, mostramos la etiqueta del mes
+            # Etiqueta corta del mes en cada día si difiere o arranca el mes
             badge_mes = ""
             if d_f.day == 1 or idx == 0:
-                badge_mes = f"<br><span class='month-badge'>{MESES_ESP[d_f.month-1]}</span>"
+                badge_mes = f"<br><span class='month-badge'>{MESES_ESP_CORTO[d_f.month-1]}</span>"
 
             cols_hdr[idx+1].markdown(
                 f"<div class='day-header'>{dias_nombres[idx]}<br><span class='{clase_num}'>{d_f.day}</span>{badge_mes}</div>", 
@@ -277,7 +269,7 @@ with tab_cal:
         st.markdown("<br>", unsafe_allow_html=True)
 
         # Mini Calendario Mensual Sincronizado
-        st.markdown(f"**{MESES_ESP[f_sel.month-1].upper()} DE {f_sel.year}**")
+        st.markdown(f"**{MESES_ESP_CORTO[f_sel.month-1].upper()} DE {f_sel.year}**")
         
         cal_m = calendar.monthcalendar(f_sel.year, f_sel.month)
         
@@ -301,7 +293,7 @@ with tab_cal:
 
         st.divider()
 
-        # Bloc de Tareas Pendientes (se quitó el botón (+) duplicado)
+        # Bloc de Tareas Pendientes (Único y sin botón + repetido)
         evs_dia_sel = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str]
         
         st.markdown(f"### 📋 Tareas pendientes ({len(evs_dia_sel)})")
