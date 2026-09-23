@@ -39,24 +39,40 @@ ROTACION_JARDINERIA = {
 MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 MESES_ESP_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
+# CHECKLIST COMPLETA Y DETALLADA CON TODAS LAS ACTIVIDADES FIJAS
 PDF_CHECKLIST_ITEMS = {
-    "🚶 Pasillos": [
-        "1. Limpieza de pisos: Barridos y desinfectados.",
-        "2. Techos y paredes: Sin telarañas.",
-        "3. Mobiliario: Limpios y firmes."
+    "🚶 Pasillos, Naves y Salón": [
+        "1. Limpieza y barrido de pisos generales.",
+        "2. Lavado y desinfección de pisos con producto adecuado.",
+        "3. Limpieza de techos, tirantes y paredes (eliminación de telarañas).",
+        "4. Sacudido y limpieza de bancos, sillas y mobiliario principal.",
+        "5. Limpieza de vidrios, ventanas y marcos.",
+        "6. Limpieza y sacudido de imágenes, altares y elementos litúrgicos.",
+        "7. Vaciado y desinfección de papeleros y cestos de basura."
     ],
-    "🚻 Baños": [
-        "4. Piletas limpias.",
-        "5. Insumos cargados.",
-        "6. Cestos vacíos."
+    "🚻 Baños y Sanitarios": [
+        "1. Limpieza y desinfección profunda de inodoros y bidet.",
+        "2. Limpieza de piletas, lavamanos y griferías.",
+        "3. Limpieza y secado de espejos y azulejos.",
+        "4. Reposición de insumos (papel higiénico, jabón, toallas de mano).",
+        "5. Barrido, trapeado y desinfección de pisos de baño.",
+        "6. Vaciado y desinfección de cestos de residuos."
+    ],
+    "🚪 Accesos y Fachada": [
+        "1. Barrido de veredas, veredones y atrio de acceso.",
+        "2. Limpieza de puertas principales, picaportes y rejas.",
+        "3. Reorganización de afiches, carteleras e informativos.",
+        "4. Control visual de luminarias exteriores e internas."
     ]
 }
 
 CHECKLIST_JARDINERIA_DEFAULT = [
-    "Corte de césped general",
-    "Bordeado y desmalezado",
-    "Riego de plantas",
-    "Limpieza de restos"
+    "1. Corte de césped en sectores generales y patios.",
+    "2. Bordeado, orillado y desmalezado de muros/caminos.",
+    "3. Riego de plantas, arbustos y jardines.",
+    "4. Podado de mantenimiento de cercos vivos y ramas bajas.",
+    "5. Juntado, embolsado y retiro de restos de poda y césped.",
+    "6. Control e inspección general del estado del patio/jardín."
 ]
 
 def generar_eventos_jardineria(anio=2026):
@@ -149,9 +165,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------------------------------------------
-# SELECTOR DE MODO DE VISTA (Computadora vs Celular)
-# ----------------------------------------------------
+# SELECTOR DE MODO DE VISTA
 st.radio(
     "🖥️ Vista optimizada para:",
     ["💻 Computadora", "📱 Celular"],
@@ -328,7 +342,6 @@ def render_agenda_mobile():
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
 
-    # Selector de fecha limpio
     st.markdown("### 📱 Agenda Diaria")
     
     c_prev, c_fecha, c_next = st.columns([1, 3, 1])
@@ -350,9 +363,8 @@ def render_agenda_mobile():
         st.session_state["fecha_seleccionada"] = date.today()
         st.rerun()
 
-    st.markdown(f"#### 📅 {f_sel.strftime('%A %d de %B, %Y').capitalize()}")
+    st.markdown(f"#### 📅 {f_sel.strftime('%d/%m/%Y')}")
 
-    # Botón agregar tarea
     with st.popover("➕ Agregar Tarea en este Día", use_container_width=True):
         with st.form("form_mob_add", clear_on_submit=True):
             tit_t = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Barrio 1")
@@ -379,7 +391,6 @@ def render_agenda_mobile():
 
     st.divider()
 
-    # Listado de actividades del día actual
     evs_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str]
     evs_dia = sorted(evs_dia, key=lambda x: x["inicio"])
 
@@ -422,8 +433,17 @@ with tab_check:
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
 
-    capilla_trabajo = st.selectbox("Elegir Capilla:", st.session_state["lista_capillas"], key="chk_cap_sel")
-    tipo_checklist = st.radio("Tipo:", ["🧹 Limpieza", "🌿 Jardinería"], horizontal=True, key="chk_tipo_sel")
+    # OPCIÓN PARA SELECCIONAR O INGRESAR CUALQUIER CAPILLA DE FORMA LIBRE
+    col_cap_input, col_tipo_sel = st.columns(2)
+    with col_cap_input:
+        capilla_manual = st.text_input("✍️ Nombre de la Capilla:", placeholder="Escribir nombre de la capilla...")
+        capilla_lista = st.selectbox("O seleccionar de la lista:", st.session_state["lista_capillas"], key="chk_cap_sel")
+        
+        # Prioriza la capilla ingresada manualmente si existe
+        capilla_trabajo = capilla_manual.strip() if capilla_manual.strip() else capilla_lista
+
+    with col_tipo_sel:
+        tipo_checklist = st.radio("Tipo de Inspección:", ["🧹 Limpieza", "🌿 Jardinería"], horizontal=True, key="chk_tipo_sel")
 
     clave_base = f"{f_sel_str}_{capilla_trabajo}_{tipo_checklist}"
     if clave_base not in st.session_state["respuestas_checklist"]:
@@ -439,7 +459,7 @@ with tab_check:
                     chk = st.checkbox(item, value=v_act, key=f"{clave_base}_{item}")
                     st.session_state["respuestas_checklist"][clave_base][item] = chk
     else:
-        with st.expander("🌿 Jardinería", expanded=True):
+        with st.expander("🌿 Jardinería y Exteriores", expanded=True):
             for item in CHECKLIST_JARDINERIA_DEFAULT:
                 v_act = st.session_state["respuestas_checklist"][clave_base].get(item, False)
                 chk = st.checkbox(item, value=v_act, key=f"{clave_base}_{item}")
