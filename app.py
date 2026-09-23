@@ -97,7 +97,7 @@ if "estados_capillas" not in st.session_state:
 if "respuestas_checklist" not in st.session_state:
     st.session_state["respuestas_checklist"] = {}
 
-# Estilos CSS
+# Estilos CSS (Incluye adaptación exclusiva para celulares)
 st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
@@ -147,6 +147,37 @@ st.markdown("""
         border-bottom: 1px solid #e2e8f0;
         margin-top: 4px;
         margin-bottom: 8px;
+    }
+
+    /* ---------------------------------------------------
+       ADAPTACIÓN EXCLUSIVA PARA VISTA EN CELULARES
+    --------------------------------------------------- */
+    @media (max-width: 768px) {
+        /* Permite desplazamiento horizontal suave en la grilla sin romper el diseño */
+        [data-testid="stHorizontalBlock"] {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Ajuste de tamaño de fuente para pantallas reducidas */
+        .block-evento {
+            font-size: 0.70rem;
+            padding: 3px 4px;
+        }
+        
+        .day-header {
+            font-size: 0.75rem;
+        }
+        
+        .day-num, .day-num-inactive {
+            font-size: 0.90rem;
+        }
+
+        /* Ajuste táctil conveniente para botones en dispositivos móviles */
+        .stButton>button {
+            padding: 4px 8px;
+            font-size: 0.85rem;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
