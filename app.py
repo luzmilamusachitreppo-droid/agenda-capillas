@@ -18,6 +18,7 @@ st.set_page_config(
 # Diccionario de credenciales autorizadas (puedes cambiar los usuarios y claves aquí)
 USUARIOS_AUTORIZADOS = {
     "admin": "capillas2026",
+    "Silvia" : "Caceresythomas123", 
     "trabajador1": "clave123",
     "encargado": "parroquia2026"
 }
