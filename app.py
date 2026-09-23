@@ -89,7 +89,7 @@ if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
 if "fecha_seleccionada" not in st.session_state:
-    st.session_state["fecha_seleccionada"] = date(2026, 9, 3)
+    st.session_state["fecha_seleccionada"] = date(2026, 10, 4)
 
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in st.session_state["lista_capillas"]}
@@ -182,7 +182,6 @@ with tab_cal:
         inicio_semana = f_sel - timedelta(days=f_sel.weekday())
         dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
         
-        # Muestra SÓLO el mes correspondiente a la fecha seleccionada (sin juntar dos meses)
         titulo_semana = f"{MESES_ESP[f_sel.month - 1]} {f_sel.year}"
 
         c_titulo_m.markdown(f"<h3 style='margin:0;'>{titulo_semana}</h3>", unsafe_allow_html=True)
@@ -197,7 +196,6 @@ with tab_cal:
             es_hoy = (d_f == f_sel)
             clase_num = "day-num" if es_hoy else "day-num-inactive"
             
-            # Etiqueta corta del mes en cada día si difiere o arranca el mes
             badge_mes = ""
             if d_f.day == 1 or idx == 0:
                 badge_mes = f"<br><span class='month-badge'>{MESES_ESP_CORTO[d_f.month-1]}</span>"
@@ -268,32 +266,34 @@ with tab_cal:
         st.text_input("🔍 Buscar", placeholder="Buscar tarea...", label_visibility="collapsed")
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Mini Calendario Mensual Sincronizado
+        # Mini Calendario Mensual Sincronizado (Corregido con inicio en Lunes)
         st.markdown(f"**{MESES_ESP_CORTO[f_sel.month-1].upper()} DE {f_sel.year}**")
         
-        cal_m = calendar.monthcalendar(f_sel.year, f_sel.month)
+        cal_obj = calendar.Calendar(firstweekday=0) # 0 = Lunes
+        cal_m = cal_obj.monthdayscalendar(f_sel.year, f_sel.month)
         
         hdr_m = st.columns(7)
-        d_min = ["D", "L", "M", "M", "J", "V", "S"]
+        d_min = ["L", "M", "M", "J", "V", "S", "D"]
         for i, d_m in enumerate(d_min):
             hdr_m[i].markdown(f"<div style='text-align:center; font-size:0.75rem; font-weight:bold; color:#64748b;'>{d_m}</div>", unsafe_allow_html=True)
 
         for sem in cal_m:
             cols_m = st.columns(7)
-            sem_rot = [sem[-1]] + sem[:-1]
-            for i, d_num in enumerate(sem_rot):
+            for i, d_num in enumerate(sem):
                 if d_num != 0:
                     f_m_curr = date(f_sel.year, f_sel.month, d_num)
                     es_sel = (f_m_curr == st.session_state["fecha_seleccionada"])
                     
                     btn_t = "primary" if es_sel else "secondary"
-                    if cols_m[i].button(str(d_num), key=f"m_btn_{d_num}", type=btn_t, use_container_width=True):
+                    if cols_m[i].button(str(d_num), key=f"m_btn_{f_sel.month}_{d_num}", type=btn_t, use_container_width=True):
                         st.session_state["fecha_seleccionada"] = f_m_curr
                         st.rerun()
+                else:
+                    cols_m[i].write("")
 
         st.divider()
 
-        # Bloc de Tareas Pendientes (Único y sin botón + repetido)
+        # Bloc de Tareas Pendientes
         evs_dia_sel = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str]
         
         st.markdown(f"### 📋 Tareas pendientes ({len(evs_dia_sel)})")
