@@ -1,4 +1,5 @@
-import streamlit as st
+
+  import streamlit as st
 import pandas as pd
 import calendar
 from datetime import datetime, date, timedelta
@@ -6,13 +7,84 @@ import uuid
 
 # Configuración de página
 st.set_page_config(
-    page_title="Agenda de Capillas",
-    page_icon="📅",
+    page_title="Agenda de Capillas - Sistema Privado",
+    page_icon="🔒",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Paleta de colores Pastel
+# ==========================================
+# 🔐 MÓDULO DE AUTENTICACIÓN Y LOGIN SEGURO
+# ==========================================
+# Diccionario de credenciales autorizadas (puedes cambiar los usuarios y claves aquí)
+USUARIOS_AUTORIZADOS = {
+    "admin": "capillas2026",
+    "trabajador1": "clave123",
+    "encargado": "parroquia2026"
+}
+
+if "usuario_autenticado" not in st.session_state:
+    st.session_state["usuario_autenticado"] = False
+
+if "usuario_actual" not in st.session_state:
+    st.session_state["usuario_actual"] = ""
+
+# Si el usuario no ha iniciado sesión, se muestra ÚNICAMENTE la pantalla de login
+if not st.session_state["usuario_autenticado"]:
+    st.markdown("""
+        <style>
+        .login-box {
+            max-width: 420px;
+            margin: 60px auto;
+            padding: 30px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 1px solid #cbd5e1;
+            text-align: center;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    col_l1, col_l2, col_l3 = st.columns([1, 1.2, 1])
+    with col_l2:
+        st.markdown("## 🔒 Acceso Restringido")
+        st.write("Sistema Interno de Gestión de Capillas")
+        
+        with st.form("form_login_privado", clear_on_submit=False):
+            usr_input = st.text_input("👤 Usuario", placeholder="Ingrese su usuario")
+            pass_input = st.text_input("🔑 Contraseña", type="password", placeholder="Ingrese su contraseña")
+            btn_login = st.form_submit_button("Ingresar al Sistema", type="primary", use_container_width=True)
+            
+            if btn_login:
+                usr_clean = usr_input.strip()
+                pass_clean = pass_input.strip()
+                
+                if usr_clean in USUARIOS_AUTORIZADOS and USUARIOS_AUTORIZADOS[usr_clean] == pass_clean:
+                    st.session_state["usuario_autenticado"] = True
+                    st.session_state["usuario_actual"] = usr_clean
+                    st.success("¡Acceso concedido!")
+                    st.rerun()
+                else:
+                    st.error("❌ Usuario o contraseña incorrectos.")
+                    
+    st.stop() # Detiene la ejecución para bloquear la app
+
+# Barrita superior con info del usuario activo y botón para Cerrar Sesión
+c_usr_info, c_logout = st.columns([4, 1])
+with c_usr_info:
+    st.caption(f"👤 Sesión activa: **{st.session_state['usuario_actual']}** (Acceso Autorizado)")
+with c_logout:
+    if st.button("🚪 Cerrar Sesión", use_container_width=True):
+        st.session_state["usuario_autenticado"] = False
+        st.session_state["usuario_actual"] = ""
+        st.rerun()
+
+st.divider()
+
+# ==========================================
+# CONFIGURACIÓN GENERAL Y ESTADOS
+# ==========================================
 PALETA_COLORES = {
     "💚 Verde - Confirmado": {"bg": "#d1e7dd", "border": "#0f5132", "text": "#0f5132"},
     "💙 Azul - En proceso": {"bg": "#cff4fc", "border": "#055160", "text": "#055160"},
@@ -49,7 +121,7 @@ PDF_CHECKLIST_ITEMS = {
         "6. Limpieza y sacudido de imágenes, altares y elementos litúrgicos.",
         "7. Vaciado y desinfección de papeleros y cestos de basura."
     ],
-    "🚻 Baños y Sanitarios": [
+    "Resto Baños y Sanitarios": [
         "1. Limpieza y desinfección profunda de inodoros y bidet.",
         "2. Limpieza de piletas, lavamanos y griferías.",
         "3. Limpieza y secado de espejos y azulejos.",
@@ -96,7 +168,7 @@ def generar_eventos_jardineria(anio=2026):
         curr += delta
     return eventos
 
-# Estado de la app
+# Inicialización de Sesión
 if "lista_capillas" not in st.session_state:
     st.session_state["lista_capillas"] = CAPILLAS_DEFAULT.copy()
 
@@ -121,7 +193,7 @@ if "fotos_checklist" not in st.session_state:
 if "tareas_personalizadas" not in st.session_state:
     st.session_state["tareas_personalizadas"] = {}
 
-# ESTILOS BASE CSS
+# ESTILOS CSS
 st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
@@ -191,7 +263,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# SELECTOR DE MODO DE VISTA
+# SELECTOR DE VISTA
 st.radio(
     "🖥️ Vista optimizada para:",
     ["💻 Computadora", "📱 Celular"],
@@ -207,7 +279,7 @@ tab_cal, tab_check, tab_capillas = st.tabs([
 ])
 
 # ==========================================
-# VISTA COMPUTADORA (GRILLA COMPLETA)
+# VISTA COMPUTADORA
 # ==========================================
 def render_agenda_desktop():
     f_sel = st.session_state["fecha_seleccionada"]
@@ -241,7 +313,6 @@ def render_agenda_desktop():
 
         st.divider()
 
-        # Encabezados de días
         cols_hdr = st.columns([0.6] + [1.8]*7)
         cols_hdr[0].write("")
         
@@ -268,7 +339,6 @@ def render_agenda_desktop():
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Horarios
         for hora in range(8, 17):
             cols_h = st.columns([0.6] + [1.8]*7)
             cols_h[0].markdown(f"<span style='color:#64748b; font-size:0.75rem; font-weight:600;'>{hora:02d}:00</span>", unsafe_allow_html=True)
@@ -323,7 +393,6 @@ def render_agenda_desktop():
                         st.success("¡Agendado!")
                         st.rerun()
 
-        # Mini Calendario Mensual
         mes_panel = mes_principal
         st.markdown(f"**{MESES_ESP_CORTO[mes_panel.month-1].upper()} DE {mes_panel.year}**")
         
@@ -351,7 +420,6 @@ def render_agenda_desktop():
 
         st.divider()
 
-        # Tareas del Día
         evs_dia_sel = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str]
         st.markdown(f"### 📋 Tareas pendientes ({len(evs_dia_sel)})")
         st.caption(f"Día: {f_sel.strftime('%d/%m/%Y')}")
@@ -460,7 +528,7 @@ with tab_cal:
         render_agenda_desktop()
 
 # ==========================================
-# 2. PESTAÑA CHECKLIST DIGITAL (CON FOTOS)
+# 2. PESTAÑA CHECKLIST DIGITAL
 # ==========================================
 with tab_check:
     st.header("📝 Checklist Digital de Control")
@@ -489,7 +557,6 @@ with tab_check:
 
     st.markdown(f"### Revisión: **{capilla_trabajo}** ({f_sel.strftime('%d/%m/%Y')})")
     
-    # Función para renderizar filas de items con tilde, observación y foto
     def render_fila_item(item_nombre):
         c_chk, c_obs, c_foto = st.columns([2.2, 1.8, 1.5])
         
@@ -521,7 +588,6 @@ with tab_check:
                 render_fila_item(item)
                 st.markdown("<hr style='margin: 4px 0; border-top: 1px dashed #e2e8f0;'>", unsafe_allow_html=True)
 
-    # BOTÓN PARA AGREGAR TAREAS PERSONALIZADAS
     st.markdown("---")
     with st.popover("➕ Añadir tarea personalizada al checklist", use_container_width=True):
         st.markdown("#### Nueva Tarea Extra")
@@ -532,14 +598,12 @@ with tab_check:
                 st.success("¡Tarea personalizada agregada!")
                 st.rerun()
 
-    # Muestra de tareas personalizadas agregadas
     if st.session_state["tareas_personalizadas"][clave_base]:
         with st.expander("⭐ Tareas Personalizadas Agregadas", expanded=True):
             for t_custom in st.session_state["tareas_personalizadas"][clave_base]:
                 render_fila_item(f"📌 {t_custom}")
                 st.markdown("<hr style='margin: 4px 0; border-top: 1px dashed #e2e8f0;'>", unsafe_allow_html=True)
 
-    # Observaciones generales del checklist
     st.markdown("#### 💬 Observaciones Generales de la Inspección")
     obs_gen_val = st.text_area("Notas generales:", placeholder="Comentarios finales...", key=f"obs_gen_{clave_base}")
 
