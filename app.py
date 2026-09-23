@@ -39,7 +39,6 @@ ROTACION_JARDINERIA = {
 MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 MESES_ESP_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
-# CHECKLIST COMPLETA Y DETALLADA CON TODAS LAS ACTIVIDADES FIJAS
 PDF_CHECKLIST_ITEMS = {
     "🚶 Pasillos, Naves y Salón": [
         "1. Limpieza y barrido de pisos generales.",
@@ -50,7 +49,7 @@ PDF_CHECKLIST_ITEMS = {
         "6. Limpieza y sacudido de imágenes, altares y elementos litúrgicos.",
         "7. Vaciado y desinfección de papeleros y cestos de basura."
     ],
-    "🚻 Baños y Sanitarios": [
+    "Resto Baños y Sanitarios": [
         "1. Limpieza y desinfección profunda de inodoros y bidet.",
         "2. Limpieza de piletas, lavamanos y griferías.",
         "3. Limpieza y secado de espejos y azulejos.",
@@ -105,13 +104,19 @@ if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
 if "fecha_seleccionada" not in st.session_state:
-    st.session_state["fecha_seleccionada"] = date(2026, 11, 1)
+    st.session_state["fecha_seleccionada"] = date.today()
 
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in st.session_state["lista_capillas"]}
 
 if "respuestas_checklist" not in st.session_state:
     st.session_state["respuestas_checklist"] = {}
+
+if "observaciones_checklist" not in st.session_state:
+    st.session_state["observaciones_checklist"] = {}
+
+if "tareas_personalizadas" not in st.session_state:
+    st.session_state["tareas_personalizadas"] = {}
 
 # ESTILOS BASE CSS
 st.markdown("""
@@ -136,16 +141,36 @@ st.markdown("""
         font-size: 0.88rem;
         color: #334155;
     }
-    .day-num {
-        font-size: 1.05rem;
+    
+    /* DÍA HOY (ACTUAL REAL): Borde azul remarcado y fondo suave */
+    .day-num-hoy {
+        font-size: 1.1rem;
         font-weight: bold;
         color: #0284c7;
+        border: 2px solid #0284c7;
+        background-color: #e0f2fe;
+        border-radius: 50%;
+        padding: 2px 8px;
+        display: inline-block;
     }
+    
+    /* DÍA SELECCIONADO */
+    .day-num-selected {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #ffffff;
+        background-color: #0284c7;
+        border-radius: 50%;
+        padding: 2px 8px;
+        display: inline-block;
+    }
+
     .day-num-inactive {
         font-size: 1.05rem;
         font-weight: normal;
         color: #64748b;
     }
+    
     .month-badge {
         font-size: 0.68rem;
         font-weight: bold;
@@ -186,6 +211,7 @@ tab_cal, tab_check, tab_capillas = st.tabs([
 def render_agenda_desktop():
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
+    hoy_real = date.today()
 
     col_grilla, col_panel_derecho = st.columns([3.5, 1.1], gap="medium")
 
@@ -193,7 +219,7 @@ def render_agenda_desktop():
         c_act, c_nav_l, c_titulo_m, c_nav_r, _ = st.columns([1, 0.4, 2.5, 0.4, 1])
         
         if c_act.button("Hoy", use_container_width=True, key="btn_hoy_desk"):
-            st.session_state["fecha_seleccionada"] = date.today()
+            st.session_state["fecha_seleccionada"] = hoy_real
             st.rerun()
 
         if c_nav_l.button("◄", use_container_width=True, key="btn_prev_desk"):
@@ -214,14 +240,21 @@ def render_agenda_desktop():
 
         st.divider()
 
-        # Encabezados de días
+        # Encabezados de días con diferenciación de HOY y SELECCIONADO
         cols_hdr = st.columns([0.6] + [1.8]*7)
         cols_hdr[0].write("")
         
         dias_nombres = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
         for idx, d_f in enumerate(dias_semana):
-            es_hoy = (d_f == f_sel)
-            clase_num = "day-num" if es_hoy else "day-num-inactive"
+            es_hoy = (d_f == hoy_real)
+            es_seleccionado = (d_f == f_sel)
+            
+            if es_seleccionado:
+                clase_num = "day-num-selected"
+            elif es_hoy:
+                clase_num = "day-num-hoy"
+            else:
+                clase_num = "day-num-inactive"
             
             badge_mes = ""
             if d_f.day == 1 or idx == 0:
@@ -336,7 +369,7 @@ def render_agenda_desktop():
                         st.rerun()
 
 # ==========================================
-# VISTA CELULAR (ADAPTADA Y LIMPIA)
+# VISTA CELULAR
 # ==========================================
 def render_agenda_mobile():
     f_sel = st.session_state["fecha_seleccionada"]
@@ -433,21 +466,23 @@ with tab_check:
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
 
-    # OPCIÓN PARA SELECCIONAR O INGRESAR CUALQUIER CAPILLA DE FORMA LIBRE
     col_cap_input, col_tipo_sel = st.columns(2)
     with col_cap_input:
         capilla_manual = st.text_input("✍️ Nombre de la Capilla:", placeholder="Escribir nombre de la capilla...")
         capilla_lista = st.selectbox("O seleccionar de la lista:", st.session_state["lista_capillas"], key="chk_cap_sel")
-        
-        # Prioriza la capilla ingresada manualmente si existe
         capilla_trabajo = capilla_manual.strip() if capilla_manual.strip() else capilla_lista
 
     with col_tipo_sel:
         tipo_checklist = st.radio("Tipo de Inspección:", ["🧹 Limpieza", "🌿 Jardinería"], horizontal=True, key="chk_tipo_sel")
 
     clave_base = f"{f_sel_str}_{capilla_trabajo}_{tipo_checklist}"
+    
     if clave_base not in st.session_state["respuestas_checklist"]:
         st.session_state["respuestas_checklist"][clave_base] = {}
+    if clave_base not in st.session_state["observaciones_checklist"]:
+        st.session_state["observaciones_checklist"][clave_base] = {}
+    if clave_base not in st.session_state["tareas_personalizadas"]:
+        st.session_state["tareas_personalizadas"][clave_base] = []
 
     st.markdown(f"### Revisión: **{capilla_trabajo}** ({f_sel.strftime('%d/%m/%Y')})")
     
@@ -455,15 +490,60 @@ with tab_check:
         for cat, items in PDF_CHECKLIST_ITEMS.items():
             with st.expander(cat, expanded=True):
                 for item in items:
-                    v_act = st.session_state["respuestas_checklist"][clave_base].get(item, False)
-                    chk = st.checkbox(item, value=v_act, key=f"{clave_base}_{item}")
-                    st.session_state["respuestas_checklist"][clave_base][item] = chk
+                    c_chk, c_obs = st.columns([3, 2])
+                    
+                    with c_chk:
+                        v_act = st.session_state["respuestas_checklist"][clave_base].get(item, False)
+                        chk = st.checkbox(item, value=v_act, key=f"chk_{clave_base}_{item}")
+                        st.session_state["respuestas_checklist"][clave_base][item] = chk
+                    
+                    with c_obs:
+                        obs_act = st.session_state["observaciones_checklist"][clave_base].get(item, "")
+                        obs_val = st.text_input("Observaciones:", value=obs_act, key=f"obs_{clave_base}_{item}", placeholder="Detalles u observaciones...")
+                        st.session_state["observaciones_checklist"][clave_base][item] = obs_val
     else:
         with st.expander("🌿 Jardinería y Exteriores", expanded=True):
             for item in CHECKLIST_JARDINERIA_DEFAULT:
-                v_act = st.session_state["respuestas_checklist"][clave_base].get(item, False)
-                chk = st.checkbox(item, value=v_act, key=f"{clave_base}_{item}")
-                st.session_state["respuestas_checklist"][clave_base][item] = chk
+                c_chk, c_obs = st.columns([3, 2])
+                
+                with c_chk:
+                    v_act = st.session_state["respuestas_checklist"][clave_base].get(item, False)
+                    chk = st.checkbox(item, value=v_act, key=f"chk_{clave_base}_{item}")
+                    st.session_state["respuestas_checklist"][clave_base][item] = chk
+                
+                with c_obs:
+                    obs_act = st.session_state["observaciones_checklist"][clave_base].get(item, "")
+                    obs_val = st.text_input("Observaciones:", value=obs_act, key=f"obs_{clave_base}_{item}", placeholder="Detalles u observaciones...")
+                    st.session_state["observaciones_checklist"][clave_base][item] = obs_val
+
+    # BOTÓN PARA AGREGAR TAREAS ADICIONALES/PERSONALIZADAS CON SIGNOS (+)
+    st.markdown("---")
+    with st.popover("➕ Añadir tarea personalizada al checklist", use_container_width=True):
+        st.markdown("#### Nueva Tarea Extra")
+        nueva_tarea_nom = st.text_input("Nombre de la tarea adicional:", placeholder="Ej: Reparar foco del altar")
+        if st.button("Guardar Tarea Extra", type="primary", use_container_width=True):
+            if nueva_tarea_nom.strip():
+                st.session_state["tareas_personalizadas"][clave_base].append(nueva_tarea_nom.strip())
+                st.success("¡Tarea personalizada agregada!")
+                st.rerun()
+
+    # Muestra de tareas personalizadas agregadas
+    if st.session_state["tareas_personalizadas"][clave_base]:
+        with st.expander("⭐ Tareas Personalizadas Agregadas", expanded=True):
+            for t_custom in st.session_state["tareas_personalizadas"][clave_base]:
+                c_chk, c_obs = st.columns([3, 2])
+                with c_chk:
+                    v_act = st.session_state["respuestas_checklist"][clave_base].get(t_custom, False)
+                    chk = st.checkbox(f"📌 {t_custom}", value=v_act, key=f"chk_custom_{clave_base}_{t_custom}")
+                    st.session_state["respuestas_checklist"][clave_base][t_custom] = chk
+                with c_obs:
+                    obs_act = st.session_state["observaciones_checklist"][clave_base].get(t_custom, "")
+                    obs_val = st.text_input("Observaciones:", value=obs_act, key=f"obs_custom_{clave_base}_{t_custom}", placeholder="Detalles...")
+                    st.session_state["observaciones_checklist"][clave_base][t_custom] = obs_val
+
+    # Observaciones generales del checklist
+    st.markdown("#### 💬 Observaciones Generales de la Inspección")
+    obs_gen_val = st.text_area("Notas generales:", placeholder="Comentarios finales...", key=f"obs_gen_{clave_base}")
 
 # ==========================================
 # 3. PESTAÑA RESUMEN DE CAPILLAS
