@@ -39,6 +39,50 @@ ROTACION_JARDINERIA = {
 
 MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
+# ITEMS EXTRAÍDOS DEL PDF DE LIMPIEZA
+PDF_CHECKLIST_ITEMS = {
+    "🚶 Pasillos": [
+        "1. Limpieza de pisos: Barridos, desinfectados y sin manchas o líquidos derramados.",
+        "2. Techos y paredes: Sin telarañas en zonas altas, grietas o humedad visible.",
+        "3. Mobiliario / Cuadros / Avisos: Limpios, firmes y sin riesgo de caída."
+    ],
+    "🚻 Baños (Mujeres / Hombres)": [
+        "4. Piletas y canillas limpias sin sarro ni manchas.",
+        "5. Insumos cargados: Jabón de manos, papel higiénico y toallas disponibles.",
+        "6. Cestos de basura: Vacíos y con bolsa limpia.",
+        "7. Espejos y mesadas: Secos, sin manchas y en perfecto estado.",
+        "8. Ventilación y olores: Ambiente fresco y sin malos olores.",
+        "9. Insumos al alcance: Papel y jabón colocados a altura accesible."
+    ],
+    "🍳 Cocina": [
+        "11. Mesadas y superficies: Limpias, desinfectadas, secas y libres de grasa.",
+        "12. Bachas y piletas: Sin sarro, desinfectadas y sin manchas.",
+        "13. Grifería: Limpia, seca, sin manchas de sarro ni pérdidas/goteos."
+    ],
+    "🏫 Aulas y Salones": [
+        "15. Mobiliario (sillas, mesas, pizarras): Limpios, acomodados y sin estructuras flojas.",
+        "16. Puertas y cerraduras: Picaportes y cerraduras abren/cierran suavemente.",
+        "17. Ventanas y cortinas: Vidrios limpios, marcos mecánicos operativos.",
+        "18. Enchufes e interruptores: En buen estado, con tapas y sin cables expuestos.",
+        "20. Piletas y canillas: Sin goteos, buen flujo y desagües limpios."
+    ],
+    "💼 Oficinas y Sacramental": [
+        "21. Escritorios y mesas: Despolvados y ordenados.",
+        "22. Ventanas y persianas: Limpias y en buen estado.",
+        "23. Cerraduras de seguridad: Puertas de acceso cierran y traban correctamente.",
+        "24. Acondicionador de aire / Estufas: Filtros limpios y funcionamiento correcto.",
+        "25. Mesas de vidrio sin manchas ni 'manos marcadas'."
+    ]
+}
+
+CHECKLIST_JARDINERIA_DEFAULT = [
+    "Corte de césped general",
+    "Bordeado y desmalezado",
+    "Riego de plantas y jardines",
+    "Poda de hojas secas y ramas",
+    "Limpieza y recolección de restos de jardín"
+]
+
 def generar_eventos_jardineria(anio=2026):
     eventos = []
     curr = date(anio, 1, 1)
@@ -60,7 +104,7 @@ def generar_eventos_jardineria(anio=2026):
         curr += delta
     return eventos
 
-# Inicializaciones en Session State
+# Session State
 if "eventos_calendar" not in st.session_state:
     st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
@@ -76,9 +120,8 @@ if "anio_visita" not in st.session_state:
 if "estados_capillas" not in st.session_state:
     st.session_state["estados_capillas"] = {c: "Pendiente" for c in CAPILLAS_BASE}
 
-for c in CAPILLAS_BASE:
-    if c not in st.session_state["estados_capillas"]:
-        st.session_state["estados_capillas"][c] = "Pendiente"
+if "respuestas_checklist" not in st.session_state:
+    st.session_state["respuestas_checklist"] = {}
 
 # Estilos CSS
 st.markdown("""
@@ -97,9 +140,9 @@ st.markdown("""
     
     .week-table th {
         background: #f4f5f7;
-        padding: 14px 8px;
+        padding: 12px 6px;
         font-weight: 700;
-        font-size: 1.05rem;
+        font-size: 0.95rem;
         color: #2d3748;
         border-bottom: 2px solid #e2e8f0;
         border-right: 1px solid #edf2f7;
@@ -109,15 +152,15 @@ st.markdown("""
     .week-table td {
         border-bottom: 1px solid #edf2f7;
         border-right: 1px solid #edf2f7;
-        height: 55px;
+        height: 60px;
         vertical-align: top;
         padding: 6px;
     }
     
     .time-col {
-        width: 80px !important;
+        width: 75px !important;
         background: #f8fafc;
-        font-size: 0.88rem;
+        font-size: 0.85rem;
         font-weight: 700;
         color: #4a5568;
         text-align: center;
@@ -127,23 +170,18 @@ st.markdown("""
     .event-card {
         border-radius: 8px;
         padding: 8px 12px;
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         font-weight: 600;
-        margin-bottom: 6px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+        margin-bottom: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.06);
         border-left: 5px solid;
         line-height: 1.3;
-    }
-
-    @media (max-width: 768px) {
-        .week-table th { font-size: 0.8rem; padding: 8px 2px; }
-        .event-card { font-size: 0.75rem; padding: 4px 6px; }
     }
     </style>
 """, unsafe_allow_html=True)
 
 # Pestañas Principales
-tab_cal, tab_capillas = st.tabs(["📅 Agenda", "⛪ Capillas y Estados"])
+tab_cal, tab_capillas = st.tabs(["📅 Agenda y Checklist Digital", "⛪ Capillas y Estados"])
 
 with tab_cal:
     col_v1, col_v2 = st.columns([1, 1])
@@ -166,6 +204,7 @@ with tab_cal:
     st.divider()
 
     f_act = st.session_state["fecha_seleccionada"]
+    es_movil = "📱" in modo_vista
 
     # 1. VISTA POR DÍA
     if periodo_vista == "Por Día":
@@ -219,7 +258,7 @@ with tab_cal:
         st.markdown("<br>", unsafe_allow_html=True)
         
         dias_nombres = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
-        cant_dias = 5 if "📱" in modo_vista else 7
+        cant_dias = 3 if es_movil else 7
         fechas_semana = [f_inicio + timedelta(days=i) for i in range(cant_dias)]
         
         html_semana = "<table class='week-table'><thead><tr><th class='time-col'>Hora</th>"
@@ -269,41 +308,47 @@ with tab_cal:
             st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
-        headers = st.columns(7)
-        dias_hdr = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
-        for idx, h in enumerate(dias_hdr):
-            headers[idx].markdown(f"### {h}")
 
-        cal_semanas = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
-        
-        for semana in cal_semanas:
-            cols_dia = st.columns(7)
-            semana_rot = [semana[-1]] + semana[:-1]
-            for idx, dia_num in enumerate(semana_rot):
-                with cols_dia[idx]:
-                    if dia_num != 0:
-                        f_str = f"{st.session_state['anio_visita']}-{st.session_state['mes_visita']:02d}-{dia_num:02d}"
-                        f_curr = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
-                        
-                        es_hoy = (f_curr == st.session_state["fecha_seleccionada"])
-                        lbl_dia = f"★ {dia_num}" if es_hoy else f"{dia_num}"
-                        btn_type = "primary" if es_hoy else "secondary"
-                        
-                        if st.button(lbl_dia, key=f"btn_m_{st.session_state['mes_visita']}_{dia_num}", type=btn_type, use_container_width=True):
-                            st.session_state["fecha_seleccionada"] = f_curr
-                            st.rerun()
+        if es_movil:
+            st.info("📱 Modo Teléfono activo: Seleccioná un día del mes para ver la agenda completa abajo:")
+            dia_sel_num = st.slider("Día del mes:", min_value=1, max_value=31, value=st.session_state["fecha_seleccionada"].day)
+            st.session_state["fecha_seleccionada"] = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_sel_num)
+        else:
+            headers = st.columns(7)
+            dias_hdr = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+            for idx, h in enumerate(dias_hdr):
+                headers[idx].markdown(f"### {h}")
 
-                        evs = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
-                        for ev in evs:
-                            est = ev.get("estilo", COLOR_JARDINERIA_BASE)
-                            st.markdown(
-                                f"""<div style='background-color:{est["bg"]}; color:{est["text"]}; border-left: 4px solid {est["border"]}; padding:4px 6px; border-radius:6px; font-size:0.85rem; font-weight:600; margin-top:3px;'>
-                                {ev.get("inicio", 8)}:00 {ev.get("title", "")}
-                                </div>""",
-                                unsafe_allow_html=True
-                            )
-                    else:
-                        st.write("")
+            cal_semanas = calendar.monthcalendar(st.session_state["anio_visita"], st.session_state["mes_visita"])
+            
+            for semana in cal_semanas:
+                cols_dia = st.columns(7)
+                semana_rot = [semana[-1]] + semana[:-1]
+                for idx, dia_num in enumerate(semana_rot):
+                    with cols_dia[idx]:
+                        if dia_num != 0:
+                            f_str = f"{st.session_state['anio_visita']}-{st.session_state['mes_visita']:02d}-{dia_num:02d}"
+                            f_curr = date(st.session_state["anio_visita"], st.session_state["mes_visita"], dia_num)
+                            
+                            es_hoy = (f_curr == st.session_state["fecha_seleccionada"])
+                            lbl_dia = f"★ {dia_num}" if es_hoy else f"{dia_num}"
+                            btn_type = "primary" if es_hoy else "secondary"
+                            
+                            if st.button(lbl_dia, key=f"btn_m_{st.session_state['mes_visita']}_{dia_num}", type=btn_type, use_container_width=True):
+                                st.session_state["fecha_seleccionada"] = f_curr
+                                st.rerun()
+
+                            evs = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_str]
+                            for ev in evs:
+                                est = ev.get("estilo", COLOR_JARDINERIA_BASE)
+                                st.markdown(
+                                    f"""<div style='background-color:{est["bg"]}; color:{est["text"]}; border-left: 4px solid {est["border"]}; padding:4px 6px; border-radius:6px; font-size:0.85rem; font-weight:600; margin-top:3px;'>
+                                    {ev.get("inicio", 8)}:00 {ev.get("title", "")}
+                                    </div>""",
+                                    unsafe_allow_html=True
+                                )
+                        else:
+                            st.write("")
 
         # AGENDA POR HORAS DEL DÍA SELECCIONADO
         st.markdown("<br>", unsafe_allow_html=True)
@@ -326,17 +371,65 @@ with tab_cal:
                     </div>
                 """
             html_dia_sel += "</td></tr>"
-        html_dia_sel += "</tbody></table>"
+        html_dia_sel += "</tbody>mtable"
         
         st.markdown(html_dia_sel, unsafe_allow_html=True)
 
     st.divider()
 
-    # PANEL INFERIOR DE GESTIÓN
+    # SECCIÓN CHECKLIST DIGITAL DIGITAL PARA CELULAR
+    st.header(f"📝 Checklist Digital de Control")
+    st.caption("Seleccioná la capilla en la que estás trabajando hoy para completar el control desde tu celular.")
+
+    col_cap_sel, col_tipo_sel = st.columns(2)
+    capilla_trabajo = col_cap_sel.selectbox("⛪ Seleccionar Capilla:", CAPILLAS_BASE, index=0)
+    tipo_checklist = col_tipo_sel.radio("Tipo de Trabajo:", ["🧹 Limpieza (Según PDF)", "🌿 Jardinería"], horizontal=True)
+
+    clave_base = f"{f_sel_str}_{capilla_trabajo}_{tipo_checklist}"
+    if clave_base not in st.session_state["respuestas_checklist"]:
+        st.session_state["respuestas_checklist"][clave_base] = {}
+
+    st.subheader(f"Lista para {capilla_trabajo} - {f_sel.strftime('%d/%m/%Y')}")
+
+    total_puntos = 0
+    puntos_completados = 0
+
+    if "Limpieza" in tipo_checklist:
+        for categoria, items in PDF_CHECKLIST_ITEMS.items():
+            with st.expander(f"{categoria}", expanded=True):
+                for item in items:
+                    total_puntos += 1
+                    k_item = f"{clave_base}_{item}"
+                    v_actual = st.session_state["respuestas_checklist"][clave_base].get(item, False)
+                    chk = st.checkbox(item, value=v_actual, key=k_item)
+                    st.session_state["respuestas_checklist"][clave_base][item] = chk
+                    if chk:
+                        puntos_completados += 1
+    else:
+        with st.expander("🌿 Control de Jardinería", expanded=True):
+            for item in CHECKLIST_JARDINERIA_DEFAULT:
+                total_puntos += 1
+                k_item = f"{clave_base}_{item}"
+                v_actual = st.session_state["respuestas_checklist"][clave_base].get(item, False)
+                chk = st.checkbox(item, value=v_actual, key=k_item)
+                st.session_state["respuestas_checklist"][clave_base][item] = chk
+                if chk:
+                    puntos_completados += 1
+
+    pct = (puntos_completados / total_puntos) if total_puntos > 0 else 0
+    st.progress(pct, text=f"Progreso en {capilla_trabajo}: {puntos_completados} de {total_puntos} completados ({int(pct*100)}%)")
+
+    if pct == 1.0:
+        st.balloons()
+        st.success(f"🎉 ¡Revisión completada al 100% en {capilla_trabajo}!")
+
+    st.divider()
+
+    # PANEL INFERIOR DE GESTIÓN (AGREGAR / EDITAR)
     col_add, col_edit = st.columns(2)
     
     with col_add:
-        with st.expander("➕ Agregar nueva tarea", expanded=False):
+        with st.expander("➕ Agregar nueva tarea al calendario", expanded=False):
             with st.form("form_nueva_tarea", clear_on_submit=True):
                 f_tarea = st.date_input("Fecha", value=f_act)
                 titulo = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Alberdi")
