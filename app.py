@@ -470,7 +470,7 @@ with tab_cal:
 # ==========================================
 with tab_check:
     st.header("📝 Checklist Digital de Control")
-    st.caption("Completá la planilla de control y agregá observaciones detalladas por cada tarea.")
+    st.caption("Completá la planilla de control y agregá observaciones opcionales por tarea.")
 
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
@@ -509,47 +509,58 @@ with tab_check:
     total_puntos = 0
     puntos_completados = 0
 
-    # Función auxiliar para renderizar cada item con su casilla y caja de comentario
-    def render_item_con_comentario(item_texto, key_suffix):
+    # Renderiza el item y un desplegable para agregar comentario opcional
+    def render_item_con_observacion_opcional(item_texto, key_suffix, placeholder_ejemplo="Agregar detalle u observación..."):
         global total_puntos, puntos_completados
         total_puntos += 1
         
-        col_chk, col_comm = st.columns([2, 1])
-        
         k_item = f"{clave_base}_{key_suffix}"
         v_actual = st.session_state["respuestas_checklist"][clave_base].get(key_suffix, False)
+        c_actual = st.session_state["comentarios_checklist"][clave_base].get(key_suffix, "")
+        
+        col_chk, col_exp = st.columns([3, 1])
         
         with col_chk:
             chk = st.checkbox(item_texto, value=v_actual, key=k_item)
             st.session_state["respuestas_checklist"][clave_base][key_suffix] = chk
             if chk:
                 puntos_completados += 1
-                
-        with col_comm:
-            c_actual = st.session_state["comentarios_checklist"][clave_base].get(key_suffix, "")
-            comm = st.text_input(
-                "💬 Observación", 
-                value=c_actual, 
-                key=f"comm_{k_item}", 
-                placeholder="Ej: Baño 2 mujeres tiene sarro",
-                label_visibility="collapsed"
-            )
-            st.session_state["comentarios_checklist"][clave_base][key_suffix] = comm
+
+        with col_exp:
+            lbl_expander = f"💬 Nota ({c_actual[:10]}...)" if c_actual else "💬 Observación"
+            with st.expander(lbl_expander, expanded=False):
+                comm = st.text_input(
+                    "Nota extra:", 
+                    value=c_actual, 
+                    key=f"comm_{k_item}", 
+                    placeholder=placeholder_ejemplo,
+                    label_visibility="collapsed"
+                )
+                st.session_state["comentarios_checklist"][clave_base][key_suffix] = comm
 
     if "Limpieza" in tipo_checklist:
         for categoria, items in PDF_CHECKLIST_ITEMS.items():
             with st.expander(f"{categoria}", expanded=True):
                 # 1. Tareas del PDF
                 for item in items:
-                    render_item_con_comentario(item, item)
+                    if "Baños" in categoria:
+                        ej = "Ej: En el baño 2 de mujeres hay sarro"
+                    elif "Cocina" in categoria:
+                        ej = "Ej: La canilla de la bacha pierde una gota"
+                    elif "Pasillos" in categoria:
+                        ej = "Ej: Falta cambiar foco de entrada"
+                    else:
+                        ej = "Ej: Silla rota en el fondo del salón"
 
-                # 2. Tareas extra agregadas por el usuario
+                    render_item_con_observacion_opcional(item, item, placeholder_ejemplo=ej)
+
+                # 2. Tareas extra
                 extras_cat = st.session_state["tareas_extra_checklist"][clave_base].get(categoria, [])
                 for ex_item in extras_cat:
-                    render_item_con_comentario(f"➕ {ex_item}", f"{categoria}_{ex_item}")
+                    render_item_con_observacion_opcional(f"➕ {ex_item}", f"{categoria}_{ex_item}", placeholder_ejemplo="Detalle adicional...")
 
                 st.markdown("---")
-                # 3. Formulario para agregar tarea extra a esta habitación
+                # 3. Formulario para agregar tarea extra
                 with st.form(f"form_extra_{categoria}", clear_on_submit=True):
                     nueva_t = st.text_input(f"Agregar tarea extra en {categoria}:", placeholder="Ej: Cambiar foco roto")
                     if st.form_submit_button("➕ Añadir a esta habitación"):
@@ -562,11 +573,11 @@ with tab_check:
     else:
         with st.expander("🌿 Control de Jardinería", expanded=True):
             for item in CHECKLIST_JARDINERIA_DEFAULT:
-                render_item_con_comentario(item, item)
+                render_item_con_observacion_opcional(item, item, placeholder_ejemplo="Ej: Falta regar las plantas traseras")
 
             extras_j = st.session_state["tareas_extra_checklist"][clave_base].get("Jardineria", [])
             for ex_item in extras_j:
-                render_item_con_comentario(f"➕ {ex_item}", f"Jardineria_{ex_item}")
+                render_item_con_observacion_opcional(f"➕ {ex_item}", f"Jardineria_{ex_item}", placeholder_ejemplo="Detalle extra...")
 
             st.markdown("---")
             with st.form("form_extra_jardineria", clear_on_submit=True):
