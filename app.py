@@ -123,7 +123,10 @@ if "estados_capillas" not in st.session_state:
 if "respuestas_checklist" not in st.session_state:
     st.session_state["respuestas_checklist"] = {}
 
-# Estilos CSS
+if "tareas_extra_checklist" not in st.session_state:
+    st.session_state["tareas_extra_checklist"] = {}
+
+# Estilos CSS con casillas más grandes (120px)
 st.markdown("""
     <style>
     .stApp { background-color: #fafafa; }
@@ -152,15 +155,15 @@ st.markdown("""
     .week-table td {
         border-bottom: 1px solid #edf2f7;
         border-right: 1px solid #edf2f7;
-        height: 60px;
+        height: 120px !important; /* <--- Altura ampliada */
         vertical-align: top;
         padding: 6px;
     }
     
     .time-col {
-        width: 75px !important;
+        width: 80px !important;
         background: #f8fafc;
-        font-size: 0.85rem;
+        font-size: 0.9rem;
         font-weight: 700;
         color: #4a5568;
         text-align: center;
@@ -169,13 +172,15 @@ st.markdown("""
     
     .event-card {
         border-radius: 8px;
-        padding: 8px 12px;
-        font-size: 0.88rem;
+        padding: 10px 14px;
+        font-size: 0.92rem;
         font-weight: 600;
         margin-bottom: 4px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.06);
         border-left: 5px solid;
-        line-height: 1.3;
+        line-height: 1.4;
+        height: 95%; /* <--- Expande la tarjeta en la celda */
+        box-sizing: border-box;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -232,7 +237,7 @@ with tab_cal:
                 html_dia += f"""
                     <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
                         📌 {ev.get("title")}<br>
-                        <small style='font-size: 0.8rem;'>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00 hs</small>
+                        <small style='font-size: 0.85rem;'>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00 hs</small>
                     </div>
                 """
             html_dia += "</td></tr>"
@@ -278,7 +283,7 @@ with tab_cal:
                         html_semana += f"""
                             <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
                                 📌 {ev.get("title")}<br>
-                                <small style='font-size: 0.8rem;'>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00</small>
+                                <small style='font-size: 0.85rem;'>⏱️ {ev.get("inicio"):02d}:00 - {ev.get("fin"):02d}:00</small>
                             </div>
                         """
                 html_semana += "</td>"
@@ -367,20 +372,18 @@ with tab_cal:
                 html_dia_sel += f"""
                     <div class='event-card' style='background-color:{est["bg"]}; border-color:{est["border"]}; color:{est["text"]};'>
                         📌 <b>{ev.get("title")}</b><br>
-                        <small style='font-size: 0.8rem;'>⏱️ Horario: {ev.get("inicio"):02d}:00 a {ev.get("fin"):02d}:00 hs</small>
+                        <small style='font-size: 0.85rem;'>⏱️ Horario: {ev.get("inicio"):02d}:00 a {ev.get("fin"):02d}:00 hs</small>
                     </div>
                 """
             html_dia_sel += "</td></tr>"
-        html_dia_sel += "</tbody>mtable"
+        html_dia_sel += "</tbody></table>"
         
         st.markdown(html_dia_sel, unsafe_allow_html=True)
 
     st.divider()
 
-    # SECCIÓN CHECKLIST DIGITAL DIGITAL PARA CELULAR
-    st.header(f"📝 Checklist Digital de Control")
-    st.caption("Seleccioná la capilla en la que estás trabajando hoy para completar el control desde tu celular.")
-
+    # CHECKLIST DIGITAL Y OPCIÓN DE SUMAR TAREAS EXTRA POR HABITACIÓN
+    st.header("📝 Checklist Digital de Control")
     col_cap_sel, col_tipo_sel = st.columns(2)
     capilla_trabajo = col_cap_sel.selectbox("⛪ Seleccionar Capilla:", CAPILLAS_BASE, index=0)
     tipo_checklist = col_tipo_sel.radio("Tipo de Trabajo:", ["🧹 Limpieza (Según PDF)", "🌿 Jardinería"], horizontal=True)
@@ -388,6 +391,9 @@ with tab_cal:
     clave_base = f"{f_sel_str}_{capilla_trabajo}_{tipo_checklist}"
     if clave_base not in st.session_state["respuestas_checklist"]:
         st.session_state["respuestas_checklist"][clave_base] = {}
+
+    if clave_base not in st.session_state["tareas_extra_checklist"]:
+        st.session_state["tareas_extra_checklist"][clave_base] = {}
 
     st.subheader(f"Lista para {capilla_trabajo} - {f_sel.strftime('%d/%m/%Y')}")
 
@@ -397,6 +403,7 @@ with tab_cal:
     if "Limpieza" in tipo_checklist:
         for categoria, items in PDF_CHECKLIST_ITEMS.items():
             with st.expander(f"{categoria}", expanded=True):
+                # 1. Tareas fijas del PDF
                 for item in items:
                     total_puntos += 1
                     k_item = f"{clave_base}_{item}"
@@ -405,6 +412,28 @@ with tab_cal:
                     st.session_state["respuestas_checklist"][clave_base][item] = chk
                     if chk:
                         puntos_completados += 1
+
+                # 2. Tareas extra agregadas para esta habitación
+                extras_cat = st.session_state["tareas_extra_checklist"][clave_base].get(categoria, [])
+                for ex_item in extras_cat:
+                    total_puntos += 1
+                    k_ex = f"{clave_base}_{categoria}_{ex_item}"
+                    v_ex = st.session_state["respuestas_checklist"][clave_base].get(ex_item, False)
+                    chk_ex = st.checkbox(f"➕ {ex_item}", value=v_ex, key=k_ex)
+                    st.session_state["respuestas_checklist"][clave_base][ex_item] = chk_ex
+                    if chk_ex:
+                        puntos_completados += 1
+
+                # 3. Campo para agregar una tarea extra a esta habitación
+                with st.form(f"form_extra_{categoria}", clear_on_submit=True):
+                    nueva_t = st.text_input(f"Agregar tarea extra en {categoria}:", placeholder="Ej: Cambiar foco roto")
+                    if st.form_submit_button("➕ Añadir a esta habitación"):
+                        if nueva_t.strip():
+                            if categoria not in st.session_state["tareas_extra_checklist"][clave_base]:
+                                st.session_state["tareas_extra_checklist"][clave_base][categoria] = []
+                            st.session_state["tareas_extra_checklist"][clave_base][categoria].append(nueva_t.strip())
+                            st.rerun()
+
     else:
         with st.expander("🌿 Control de Jardinería", expanded=True):
             for item in CHECKLIST_JARDINERIA_DEFAULT:
@@ -416,20 +445,37 @@ with tab_cal:
                 if chk:
                     puntos_completados += 1
 
+            # Extras de jardinería
+            extras_j = st.session_state["tareas_extra_checklist"][clave_base].get("Jardineria", [])
+            for ex_item in extras_j:
+                total_puntos += 1
+                k_ex = f"{clave_base}_Jardineria_{ex_item}"
+                v_ex = st.session_state["respuestas_checklist"][clave_base].get(ex_item, False)
+                chk_ex = st.checkbox(f"➕ {ex_item}", value=v_ex, key=k_ex)
+                st.session_state["respuestas_checklist"][clave_base][ex_item] = chk_ex
+                if chk_ex:
+                    puntos_completados += 1
+
+            with st.form("form_extra_jardineria", clear_on_submit=True):
+                nueva_tj = st.text_input("Agregar tarea extra de Jardinería:", placeholder="Ej: Riego de maceteros traseros")
+                if st.form_submit_button("➕ Añadir a Jardinería"):
+                    if nueva_tj.strip():
+                        if "Jardineria" not in st.session_state["tareas_extra_checklist"][clave_base]:
+                            st.session_state["tareas_extra_checklist"][clave_base]["Jardineria"] = []
+                        st.session_state["tareas_extra_checklist"][clave_base]["Jardineria"].append(nueva_tj.strip())
+                        st.rerun()
+
     pct = (puntos_completados / total_puntos) if total_puntos > 0 else 0
     st.progress(pct, text=f"Progreso en {capilla_trabajo}: {puntos_completados} de {total_puntos} completados ({int(pct*100)}%)")
 
-    if pct == 1.0:
-        st.balloons()
-        st.success(f"🎉 ¡Revisión completada al 100% en {capilla_trabajo}!")
-
     st.divider()
 
-    # PANEL INFERIOR DE GESTIÓN (AGREGAR / EDITAR)
+    # GESTIÓN DEL CALENDARIO: AGREGAR O ELIMINAR TAREAS
+    st.header("⚙️ Gestión de Eventos del Calendario")
     col_add, col_edit = st.columns(2)
     
     with col_add:
-        with st.expander("➕ Agregar nueva tarea al calendario", expanded=False):
+        with st.expander("➕ Agendar nueva tarea", expanded=True):
             with st.form("form_nueva_tarea", clear_on_submit=True):
                 f_tarea = st.date_input("Fecha", value=f_act)
                 titulo = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Alberdi")
@@ -449,16 +495,16 @@ with tab_cal:
                             "fin": int(h_fin),
                             "estilo": PALETA_COLORES[color]
                         })
-                        st.success("¡Tarea agendada!")
+                        st.success("¡Tarea agendada exitosamente!")
                         st.rerun()
 
     with col_edit:
-        with st.expander("✏️ Editar o Eliminar tarea", expanded=False):
+        with st.expander("🗑️ Modificar o Eliminar tarea existente", expanded=True):
             evs_disponibles = st.session_state["eventos_calendar"]
             
             if evs_disponibles:
                 opciones = {f"{e['fecha']} - {e['title']} ({e['inicio']}:00 hs)": e for e in evs_disponibles}
-                sel_lbl = st.selectbox("Seleccioná la tarea a modificar:", list(opciones.keys()))
+                sel_lbl = st.selectbox("Seleccioná la tarea:", list(opciones.keys()))
                 ev_sel = opciones[sel_lbl]
                 
                 with st.form("form_editar_tarea"):
@@ -477,7 +523,7 @@ with tab_cal:
                     n_fn = ce2.number_input("Hora Fin", min_value=1, max_value=24, value=int(ev_sel["fin"]))
                     
                     b_guardar = st.form_submit_button("💾 Guardar Cambios", use_container_width=True, type="primary")
-                    b_borrar = st.form_submit_button("🗑️ Eliminar Tarea", use_container_width=True)
+                    b_borrar = st.form_submit_button("🗑️ ELIMINAR ESTA TAREA", use_container_width=True)
                     
                     if b_guardar:
                         ev_sel["title"] = n_titulo
@@ -489,10 +535,10 @@ with tab_cal:
                         
                     if b_borrar:
                         st.session_state["eventos_calendar"] = [e for e in st.session_state["eventos_calendar"] if e["id"] != ev_sel["id"]]
-                        st.success("¡Tarea eliminada!")
+                        st.success("¡Tarea eliminada del calendario!")
                         st.rerun()
             else:
-                st.info("No hay tareas registradas.")
+                st.info("No hay tareas registradas para eliminar.")
 
 with tab_capillas:
     st.header("Control de Estado de Capillas")
