@@ -5,6 +5,7 @@ from datetime import datetime, date, timedelta
 import uuid
 import gspread
 from google.oauth2.service_account import Credentials
+import json
 
 # Configuración de la conexión a Google Sheets usando los Secrets de Streamlit
 @st.cache_resource
@@ -13,12 +14,23 @@ def init_connection():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    creds_dict = dict(st.secrets["gcp_service_account"])
+    # Forzamos la reconstrucción limpia del diccionario de credenciales
+    secretos = st.secrets["gcp_service_account"]
     
-    # Convertimos los \n escritos como texto plano en saltos de línea reales para RSA
-    if "private_key" in creds_dict:
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-        
+    creds_dict = {
+        "type": secretos["type"],
+        "project_id": secretos["project_id"],
+        "private_key_id": secretos["private_key_id"],
+        "private_key": secretos["private_key"].replace("\\n", "\n"),
+        "client_email": secretos["client_email"],
+        "client_id": secretos["client_id"],
+        "auth_uri": secretos["auth_uri"],
+        "token_uri": secretos["token_uri"],
+        "auth_provider_x509_cert_url": secretos["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": secretos["client_x509_cert_url"],
+        "universe_domain": secretos.get("universe_domain", "googleapis.com")
+    }
+    
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
     return client
