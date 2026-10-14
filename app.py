@@ -24,6 +24,7 @@ sheet = client.open("Agenda Capillas Base")
 
 ws_recordatorios = sheet.worksheet("recordatorios")
 ws_eventos = sheet.worksheet("eventos")
+
 # Configuración de página
 st.set_page_config(
     page_title="Agenda de Capillas - Sistema Privado",
@@ -163,33 +164,8 @@ CHECKLIST_JARDINERIA_DEFAULT = [
     "6. Control e inspección general del estado del patio/jardín."
 ]
 
-def generar_eventos_jardineria(anio=2026):
-    eventos = []
-    curr = date(anio, 1, 1)
-    fecha_fin = date(anio, 12, 31)
-    delta = timedelta(days=1)
-    
-    while curr <= fecha_fin:
-        dia_num = curr.weekday()
-        if dia_num in ROTACION_JARDINERIA:
-            for tarea in ROTACION_JARDINERIA[dia_num]:
-                eventos.append({
-                    "id": str(uuid.uuid4()),
-                    "title": f"Jardinería: {tarea['nombre']}",
-                    "fecha": curr.strftime("%Y-%m-%d"),
-                    "inicio": tarea['inicio'],
-                    "fin": tarea['fin'],
-                    "estilo": COLOR_DEFAULT,
-                    "nota": "Trabajo de jardinería programado"
-                })
-        curr += delta
-    return eventos
-
 if "lista_capillas" not in st.session_state:
     st.session_state["lista_capillas"] = CAPILLAS_DEFAULT.copy()
-
-if "eventos_calendar" not in st.session_state:
-    st.session_state["eventos_calendar"] = generar_eventos_jardineria(2026)
 
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
@@ -208,9 +184,6 @@ if "fotos_checklist" not in st.session_state:
 
 if "tareas_personalizadas" not in st.session_state:
     st.session_state["tareas_personalizadas"] = {}
-
-if "recordatorios_libres" not in st.session_state:
-    st.session_state["recordatorios_libres"] = []
 
 # ESTILOS CSS
 st.markdown("""
@@ -315,6 +288,9 @@ def render_agenda_desktop():
     f_sel_str = f_sel.strftime("%Y-%m-%d")
     hoy_real = date.today()
 
+    # Leemos los eventos directamente desde Google Sheets
+    eventos_desde_gsheets = ws_eventos.get_all_records()
+
     col_grilla, col_panel_derecho = st.columns([3.5, 1.1], gap="medium")
 
     with col_grilla:
@@ -374,19 +350,15 @@ def render_agenda_desktop():
             
             for idx, d_f in enumerate(dias_semana):
                 d_str = d_f.strftime("%Y-%m-%d")
-                evs_h = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == d_str and e.get("inicio") == hora]
+                evs_h = [e for e in eventos_desde_gsheets if str(e.get("fecha")) == d_str and int(e.get("inicio", 0)) == hora]
                 
                 with cols_h[idx+1]:
                     if evs_h:
                         for ev in evs_h:
-                            bg_c = ev.get("estilo", {}).get("bg", "#d1e7dd")
-                            tx_c = ev.get("estilo", {}).get("text", "#0f5132")
-                            border_c = ev.get("estilo", {}).get("border", "#0f5132")
-                            
                             st.markdown(f"""
-                                <div class="block-evento" style="background-color: {bg_c}; color: {tx_c}; border-left-color: {border_c}; font-size:0.75rem;">
+                                <div class="block-evento" style="background-color: #d1e7dd; color: #0f5132; border-left-color: #0f5132; font-size:0.75rem;">
                                     {ev['title']}<br>
-                                    <span style="font-size:0.68rem; opacity:0.85;">⏱️ {ev['inicio']:02d}:00 - {ev['fin']:02d}:00 hs</span>
+                                    <span style="font-size:0.68rem; opacity:0.85;">⏱️ {int(ev['inicio']):02d}:00 - {int(ev['fin']):02d}:00 hs</span>
                                 </div>
                             """, unsafe_allow_html=True)
                     else:
@@ -409,17 +381,16 @@ def render_agenda_desktop():
                 
                 if st.form_submit_button("Guardar Turno", type="primary", use_container_width=True):
                     if tit_t.strip():
-                        st.session_state["eventos_calendar"].append({
-                            "id": str(uuid.uuid4()),
-                            "title": tit_t.strip(),
-                            "fecha": f_t.strftime("%Y-%m-%d"),
-                            "inicio": int(h_i),
-                            "fin": int(h_f),
-                            "estilo": PALETA_COLORES[cat_t],
-                            "nota": nota_t.strip()
-                        })
+                        ws_eventos.append_row([
+                            str(uuid.uuid4()),
+                            tit_t.strip(),
+                            f_t.strftime("%Y-%m-%d"),
+                            int(h_i),
+                            int(h_f),
+                            nota_t.strip()
+                        ])
                         st.session_state["fecha_seleccionada"] = f_t
-                        st.success("¡Agendado!")
+                        st.success("¡Agendado en Google Sheets!")
                         st.rerun()
 
         mes_panel = mes_principal
@@ -449,7 +420,7 @@ def render_agenda_desktop():
 
         st.divider()
 
-        evs_dia_sel = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str]
+        evs_dia_sel = [e for e in eventos_desde_gsheets if str(e.get("fecha")) == f_sel_str]
         st.markdown(f"### 📋 Tareas pendientes ({len(evs_dia_sel)})")
         st.caption(f"Día: {f_sel.strftime('%d/%m/%Y')}")
 
@@ -460,10 +431,12 @@ def render_agenda_desktop():
                 c_det, c_del = st.columns([4, 1])
                 with c_det:
                     st.markdown(f"**{ev['title']}**")
-                    st.caption(f"⏱️ {ev['inicio']:02d}:00 - {ev['fin']:02d}:00 hs")
+                    st.caption(f"⏱️ {int(ev['inicio']):02d}:00 - {int(ev['fin']):02d}:00 hs")
                 with c_del:
                     if st.button("🗑️", key=f"del_desk_{ev['id']}", help="Eliminar"):
-                        st.session_state["eventos_calendar"] = [e for e in st.session_state["eventos_calendar"] if e["id"] != ev["id"]]
+                        cell = ws_eventos.find(str(ev["id"]))
+                        if cell:
+                            ws_eventos.delete_rows(cell.row)
                         st.rerun()
 
 # ==========================================
@@ -472,6 +445,8 @@ def render_agenda_desktop():
 def render_agenda_mobile():
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
+
+    eventos_desde_gsheets = ws_eventos.get_all_records()
 
     st.markdown("### 📱 Agenda Diaria")
     
@@ -508,42 +483,39 @@ def render_agenda_mobile():
             
             if st.form_submit_button("Guardar Tarea", type="primary", use_container_width=True):
                 if tit_t.strip():
-                    st.session_state["eventos_calendar"].append({
-                        "id": str(uuid.uuid4()),
-                        "title": tit_t.strip(),
-                        "fecha": f_sel_str,
-                        "inicio": int(h_i),
-                        "fin": int(h_f),
-                        "estilo": PALETA_COLORES[cat_t],
-                        "nota": nota_t.strip()
-                    })
-                    st.success("¡Agregado!")
+                    ws_eventos.append_row([
+                        str(uuid.uuid4()),
+                        tit_t.strip(),
+                        f_sel_str,
+                        int(h_i),
+                        int(h_f),
+                        nota_t.strip()
+                    ])
+                    st.success("¡Agregado a Google Sheets!")
                     st.rerun()
 
     st.divider()
 
-    evs_dia = [e for e in st.session_state["eventos_calendar"] if e.get("fecha") == f_sel_str]
-    evs_dia = sorted(evs_dia, key=lambda x: x["inicio"])
+    evs_dia = [e for e in eventos_desde_gsheets if str(e.get("fecha")) == f_sel_str]
+    evs_dia = sorted(evs_dia, key=lambda x: int(x.get("inicio", 0)))
 
     if not evs_dia:
         st.info("No hay actividades registradas para esta fecha.")
     else:
         for ev in evs_dia:
-            bg_c = ev.get("estilo", {}).get("bg", "#d1e7dd")
-            tx_c = ev.get("estilo", {}).get("text", "#0f5132")
-            border_c = ev.get("estilo", {}).get("border", "#0f5132")
-            
             with st.container():
                 st.markdown(f"""
-                    <div class="block-evento" style="background-color: {bg_c}; color: {tx_c}; border-left-color: {border_c}; font-size:0.95rem; padding: 10px;">
+                    <div class="block-evento" style="background-color: #d1e7dd; color: #0f5132; border-left-color: #0f5132; font-size:0.95rem; padding: 10px;">
                         <strong>{ev['title']}</strong><br>
-                        ⏱️ {ev['inicio']:02d}:00 - {ev['fin']:02d}:00 hs
+                        ⏱️ {int(ev['inicio']):02d}:00 - {int(ev['fin']):02d}:00 hs
                         {f'<br>💬 {ev["nota"]}' if ev.get("nota") else ''}
                     </div>
                 """, unsafe_allow_html=True)
                 
                 if st.button("Eliminar", key=f"del_m_{ev['id']}", use_container_width=True):
-                    st.session_state["eventos_calendar"] = [e for e in st.session_state["eventos_calendar"] if e["id"] != ev["id"]]
+                    cell = ws_eventos.find(str(ev["id"]))
+                    if cell:
+                        ws_eventos.delete_rows(cell.row)
                     st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -656,62 +628,4 @@ with tab_notes:
     with st.form("form_nueva_nota_libre", clear_on_submit=True):
         col_n1, col_n2 = st.columns([3, 1])
         with col_n1:
-            titulo_nota = st.text_input("📌 Recordatorio / Nota:", placeholder="Ej: Comprar bolsas de residuos para la capilla Alberdi")
-            detalle_nota = st.text_area("✍️ Detalle adicional (opcional):", placeholder="Ej: Pedir en la ferretería de la esquina", height=80)
-        with col_n2:
-            prioridad_nota = st.selectbox("Prioridad / Color:", ["💛 Normal", "🩷 Urgente / Importante", "💚 Idea / Nota"])
-            btn_guardar_nota = st.form_submit_button("➕ Añadir Recordatorio", type="primary", use_container_width=True)
-
-        if btn_guardar_nota and titulo_nota.strip():
-            st.session_state["recordatorios_libres"].append({
-                "id": str(uuid.uuid4()),
-                "titulo": titulo_nota.strip(),
-                "detalle": detalle_nota.strip(),
-                "prioridad": prioridad_nota,
-                "creado_por": st.session_state["usuario_actual"],
-                "fecha_creacion": datetime.now().strftime("%d/%m/%Y %H:%M")
-            })
-            st.success("¡Recordatorio guardado!")
-            st.rerun()
-
-    st.divider()
-    
-    # 1. Leemos todos los registros directamente desde Google Sheets
-    recordatorios_desde_gsheets = ws_recordatorios.get_all_records()
-    
-    st.subheader(f"📋 Recordatorios Guardados ({len(recordatorios_desde_gsheets)})")
-
-    if not recordatorios_desde_gsheets:
-        st.info("No hay recordatorios pendientes. Podés agregar uno arriba.")
-    else:
-        mapa_colores_notas = {
-            "💛 Normal": {"border": "#eab308", "bg": "#fefce8"},
-            "🩷 Urgente / Importante": {"border": "#ef4444", "bg": "#fef2f2"},
-            "💚 Idea / Nota": {"border": "#22c55e", "bg": "#f0fdf4"}
-        }
-
-        cols_notas = st.columns(2)
-        for idx, nota in enumerate(recordatorios_desde_gsheets):
-            col_target = cols_notas[idx % 2]
-            c_info = mapa_colores_notas.get(nota["prioridad"], {"border": "#0284c7", "bg": "#ffffff"})
-            
-            with col_target:
-                with st.container():
-                    st.markdown(f"""
-                        <div class="card-note" style="border-left-color: {c_info['border']}; background-color: {c_info['bg']};">
-                            <h4 style="margin:0 0 6px 0; color:#1e293b;">{nota['titulo']}</h4>
-                            <p style="margin:0 0 8px 0; color:#475569; font-size:0.9rem;">{nota['detalle']}</p>
-                            <span style="font-size:0.75rem; color:#64748b;">
-                                👤 Creado por <strong>{nota['creado_por']}</strong> | 🕒 {nota['fecha_creacion']}
-                            </span>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Al hacer clic en borrar, buscamos la fila en Google Sheets por su 'id' y la eliminamos
-                    if st.button("✔️ Marcar como resuelto / Borrar", key=f"btn_del_nota_{nota['id']}", use_container_width=True):
-                        # Buscamos el número de fila correspondiente al id en la columna 'id' (columna 1)
-                        cell = ws_recordatorios.find(str(nota["id"]))
-                        if cell:
-                            ws_recordatorios.delete_rows(cell.row)
-                        st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)
+            titulo_nota = st.text_input("📌 Recordatorio / Nota:", placeholder="Ej: Comprar bolsas de residuos para la capilla Alber
