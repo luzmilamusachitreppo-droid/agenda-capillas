@@ -13,9 +13,7 @@ def init_connection():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    # Reconstruimos el diccionario con la clave privada asegurando el formato PEM exacto
     private_key_str = st.secrets["gcp_service_account"]["private_key"]
-    # Limpiamos posibles comillas extra o escapes duplicados
     private_key_str = private_key_str.replace('\\n', '\n').strip('"\'')
     
     creds_dict = {
@@ -35,17 +33,6 @@ def init_connection():
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
     return client
-    ]
-    # Convertimos los secretos a diccionario
-    creds_dict = dict(st.secrets["gcp_service_account"])
-    
-    # Aseguramos el formato correcto de saltos de línea en la clave privada
-    if "private_key" in creds_dict:
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-        
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    client = gspread.authorize(creds)
-    return client
 
 # Conectarse a la planilla y abrir las solapas
 client = init_connection()
@@ -53,14 +40,6 @@ sheet = client.open("Agenda Capillas Base")
 
 ws_recordatorios = sheet.worksheet("recordatorios")
 ws_eventos = sheet.worksheet("eventos")
-
-# Configuración de página
-st.set_page_config(
-    page_title="Agenda de Capillas - Sistema Privado",
-    page_icon="🔒",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
 
 # ==========================================
 # 🔐 MÓDULO DE AUTENTICACIÓN Y LOGIN SEGURO
