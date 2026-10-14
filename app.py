@@ -14,6 +14,13 @@ def init_connection():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
+    # Usamos dict() directamente sobre st.secrets asegurando que gspread tome la estructura limpia
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    client = gspread.authorize(creds)
+    return client
+    
     # Forzamos la reconstrucción limpia del diccionario de credenciales
     secretos = st.secrets["gcp_service_account"]
     
