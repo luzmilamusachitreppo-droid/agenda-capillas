@@ -62,6 +62,12 @@ if not st.session_state["usuario_autenticado"]:
             border: 1px solid #cbd5e1;
             text-align: center;
         }
+        @media (max-width: 768px) {
+            .login-box {
+                margin: 20px auto;
+                padding: 20px;
+            }
+        }
         </style>
     """, unsafe_allow_html=True)
     
@@ -111,20 +117,10 @@ PALETA_COLORES = {
     "🩷 Rosa - Alerta": {"bg": "#f8d7da", "border": "#842029", "text": "#842029"}
 }
 
-COLOR_DEFAULT = PALETA_COLORES["💚 Verde - Confirmado"]
-
 CAPILLAS_DEFAULT = [
     "Barrio 1", "Barrio 2", "Barrio 3", "Barrio 4", 
     "Alberdi", "Güiraldes", "Puerto Tirol"
 ]
-
-ROTACION_JARDINERIA = {
-    0: [{"nombre": "Barrio 1", "inicio": 8, "fin": 12}],
-    1: [{"nombre": "Barrio 3", "inicio": 8, "fin": 12}],
-    2: [{"nombre": "Barrio 2", "inicio": 12, "fin": 16}],
-    3: [{"nombre": "Puerto Tirol", "inicio": 12, "fin": 16}],
-    4: [{"nombre": "Barrio 4", "inicio": 8, "fin": 12}]
-}
 
 MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 MESES_ESP_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
@@ -170,9 +166,6 @@ if "lista_capillas" not in st.session_state:
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
-if "estados_capillas" not in st.session_state:
-    st.session_state["estados_capillas"] = {c: "Pendiente" for c in st.session_state["lista_capillas"]}
-
 if "respuestas_checklist" not in st.session_state:
     st.session_state["respuestas_checklist"] = {}
 
@@ -185,7 +178,7 @@ if "fotos_checklist" not in st.session_state:
 if "tareas_personalizadas" not in st.session_state:
     st.session_state["tareas_personalizadas"] = {}
 
-# ESTILOS CSS
+# ESTILOS CSS CON RESPONSIVE DESIGN PARA CELULAR
 st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
@@ -261,6 +254,30 @@ st.markdown("""
         margin-top: 4px;
         margin-bottom: 8px;
     }
+
+    /* ESTILOS ESPECÍFICOS PARA DISPOSITIVOS MÓVILES (< 768px) */
+    @media (max-width: 768px) {
+        .block-evento {
+            font-size: 0.95rem !important;
+            padding: 12px !important;
+            margin-bottom: 10px !important;
+        }
+        .card-note {
+            padding: 14px !important;
+            margin-bottom: 14px !important;
+        }
+        button {
+            min-height: 44px !important;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 4px;
+            overflow-x: auto;
+        }
+        .stTabs [data-baseweb="tab"] {
+            padding: 8px 12px;
+            font-size: 0.85rem;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -281,14 +298,13 @@ tab_cal, tab_check, tab_capillas, tab_notes = st.tabs([
 ])
 
 # ==========================================
-# VISTA COMPUTADORA
+# VISTA COMPUTADORA (INTACTA)
 # ==========================================
 def render_agenda_desktop():
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
     hoy_real = date.today()
 
-    # Leemos los eventos directamente desde Google Sheets
     eventos_desde_gsheets = ws_eventos.get_all_records()
 
     col_grilla, col_panel_derecho = st.columns([3.5, 1.1], gap="medium")
@@ -440,7 +456,7 @@ def render_agenda_desktop():
                         st.rerun()
 
 # ==========================================
-# VISTA CELULAR
+# VISTA CELULAR (OPTIMIZADA TÁCTIL)
 # ==========================================
 def render_agenda_mobile():
     f_sel = st.session_state["fecha_seleccionada"]
@@ -450,8 +466,9 @@ def render_agenda_mobile():
 
     st.markdown("### 📱 Agenda Diaria")
     
-    c_prev, c_fecha, c_next = st.columns([1, 3, 1])
-    if c_prev.button("◄", use_container_width=True, key="m_prev"):
+    # Navegación cómoda de días
+    c_prev, c_fecha, c_next = st.columns([1, 2.5, 1])
+    if c_prev.button("◄ Día", use_container_width=True, key="m_prev"):
         st.session_state["fecha_seleccionada"] -= timedelta(days=1)
         st.rerun()
     
@@ -461,17 +478,17 @@ def render_agenda_mobile():
             st.session_state["fecha_seleccionada"] = nueva_f
             st.rerun()
 
-    if c_next.button("►", use_container_width=True, key="m_next"):
+    if c_next.button("Día ►", use_container_width=True, key="m_next"):
         st.session_state["fecha_seleccionada"] += timedelta(days=1)
         st.rerun()
 
-    if st.button("📍 Ir a Hoy", use_container_width=True, key="m_hoy"):
+    if st.button("📍 Ir al día de hoy", use_container_width=True, key="m_hoy"):
         st.session_state["fecha_seleccionada"] = date.today()
         st.rerun()
 
     st.markdown(f"#### 📅 {f_sel.strftime('%d/%m/%Y')}")
 
-    with st.popover("➕ Agregar Tarea en este Día", use_container_width=True):
+    with st.popover("➕ Agregar Tarea", use_container_width=True):
         with st.form("form_mob_add", clear_on_submit=True):
             tit_t = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Barrio 1")
             nota_t = st.text_input("Detalle", placeholder="Notas de la tarea")
@@ -505,14 +522,14 @@ def render_agenda_mobile():
         for ev in evs_dia:
             with st.container():
                 st.markdown(f"""
-                    <div class="block-evento" style="background-color: #d1e7dd; color: #0f5132; border-left-color: #0f5132; font-size:0.95rem; padding: 10px;">
+                    <div class="block-evento" style="background-color: #d1e7dd; color: #0f5132; border-left-color: #0f5132;">
                         <strong>{ev['title']}</strong><br>
                         ⏱️ {int(ev['inicio']):02d}:00 - {int(ev['fin']):02d}:00 hs
                         {f'<br>💬 {ev["nota"]}' if ev.get("nota") else ''}
                     </div>
                 """, unsafe_allow_html=True)
                 
-                if st.button("Eliminar", key=f"del_m_{ev['id']}", use_container_width=True):
+                if st.button("🗑️ Eliminar Tarea", key=f"del_m_{ev['id']}", use_container_width=True):
                     cell = ws_eventos.find(str(ev["id"]))
                     if cell:
                         ws_eventos.delete_rows(cell.row)
@@ -536,7 +553,8 @@ with tab_check:
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
 
-    col_cap_input, col_tipo_sel = st.columns(2)
+    # Adaptación a 1 columna en móvil y 2 columnas en PC
+    col_cap_input, col_tipo_sel = st.columns([1, 1])
     with col_cap_input:
         capilla_manual = st.text_input("✍️ Nombre de la Capilla:", placeholder="Escribir nombre de la capilla...")
         capilla_lista = st.selectbox("O seleccionar de la lista:", st.session_state["lista_capillas"], key="chk_cap_sel")
@@ -559,35 +577,33 @@ with tab_check:
     st.markdown(f"### Revisión: **{capilla_trabajo}** ({f_sel.strftime('%d/%m/%Y')})")
     
     def render_fila_item(item_nombre):
-        c_chk, c_obs, c_foto = st.columns([2.2, 1.8, 1.5])
+        # En móvil las filas de checklist se apilan para tocar fácilmente
+        st.markdown(f"**{item_nombre}**")
         
-        with c_chk:
-            v_act = st.session_state["respuestas_checklist"][clave_base].get(item_nombre, False)
-            chk = st.checkbox(item_nombre, value=v_act, key=f"chk_{clave_base}_{item_nombre}")
-            st.session_state["respuestas_checklist"][clave_base][item_nombre] = chk
+        v_act = st.session_state["respuestas_checklist"][clave_base].get(item_nombre, False)
+        chk = st.checkbox("Realizado / Completado", value=v_act, key=f"chk_{clave_base}_{item_nombre}")
+        st.session_state["respuestas_checklist"][clave_base][item_nombre] = chk
         
-        with c_obs:
-            obs_act = st.session_state["observaciones_checklist"][clave_base].get(item_nombre, "")
-            obs_val = st.text_input("Observación:", value=obs_act, key=f"obs_{clave_base}_{item_nombre}", placeholder="Detalles...")
-            st.session_state["observaciones_checklist"][clave_base][item_nombre] = obs_val
+        obs_act = st.session_state["observaciones_checklist"][clave_base].get(item_nombre, "")
+        obs_val = st.text_input("Observación:", value=obs_act, key=f"obs_{clave_base}_{item_nombre}", placeholder="Detalles u observaciones...")
+        st.session_state["observaciones_checklist"][clave_base][item_nombre] = obs_val
             
-        with c_foto:
-            foto_subida = st.file_uploader("📷 Foto:", type=["png", "jpg", "jpeg"], key=f"foto_{clave_base}_{item_nombre}")
-            if foto_subida is not None:
-                st.session_state["fotos_checklist"][clave_base][item_nombre] = foto_subida
-                st.image(foto_subida, caption="Foto adjunta", width=120)
+        foto_subida = st.file_uploader("📷 Adjuntar Foto:", type=["png", "jpg", "jpeg"], key=f"foto_{clave_base}_{item_nombre}")
+        if foto_subida is not None:
+            st.session_state["fotos_checklist"][clave_base][item_nombre] = foto_subida
+            st.image(foto_subida, caption="Foto adjunta", width=160)
 
     if "Limpieza" in tipo_checklist:
         for cat, items in PDF_CHECKLIST_ITEMS.items():
             with st.expander(cat, expanded=True):
                 for item in items:
                     render_fila_item(item)
-                    st.markdown("<hr style='margin: 4px 0; border-top: 1px dashed #e2e8f0;'>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
     else:
         with st.expander("🌿 Jardinería y Exteriores", expanded=True):
             for item in CHECKLIST_JARDINERIA_DEFAULT:
                 render_fila_item(item)
-                st.markdown("<hr style='margin: 4px 0; border-top: 1px dashed #e2e8f0;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
     st.markdown("---")
     with st.popover("➕ Añadir tarea personalizada al checklist", use_container_width=True):
@@ -603,7 +619,7 @@ with tab_check:
         with st.expander("⭐ Tareas Personalizadas Agregadas", expanded=True):
             for t_custom in st.session_state["tareas_personalizadas"][clave_base]:
                 render_fila_item(f"📌 {t_custom}")
-                st.markdown("<hr style='margin: 4px 0; border-top: 1px dashed #e2e8f0;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
     st.markdown("#### 💬 Observaciones Generales de la Inspección")
     obs_gen_val = st.text_area("Notas generales:", placeholder="Comentarios finales...", key=f"obs_gen_{clave_base}")
@@ -626,6 +642,56 @@ with tab_notes:
     st.caption("Anotá pendientes generales, avisos o recordatorios sin asignarle un día u horario específico.")
 
     with st.form("form_nueva_nota_libre", clear_on_submit=True):
-        col_n1, col_n2 = st.columns([3, 1])
-        with col_n1:
-            titulo_nota = st.text_input("📌 Recordatorio / Nota:", placeholder="Ej: Comprar bolsas de residuos para la capilla Alber
+        titulo_nota = st.text_input("📌 Recordatorio / Nota:", placeholder="Ej: Comprar bolsas de residuos para la capilla Alberdi")
+        detalle_nota = st.text_area("✍️ Detalle adicional (opcional):", placeholder="Ej: Pedir en la ferretería de la esquina", height=80)
+        prioridad_nota = st.selectbox("Prioridad / Color:", ["💛 Normal", "🩷 Urgente / Importante", "💚 Idea / Nota"])
+        btn_guardar_nota = st.form_submit_button("➕ Añadir Recordatorio", type="primary", use_container_width=True)
+
+        if btn_guardar_nota and titulo_nota.strip():
+            ws_recordatorios.append_row([
+                str(uuid.uuid4()),
+                titulo_nota.strip(),
+                detalle_nota.strip(),
+                prioridad_nota,
+                st.session_state["usuario_actual"],
+                datetime.now().strftime("%d/%m/%Y %H:%M")
+            ])
+            st.success("¡Recordatorio guardado en Google Sheets!")
+            st.rerun()
+
+    st.divider()
+    
+    # Leemos todos los registros directamente desde Google Sheets
+    recordatorios_desde_gsheets = ws_recordatorios.get_all_records()
+    
+    st.subheader(f"📋 Recordatorios Guardados ({len(recordatorios_desde_gsheets)})")
+
+    if not recordatorios_desde_gsheets:
+        st.info("No hay recordatorios pendientes. Podés agregar uno arriba.")
+    else:
+        mapa_colores_notas = {
+            "💛 Normal": {"border": "#eab308", "bg": "#fefce8"},
+            "🩷 Urgente / Importante": {"border": "#ef4444", "bg": "#fef2f2"},
+            "💚 Idea / Nota": {"border": "#22c55e", "bg": "#f0fdf4"}
+        }
+
+        for idx, nota in enumerate(recordatorios_desde_gsheets):
+            c_info = mapa_colores_notas.get(nota["prioridad"], {"border": "#0284c7", "bg": "#ffffff"})
+            
+            with st.container():
+                st.markdown(f"""
+                    <div class="card-note" style="border-left-color: {c_info['border']}; background-color: {c_info['bg']};">
+                        <h4 style="margin:0 0 6px 0; color:#1e293b;">{nota['titulo']}</h4>
+                        <p style="margin:0 0 8px 0; color:#475569; font-size:0.9rem;">{nota['detalle']}</p>
+                        <span style="font-size:0.75rem; color:#64748b;">
+                            👤 Creado por <strong>{nota['creado_por']}</strong> | 🕒 {nota['fecha_creacion']}
+                        </span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button("✔️ Marcar como resuelto / Borrar", key=f"btn_del_nota_{nota['id']}", use_container_width=True):
+                    cell = ws_recordatorios.find(str(nota["id"]))
+                    if cell:
+                        ws_recordatorios.delete_rows(cell.row)
+                    st.rerun()
+                st.markdown("<br>", unsafe_allow_html=True)
