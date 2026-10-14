@@ -10,27 +10,16 @@ import tempfile
 import os
 
 # Configuración de la conexión a Google Sheets usando los Secrets de Streamlit de forma segura
-@st.cache_resource
 def init_connection():
     scope = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    
-    # Creamos un archivo JSON temporal con las credenciales exactas de st.secrets
     creds_dict = dict(st.secrets["gcp_service_account"])
-    
-    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as temp:
-        json.dump(creds_dict, temp)
-        temp_path = temp.name
+    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    # Autenticamos usando el archivo temporal limpio (evita problemas de RSA privados corruptos)
-    creds = Credentials.from_service_account_file(temp_path, scopes=scope)
-    client = gspread.authorize(creds)
-    
-    # Eliminamos el archivo temporal por seguridad
-    os.unlink(temp_path)
-    return client
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    return gspread.authorize(creds)
 
 # Conectarse a la planilla y abrir las solapas
 client = init_connection()
