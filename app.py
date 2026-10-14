@@ -3,7 +3,27 @@ import pandas as pd
 import calendar
 from datetime import datetime, date, timedelta
 import uuid
+import gspread
+from google.oauth2.service_account import Credentials
 
+# Configuración de la conexión a Google Sheets usando los Secrets de Streamlit
+@st.cache_resource
+def init_connection():
+    scope = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    client = gspread.authorize(creds)
+    return client
+
+# Conectarse a la planilla y abrir las solapas
+client = init_connection()
+sheet = client.open("Agenda Capillas Base")
+
+ws_recordatorios = sheet.worksheet("recordatorios")
+ws_eventos = sheet.worksheet("eventos")
 # Configuración de página
 st.set_page_config(
     page_title="Agenda de Capillas - Sistema Privado",
