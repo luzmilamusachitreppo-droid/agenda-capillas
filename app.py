@@ -675,9 +675,13 @@ with tab_notes:
             st.rerun()
 
     st.divider()
-    st.subheader(f"📋 Recordatorios Guardados ({len(st.session_state['recordatorios_libres'])})")
+    
+    # 1. Leemos todos los registros directamente desde Google Sheets
+    recordatorios_desde_gsheets = ws_recordatorios.get_all_records()
+    
+    st.subheader(f"📋 Recordatorios Guardados ({len(recordatorios_desde_gsheets)})")
 
-    if not st.session_state["recordatorios_libres"]:
+    if not recordatorios_desde_gsheets:
         st.info("No hay recordatorios pendientes. Podés agregar uno arriba.")
     else:
         mapa_colores_notas = {
@@ -687,7 +691,7 @@ with tab_notes:
         }
 
         cols_notas = st.columns(2)
-        for idx, nota in enumerate(st.session_state["recordatorios_libres"]):
+        for idx, nota in enumerate(recordatorios_desde_gsheets):
             col_target = cols_notas[idx % 2]
             c_info = mapa_colores_notas.get(nota["prioridad"], {"border": "#0284c7", "bg": "#ffffff"})
             
@@ -703,7 +707,11 @@ with tab_notes:
                         </div>
                     """, unsafe_allow_html=True)
                     
+                    # Al hacer clic en borrar, buscamos la fila en Google Sheets por su 'id' y la eliminamos
                     if st.button("✔️ Marcar como resuelto / Borrar", key=f"btn_del_nota_{nota['id']}", use_container_width=True):
-                        st.session_state["recordatorios_libres"] = [n for n in st.session_state["recordatorios_libres"] if n["id"] != nota["id"]]
+                        # Buscamos el número de fila correspondiente al id en la columna 'id' (columna 1)
+                        cell = ws_recordatorios.find(str(nota["id"]))
+                        if cell:
+                            ws_recordatorios.delete_rows(cell.row)
                         st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True)
