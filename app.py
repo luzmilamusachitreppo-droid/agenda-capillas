@@ -35,10 +35,11 @@ sheet = client.open_by_key("12zw7JZ3cHMg7wKZWMTsfJmmWrpP4DDjLN9K2K_w715w")
 ws_recordatorios = sheet.worksheet("recordatorios")
 ws_eventos = sheet.worksheet("eventos")
 
-# Autenticación
+# Autenticación actualizada con los nuevos usuarios
 USUARIOS_AUTORIZADOS = {
     "admin": "capillas2026",
-    "trabajador1": "clave123",
+    "Luzmila": "Caceresythomas456",
+    "Guillermo": "Caceresythomas789",
     "encargado": "parroquia2026",
     "Silvia": "Caceresythomas123"
 }
@@ -77,7 +78,37 @@ with c_out:
 
 st.divider()
 
-CAPILLAS_DEFAULT = ["Barrio 1", "Barrio 2", "Barrio 3", "Barrio 4", "Alberdi", "Güiraldes", "Puerto Tirol"]
+# Listado ordenado por zonas de tus capillas
+ZONAS_CAPILLAS = {
+    "CAPILLAS CORRIENTES": [
+        "Capilla Laguna seca",
+        "Armenia",
+        "Costanera",
+        "Bella Vista",
+        "Mendoza al sur",
+        "Goya"
+    ],
+    "CAPILLA RESISTENCIA NORTE": [
+        "Barrio 1",
+        "Barrio 2",
+        "Barrio 3",
+        "El Colorado",
+        "La Leonesa",
+        "San Martin"
+    ],
+    "CAPILLA RESISTENCIA SUR": [
+        "Alberdi",
+        "Barrio 4",
+        "Guiraldes",
+        "Barranqueras",
+        "Puerto Tirol"
+    ]
+}
+
+# Lista plana de todas las capillas para los selectores
+todas_las_capillas = []
+for z, caps in ZONAS_CAPILLAS.items():
+    todas_las_capillas.extend(caps)
 
 PDF_CHECKLIST_ITEMS = {
     "🚶 Pasillos, Naves y Salón": [
@@ -122,12 +153,9 @@ PALETA_COLORES = {
     "🩷 Rosa - Alerta": {"bg": "#f8d7da", "border": "#842029", "text": "#842029"}
 }
 
-if "lista_capillas" not in st.session_state:
-    st.session_state["lista_capillas"] = CAPILLAS_DEFAULT.copy()
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
-# Estilos CSS generales para las tarjetas de notas
 st.markdown("""
     <style>
     .card-note {
@@ -230,7 +258,7 @@ with tab_cal:
         st.markdown("#### ➕ Agregar Tarea")
         with st.form("form_add_evento_col", clear_on_submit=True):
             f_tarea = st.date_input("Fecha:", value=f_sel)
-            tit_t = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Barrio 1")
+            tit_t = st.selectbox("Capilla / Tarea:", options=todas_las_capillas)
             cat_t = st.selectbox("Situación / Color:", options=list(PALETA_COLORES.keys()))
             nota_t = st.text_area("Detalle adicional", placeholder="Notas...", height=68)
             
@@ -254,17 +282,14 @@ with tab_cal:
                     st.rerun()
 
 # ==========================================
-# 2. CHECKLIST DIGITAL RESTAURADO
+# 2. CHECKLIST DIGITAL
 # ==========================================
 with tab_check:
     st.header("📝 Checklist Digital de Control")
     
     col_c1, col_c2 = st.columns([1, 1])
     with col_c1:
-        capilla_manual = st.text_input("✍️ Nombre de la Capilla:", placeholder="Escribir nombre...")
-        capilla_lista = st.selectbox("O seleccionar de la lista:", st.session_state["lista_capillas"], key="chk_cap_sel")
-        capilla_trabajo = capilla_manual.strip() if capilla_manual.strip() else capilla_lista
-
+        capilla_trabajo = st.selectbox("Seleccionar Capilla:", todas_las_capillas, key="chk_cap_sel")
     with col_c2:
         tipo_checklist = st.radio("Tipo de Inspección:", ["🧹 Limpieza", "🌿 Jardinería"], horizontal=True, key="chk_tipo_sel")
 
@@ -285,17 +310,23 @@ with tab_check:
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. RESUMEN DE CAPILLAS
+# 3. RESUMEN DE CAPILLAS (ORGANIZADO POR ZONAS)
 # ==========================================
 with tab_capillas:
-    st.header("⛪ Resumen de Capillas")
-    for c in st.session_state["lista_capillas"]:
-        st.subheader(c)
-        st.selectbox(f"Estado de {c}:", ["Pendiente", "En Proceso", "Completado"], key=f"est_{c}")
+    st.header("⛪ Resumen de Capillas por Zona")
+    
+    for zona, capillas in ZONAS_CAPILLAS.items():
+        st.markdown(f"### 📍 {zona}")
+        for c in capillas:
+            col_cap, col_est = st.columns([2, 1])
+            with col_cap:
+                st.write(f"• **{c}**")
+            with col_est:
+                st.selectbox(f"Estado {c}", ["Pendiente", "En Proceso", "Completado"], key=f"est_{c}", label_visibility="collapsed")
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS (DISEÑO BONITO RESTAURADO)
+# 4. RECORDATORIOS RÁPIDOS
 # ==========================================
 with tab_notes:
     st.markdown("## 📌 Recordatorios")
