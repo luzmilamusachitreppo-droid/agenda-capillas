@@ -11,16 +11,23 @@ import os
 
 # Configuración de la conexión a Google Sheets usando los Secrets de Streamlit de forma segura
 def init_connection():
+    import re
     scope = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    creds_dict = json.loads(st.secrets["gcp_json"])
+    raw = st.secrets["gcp_json"].strip()
+    raw = re.sub(r",\s*}", "}", raw)  # tolera una coma de más antes de la llave final
+    try:
+        creds_dict = json.loads(raw, strict=False)
+    except json.JSONDecodeError as e:
+        st.error("El JSON de los Secrets tiene un error: " + e.msg + ". Línea " + str(e.lineno) + ", columna " + str(e.colno) + " (contando desde la primera línea del JSON, la que tiene la llave de apertura).")
+        st.stop()
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     return gspread.authorize(creds)
-
+    
 # Conectarse a la planilla y abrir las solapas
 client = init_connection()
 sheet = client.open("Agenda Capillas Base")
