@@ -35,7 +35,13 @@ sheet = client.open_by_key("12zw7JZ3cHMg7wKZWMTsfJmmWrpP4DDjLN9K2K_w715w")
 ws_recordatorios = sheet.worksheet("recordatorios")
 ws_eventos = sheet.worksheet("eventos")
 
-# Autenticación actualizada con los nuevos usuarios
+# Cargar o crear la hoja de resumen de capillas
+try:
+    ws_resumen = sheet.worksheet("resumen_capillas")
+except Exception:
+    ws_resumen = None
+
+# Autenticación actualizada
 USUARIOS_AUTORIZADOS = {
     "admin": "capillas2026",
     "Luzmila": "Caceresythomas456",
@@ -78,7 +84,7 @@ with c_out:
 
 st.divider()
 
-# Listado ordenado por zonas de tus capillas
+# Listado ordenado por zonas
 ZONAS_CAPILLAS = {
     "CAPILLAS CORRIENTES": [
         "Capilla Laguna seca",
@@ -105,7 +111,6 @@ ZONAS_CAPILLAS = {
     ]
 }
 
-# Lista plana de todas las capillas para los selectores
 todas_las_capillas = []
 for z, caps in ZONAS_CAPILLAS.items():
     todas_las_capillas.extend(caps)
@@ -310,35 +315,74 @@ with tab_check:
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. RESUMEN DE CAPILLAS (ESTADO DE PLANILLA Y DÍAS VISITADOS)
+# 3. RESUMEN DE CAPILLAS (SINCRONIZADO CON GOOGLE SHEETS)
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas por Zona")
     
-    for zona, capillas in ZONAS_CAPILLAS.items():
-        st.markdown(f"### 📍 {zona}")
-        for c in capillas:
-            st.markdown(f"**• {c}**")
-            
-            # Columnas para organizar el Estado de planilla y los Días visitados
-            col_estado, col_visitas = st.columns([1, 1.5])
-            
-            with col_estado:
-                st.selectbox(
-                    "Estado de planilla", 
-                    ["Pendiente", "En Proceso", "Completado"], 
-                    key=f"est_planilla_{c}"
-                )
-            
-            with col_visitas:
-                st.text_input(
-                    "📅 Días visitados este mes", 
-                    placeholder="Ej: 04/10, 12/10, 18/10", 
-                    key=f"dias_visita_{c}"
-                )
-            
-            st.markdown("<hr style='margin: 10px 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-        st.divider()
+    # Cargar datos existentes de Google Sheets si existe la solapa
+    datos_resumen = {}
+    if ws_resumen:
+        try:
+            records = ws_resumen.get_all_records()
+            for r in records:
+                c_nom = r.get("capilla")
+                if c_nom:
+                    datos_resumen[c_nom] = {
+                        "estado": r.get("estado_planilla", "Pendiente"),
+                        "dias": str(r.get("dias_visitados", ""))
+                    }
+        except Exception:
+            datos_resumen = {}
+
+    with st.form("form_guardar_resumen_capillas"):
+        nuevos_datos = {}
+        
+        for zona, capillas in ZONAS_CAPILLAS.items():
+            st.markdown(f"### 📍 {zona}")
+            for c in capillas:
+                st.markdown(f"**• {c}**")
+                
+                info_actual = datos_resumen.get(c, {"estado": "Pendiente", "dias": ""})
+                
+                col_estado, col_visitas = st.columns([1, 1.5])
+                
+                with col_estado:
+                    idx_default = ["Pendiente", "En Proceso", "Completado"].index(info_actual["estado"]) if info_actual["estado"] in ["Pendiente", "En Proceso", "Completado"] else 0
+                    est_val = st.selectbox(
+                        "Estado de planilla", 
+                        ["Pendiente", "En Proceso", "Completado"], 
+                        index=idx_default,
+                        key=f"est_planilla_{c}"
+                    )
+                
+                with col_visitas:
+                    dias_val = st.text_input(
+                        "📅 Días visitados este mes", 
+                        value=info_actual["dias"], 
+                        placeholder="Ej: 04/10, 12/10, 18/10", 
+                        key=f"dias_visita_{c}"
+                    )
+                
+                nuevos_datos[c] = {"zona": zona, "estado": est_val, "dias": dias_val}
+                st.markdown("<hr style='margin: 10px 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+            st.divider()
+
+        btn_guardar_resumen = st.form_submit_button("💾 Guardar Cambios en Google Sheets", type="primary", use_container_width=True)
+
+        if btn_guardar_resumen:
+            if ws_resumen:
+                # Limpiar y reescribir con datos actualizados
+                ws_resumen.clear()
+                rows_to_append = [["zona", "capilla", "estado_planilla", "dias_visitados"]]
+                for cap_nombre, data in nuevos_datos.items():
+                    rows_to_append.append([data["zona"], cap_nombre, data["estado"], data["dias"]])
+                
+                ws_resumen.append_rows(rows_to_append)
+                st.success("¡Resumen de capillas actualizado en Google Sheets!")
+                st.rerun()
+            else:
+                st.error("⚠️ La solapa 'resumen_capillas' no fue encontrada en Google Sheets. Creala para habilitar el guardado automático.")
 
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS
