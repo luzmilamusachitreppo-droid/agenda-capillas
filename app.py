@@ -300,4 +300,9 @@ st.radio(
 )
 
 # PESTAÑAS PRINCIPALES
-tab_cal, tab_check, tab_capillas,
+tab_cal, tab_check, tab_capillas, tab_notes = st.tabs([
+    "📅 1. Agenda Principal", 
+    "📝 2. Checklist Digital", 
+    "⛪ 3. Resumen de Capillas",
+    "📌 4. Recordatorios Rápidos"
+])
