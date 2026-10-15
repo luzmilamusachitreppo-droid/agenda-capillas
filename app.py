@@ -194,7 +194,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 5 Pestañas principales incluyendo Gmail
+# 5 Pestañas principales
 tab_cal, tab_check, tab_capillas, tab_notes, tab_gmail = st.tabs([
     "📅 1. Agenda Principal", 
     "📝 2. Checklist Digital", 
@@ -513,7 +513,7 @@ with tab_gmail:
 
     OPCIONES_ESTADO_MAIL = ["Enviado", "No enviado"]
     OPCIONES_PROCESO = ["Aprobado", "Rechazado", "Pendiente respuesta"]
-    OPCIONES_FINANCIERO = ["Por facturar", "Facturado", "Cobrado"]
+    OPCIONES_FINANCIERO = ["Por facturar", "Enviado a contador", "Facturado", "Cobrado"]
 
     with st.form("form_nuevo_gmail", clear_on_submit=True):
         asunto_mail = st.text_input("Asunto del correo:", placeholder="Ej: Presupuesto de mantenimiento Capilla Alberdi")
@@ -545,7 +545,7 @@ with tab_gmail:
                 st.success("¡Seguimiento de correo guardado con éxito!")
                 st.rerun()
             else:
-                st.error("⚠️ La solapa 'gmail_tracking' no fue encontrada en Google Sheets. Por favor, creala con los encabezados correspondientes.")
+                st.error("⚠️ La solapa 'gmail_tracking' no fue encontrada en Google Sheets.")
 
     st.divider()
 
@@ -560,7 +560,6 @@ with tab_gmail:
     if not registros_gmail:
         st.info("No hay correos ni órdenes de trabajo registradas todavía.")
     else:
-        # Colores según estado financiero o proceso
         mapa_colores_mail = {
             "Aprobado": {"border": "#22c55e", "bg": "#f0fdf4"},
             "Rechazado": {"border": "#ef4444", "bg": "#fef2f2"},
