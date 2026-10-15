@@ -411,4 +411,11 @@ def render_agenda_desktop():
                         ws_eventos.append_row([
                             str(uuid.uuid4()),
                             tit_t.strip(),
-                            f_t.strftime("%Y-%
+                            f_t.strftime("%Y-%m-%d"),
+                            int(h_i),
+                            int(h_f),
+                            nota_t.strip()
+                        ])
+                        st.session_state["fecha_seleccionada"] = f_t
+                        st.success("¡Agendado en Google Sheets!")
+                        st.rerun()
