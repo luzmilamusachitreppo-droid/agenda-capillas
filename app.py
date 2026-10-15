@@ -542,46 +542,45 @@ with tab_notes:
 
     st.divider()
     
-    recordatorios_desde_gsheets = ws_recordatorios.get_all_records()
-    
-    st.subheader(f"📋 Recordatorios Guardados ({len(recordatorios_desde_gsheets)})")
+   recordatorios_desde_gsheets = ws_recordatorios.get_all_records()
 
-    if not recordatorios_desde_gsheets:
-        st.info("No hay recordatorios pendientes. Podés agregar uno arriba.")
-    else:
-        mapa_colores_notas = {
-            "💛 Normal": {"border": "#eab308", "bg": "#fefce8"},
-            "🩷 Urgente / Importante": {"border": "#ef4444", "bg": "#fef2f2"},
-            "💚 Idea / Nota": {"border": "#22c55e", "bg": "#f0fdf4"}
-        }
+st.subheader(f"📋 Recordatorios Guardados ({len(recordatorios_desde_gsheets)})")
 
-        for idx, nota in enumerate(recordatorios_desde_gsheets):
-for idx, nota in enumerate(recordatorios_desde_gsheets):
-            # Extraemos los campos de forma segura con .get para evitar errores si falta alguna columna
-            tit_txt = nota.get("titulo", "Sin título")
-            det_txt = nota.get("detalle", "")
-            prio_txt = nota.get("prioridad", "💛 Normal")
-            autor_txt = nota.get("creado_por", "Sistema")
-            fecha_txt = nota.get("fecha_creacion", "")
-            id_txt = str(nota.get("id", ""))
+if not recordatorios_desde_gsheets:
+    st.info("No hay recordatorios pendientes. Podés agregar uno arriba.")
+else:
+    mapa_colores_notas = {
+        "💛 Normal": {"border": "#eab308", "bg": "#fefce8"},
+        "🩷 Urgente / Importante": {"border": "#ef4444", "bg": "#fef2f2"},
+        "💚 Idea / Nota": {"border": "#22c55e", "bg": "#f0fdf4"}
+    }
 
-            c_info = mapa_colores_notas.get(prio_txt, {"border": "#0284c7", "bg": "#ffffff"})
+    for idx, nota in enumerate(recordatorios_desde_gsheets):
+        # Extraemos los campos de forma segura para evitar errores
+        tit_txt = nota.get("titulo", "Sin título")
+        det_txt = nota.get("detalle", "")
+        prio_txt = nota.get("prioridad", "💛 Normal")
+        autor_txt = nota.get("creado_por", "Sistema")
+        fecha_txt = nota.get("fecha_creacion", "")
+        id_txt = str(nota.get("id", ""))
+
+        c_info = mapa_colores_notas.get(prio_txt, {"border": "#0284c7", "bg": "#ffffff"})
+        
+        with st.container():
+            st.markdown(f"""
+                <div class="card-note" style="border-left-color: {c_info['border']}; background-color: {c_info['bg']};">
+                    <h4 style="margin:0 0 6px 0; color:#1e293b;">{tit_txt}</h4>
+                    <p style="margin:0 0 8px 0; color:#475569; font-size:0.9rem;">{det_txt}</p>
+                    <span style="font-size:0.75rem; color:#64748b;">
+                        👤 Creado por <strong>{autor_txt}</strong> | 🕒 {fecha_txt}
+                    </span>
+                </div>
+            """, unsafe_allow_html=True)
             
-            with st.container():
-                st.markdown(f"""
-                    <div class="card-note" style="border-left-color: {c_info['border']}; background-color: {c_info['bg']};">
-                        <h4 style="margin:0 0 6px 0; color:#1e293b;">{tit_txt}</h4>
-                        <p style="margin:0 0 8px 0; color:#475569; font-size:0.9rem;">{det_txt}</p>
-                        <span style="font-size:0.75rem; color:#64748b;">
-                            👤 Creado por <strong>{autor_txt}</strong> | 🕒 {fecha_txt}
-                        </span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                if st.button("✔️ Marcar como resuelto / Borrar", key=f"btn_del_nota_{idx}_{id_txt}", use_container_width=True):
-                    if id_txt:
-                        cell = ws_recordatorios.find(id_txt)
-                        if cell:
-                            ws_recordatorios.delete_rows(cell.row)
-                    st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("✔️ Marcar como resuelto / Borrar", key=f"btn_del_nota_{idx}_{id_txt}", use_container_width=True):
+                if id_txt:
+                    cell = ws_recordatorios.find(id_txt)
+                    if cell:
+                        ws_recordatorios.delete_rows(cell.row)
+                st.rerun()
+            st.markdown("<br>", unsafe_allow_html=True)
