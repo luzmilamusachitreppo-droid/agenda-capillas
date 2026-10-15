@@ -35,13 +35,13 @@ sheet = client.open_by_key("12zw7JZ3cHMg7wKZWMTsfJmmWrpP4DDjLN9K2K_w715w")
 ws_recordatorios = sheet.worksheet("recordatorios")
 ws_eventos = sheet.worksheet("eventos")
 
-# Cargar o crear la hoja de resumen de capillas
+# Cargar o verificar hoja de resumen de capillas
 try:
     ws_resumen = sheet.worksheet("resumen_capillas")
 except Exception:
     ws_resumen = None
 
-# Autenticación actualizada
+# Autenticación de usuarios
 USUARIOS_AUTORIZADOS = {
     "admin": "capillas2026",
     "Luzmila": "Caceresythomas456",
@@ -73,7 +73,7 @@ if not st.session_state["usuario_autenticado"]:
                     st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
 
-# Encabezado
+# Encabezado con usuario
 c_usr, c_out = st.columns([3, 1])
 with c_usr:
     st.caption(f"👤 Sesión activa: **{st.session_state['usuario_actual']}**")
@@ -84,7 +84,7 @@ with c_out:
 
 st.divider()
 
-# Listado ordenado por zonas
+# Listado ordenado por zonas de capillas
 ZONAS_CAPILLAS = {
     "CAPILLAS CORRIENTES": [
         "Capilla Laguna seca",
@@ -173,6 +173,17 @@ st.markdown("""
         border-top: 1px solid #e2e8f0;
         border-right: 1px solid #e2e8f0;
         border-bottom: 1px solid #e2e8f0;
+    }
+    .badge-visita {
+        background-color: #e0f2fe;
+        color: #0369a1;
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-right: 6px;
+        margin-bottom: 6px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -315,74 +326,86 @@ with tab_check:
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. RESUMEN DE CAPILLAS (SINCRONIZADO CON GOOGLE SHEETS)
+# 3. RESUMEN DE CAPILLAS (REGISTRO VISIBLE AUTOMÁTICO)
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas por Zona")
     
-    # Cargar datos existentes de Google Sheets si existe la solapa
-    datos_resumen = {}
+    # Cargar datos de la planilla
+    registros_capillas = []
     if ws_resumen:
         try:
-            records = ws_resumen.get_all_records()
-            for r in records:
-                c_nom = r.get("capilla")
-                if c_nom:
-                    datos_resumen[c_nom] = {
-                        "estado": r.get("estado_planilla", "Pendiente"),
-                        "dias": str(r.get("dias_visitados", ""))
-                    }
+            registros_capillas = ws_resumen.get_all_records()
         except Exception:
-            datos_resumen = {}
+            registros_capillas = []
 
-    with st.form("form_guardar_resumen_capillas"):
-        nuevos_datos = {}
-        
-        for zona, capillas in ZONAS_CAPILLAS.items():
-            st.markdown(f"### 📍 {zona}")
-            for c in capillas:
-                st.markdown(f"**• {c}**")
-                
-                info_actual = datos_resumen.get(c, {"estado": "Pendiente", "dias": ""})
-                
-                col_estado, col_visitas = st.columns([1, 1.5])
-                
-                with col_estado:
-                    idx_default = ["Pendiente", "En Proceso", "Completado"].index(info_actual["estado"]) if info_actual["estado"] in ["Pendiente", "En Proceso", "Completado"] else 0
-                    est_val = st.selectbox(
-                        "Estado de planilla", 
-                        ["Pendiente", "En Proceso", "Completado"], 
-                        index=idx_default,
-                        key=f"est_planilla_{c}"
-                    )
-                
-                with col_visitas:
-                    dias_val = st.text_input(
-                        "📅 Días visitados este mes", 
-                        value=info_actual["dias"], 
-                        placeholder="Ej: 04/10, 12/10, 18/10", 
-                        key=f"dias_visita_{c}"
-                    )
-                
-                nuevos_datos[c] = {"zona": zona, "estado": est_val, "dias": dias_val}
-                st.markdown("<hr style='margin: 10px 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-            st.divider()
+    # Mapa para agrupar estados y visitas por capilla
+    mapa_resumen = {}
+    for r in registros_capillas:
+        cap = str(r.get("capilla", "")).strip()
+        if cap:
+            if cap not in mapa_resumen:
+                mapa_resumen[cap] = {"estado": r.get("estado_planilla", "Pendiente"), "visitas": []}
+            dias_str = str(r.get("dias_visitados", "")).strip()
+            if dias_str and dias_str not in mapa_resumen[cap]["visitas"]:
+                mapa_resumen[cap]["visitas"].append(dias_str)
+            if r.get("estado_planilla"):
+                mapa_resumen[cap]["estado"] = r.get("estado_planilla")
 
-        btn_guardar_resumen = st.form_submit_button("💾 Guardar Cambios en Google Sheets", type="primary", use_container_width=True)
-
-        if btn_guardar_resumen:
-            if ws_resumen:
-                # Limpiar y reescribir con datos actualizados
-                ws_resumen.clear()
-                rows_to_append = [["zona", "capilla", "estado_planilla", "dias_visitados"]]
-                for cap_nombre, data in nuevos_datos.items():
-                    rows_to_append.append([data["zona"], cap_nombre, data["estado"], data["dias"]])
+    for zona, capillas in ZONAS_CAPILLAS.items():
+        st.markdown(f"### 📍 {zona}")
+        for c in capillas:
+            st.markdown(f"#### ⛪ {c}")
+            
+            data_capilla = mapa_resumen.get(c, {"estado": "Pendiente", "visitas": []})
+            
+            col_est, col_add_v = st.columns([1, 1.5])
+            
+            with col_est:
+                idx_default = ["Pendiente", "En Proceso", "Completado"].index(data_capilla["estado"]) if data_capilla["estado"] in ["Pendiente", "En Proceso", "Completado"] else 0
+                nuevo_estado = st.selectbox(
+                    "Estado de planilla", 
+                    ["Pendiente", "En Proceso", "Completado"], 
+                    index=idx_default,
+                    key=f"est_sel_{c}"
+                )
                 
-                ws_resumen.append_rows(rows_to_append)
-                st.success("¡Resumen de capillas actualizado en Google Sheets!")
-                st.rerun()
+                # Actualizar estado directo si cambia
+                if nuevo_estado != data_capilla["estado"]:
+                    if ws_resumen:
+                        ws_resumen.append_row([zona, c, nuevo_estado, ""])
+                        st.success(f"Estado de {c} actualizado a {nuevo_estado}")
+                        st.rerun()
+
+            with col_add_v:
+                nueva_fecha_v = st.text_input(
+                    "➕ Registrar nueva visita este mes:", 
+                    placeholder="Ej: 02/10", 
+                    key=f"in_fecha_{c}"
+                )
+                if st.button(f"📌 Registrar visita en {c}", key=f"btn_add_v_{c}", use_container_width=True):
+                    if nueva_fecha_v.strip() and ws_resumen:
+                        ws_resumen.append_row([
+                            zona, 
+                            c, 
+                            nuevo_estado, 
+                            f"{nueva_fecha_v.strip()} (por {st.session_state['usuario_actual']})"
+                        ])
+                        st.success(f"¡Visita {nueva_fecha_v} guardada para {c}!")
+                        st.rerun()
+
+            # Muestra permanente abajo de los días que se fue a esta capilla
+            st.markdown("**📅 Días visitados este mes (Visibles para todos):**")
+            if not data_capilla["visitas"]:
+                st.caption("Aún no hay visitas registradas este mes.")
             else:
-                st.error("⚠️ La solapa 'resumen_capillas' no fue encontrada en Google Sheets. Creala para habilitar el guardado automático.")
+                html_badges = ""
+                for v in data_capilla["visitas"]:
+                    html_badges += f'<span class="badge-visita">✔ {v}</span>'
+                st.markdown(html_badges, unsafe_allow_html=True)
+
+            st.markdown("<hr style='margin: 15px 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+        st.divider()
 
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS
