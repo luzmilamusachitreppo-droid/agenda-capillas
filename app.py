@@ -79,14 +79,8 @@ with c_out:
 st.divider()
 
 # Listas y estados por defecto
-PALETA_COLORES = {
-    "💚 Verde - Confirmado": "#d1e7dd",
-    "💙 Azul - En proceso": "#cff4fc",
-    "💜 Violeta - Especial": "#e2d9f3",
-    "💛 Amarillo - Pendiente": "#fff3cd",
-    "🩷 Rosa - Alerta": "#f8d7da"
-}
 CAPILLAS_DEFAULT = ["Barrio 1", "Barrio 2", "Barrio 3", "Barrio 4", "Alberdi", "Güiraldes", "Puerto Tirol"]
+MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
 if "lista_capillas" not in st.session_state:
     st.session_state["lista_capillas"] = CAPILLAS_DEFAULT.copy()
@@ -110,14 +104,65 @@ tab_cal, tab_check, tab_capillas, tab_notes = st.tabs([
 ])
 
 # ==========================================
-# 1. PESTAÑA AGENDA PRINCIPAL
+# 1. PESTAÑA AGENDA PRINCIPAL (CON CALENDARIO SUPERIOR)
 # ==========================================
 with tab_cal:
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
+    hoy_real = date.today()
     
-    st.markdown("### 📅 Agenda de Actividades")
-    
+    st.markdown("### 📅 Calendario de Actividades")
+
+    # Traer todos los eventos de Google Sheets para marcar los días con tareas
+    try:
+        eventos_gsheets = ws_eventos.get_all_records()
+    except Exception:
+        eventos_gsheets = []
+
+    # Crear conjunto con las fechas que tienen tareas (para marcar en el calendario superior)
+    fechas_con_tareas = {str(e.get("fecha")) for e in eventos_gsheets if e.get("fecha")}
+
+    # --- CALENDARIO SUPERIOR INTERACTIVO DEL MES ---
+    mes_actual = f_sel.month
+    ano_actual = f_sel.year
+    st.markdown(f"<h4 style='text-align: center; color: #0284c7; margin-bottom: 5px;'>{MESES_ESP[mes_actual - 1].upper()} {ano_actual}</h4>", unsafe_allow_html=True)
+
+    cal_obj = calendar.Calendar(firstweekday=0) # Comienza en Lunes
+    matriz_mes = cal_obj.monthdayscalendar(ano_actual, mes_actual)
+
+    # Cabecera de días de la semana
+    cols_dias_hdr = st.columns(7)
+    nombres_dias = ["L", "M", "Mi", "J", "V", "S", "D"]
+    for i, d_nom in enumerate(nombres_dias):
+        cols_dias_hdr[i].markdown(f"<div style='text-align: center; font-size: 0.75rem; font-weight: bold; color: #64748b;'>{d_nom}</div>", unsafe_allow_html=True)
+
+    # Dibujar la grilla del calendario del mes en botones táctiles
+    for semana in matriz_mes:
+        cols_sem = st.columns(7)
+        for i, d_num in enumerate(semana):
+            if d_num != 0:
+                fecha_iter = date(ano_actual, mes_actual, d_num)
+                f_iter_str = fecha_iter.strftime("%Y-%m-%d")
+                
+                # Verificar si este día tiene tareas agendadas
+                tiene_tarea = f_iter_str in fechas_con_tareas
+                
+                # Definir etiqueta visual del botón según estado
+                etiqueta_btn = f"{d_num} •" if tiene_tarea else str(d_num)
+                
+                # Seleccionar tipo de botón según sea el día seleccionado actualmente
+                es_seleccionado = (fecha_iter == f_sel)
+                tipo_btn = "primary" if es_seleccionado else "secondary"
+                
+                if cols_sem[i].button(etiqueta_btn, key=f"cal_dia_{mes_actual}_{d_num}", type=tipo_btn, use_container_width=True):
+                    st.session_state["fecha_seleccionada"] = fecha_iter
+                    st.rerun()
+            else:
+                cols_sem[i].write("")
+
+    st.divider()
+
+    # Controles de navegación rápida por día
     c_prev, c_fecha, c_next = st.columns([1, 2.2, 1])
     if c_prev.button("◄ Día", use_container_width=True, key="m_prev"):
         st.session_state["fecha_seleccionada"] -= timedelta(days=1)
@@ -156,9 +201,8 @@ with tab_cal:
                     st.success("¡Guardado con éxito!")
                     st.rerun()
 
-    st.divider()
+    st.markdown(f"#### 📋 Actividades del día: {f_sel.strftime('%d/%m/%Y')}")
     
-    eventos_gsheets = ws_eventos.get_all_records()
     evs_dia = [e for e in eventos_gsheets if str(e.get("fecha")) == f_sel_str]
     
     if not evs_dia:
