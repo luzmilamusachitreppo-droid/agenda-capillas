@@ -505,10 +505,10 @@ with tab_notes:
                 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# 5. GMAIL - SEGUIMIENTO DE CORREOS Y OT
+# 5. GMAIL - CONTROL Y SEGUIMIENTO DE GMAIL / OT
 # ==========================================
 with tab_gmail:
-    st.markdown("## ✉️ Control y Seguimiento de Gmailes / OT")
+    st.markdown("## ✉️ Control y Seguimiento de Gmail / OT")
     st.write("Registra y controla los correos enviados, su estado, proceso y situación financiera.")
 
     OPCIONES_ESTADO_MAIL = ["Enviado", "No enviado"]
