@@ -326,12 +326,11 @@ with tab_check:
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. RESUMEN DE CAPILLAS (REGISTRO VISIBLE AUTOMÁTICO)
+# 3. RESUMEN DE CAPILLAS
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas por Zona")
     
-    # Cargar datos de la planilla
     registros_capillas = []
     if ws_resumen:
         try:
@@ -339,7 +338,6 @@ with tab_capillas:
         except Exception:
             registros_capillas = []
 
-    # Mapa para agrupar estados y visitas por capilla
     mapa_resumen = {}
     for r in registros_capillas:
         cap = str(r.get("capilla", "")).strip()
@@ -370,7 +368,6 @@ with tab_capillas:
                     key=f"est_sel_{c}"
                 )
                 
-                # Actualizar estado directo si cambia
                 if nuevo_estado != data_capilla["estado"]:
                     if ws_resumen:
                         ws_resumen.append_row([zona, c, nuevo_estado, ""])
@@ -394,8 +391,7 @@ with tab_capillas:
                         st.success(f"¡Visita {nueva_fecha_v} guardada para {c}!")
                         st.rerun()
 
-            # Muestra permanente abajo de los días que se fue a esta capilla
-            st.markdown("**📅 Días visitados este mes (Visibles para todos):**")
+            st.markdown("**📅 Días visitados este mes:**")
             if not data_capilla["visitas"]:
                 st.caption("Aún no hay visitas registradas este mes.")
             else:
@@ -408,16 +404,18 @@ with tab_capillas:
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS
+# 4. RECORDATORIOS RÁPIDOS (CON EDICIÓN Y PRIORIDAD)
 # ==========================================
 with tab_notes:
     st.markdown("## 📌 Recordatorios")
 
+    OPCIONES_PRIORIDAD = ["💛 Normal", "🩷 Urgente / Importante", "💚 Idea / Nota"]
+
     with st.form("form_nueva_nota_libre", clear_on_submit=True):
         titulo_nota = st.text_input("Nota:", placeholder="Ej: Comprar bolsas de residuos para la capilla Alberdi")
         detalle_nota = st.text_area("Detalle:", placeholder="Ej: Pedir en la ferretería de la esquina", height=80)
-        prioridad_nota = st.selectbox("Prioridad:", ["💛 Normal", "🩷 Urgente / Importante", "💚 Idea / Nota"])
-        btn_guardar_nota = st.form_submit_button("➕ Añadir", type="primary", use_container_width=True)
+        prioridad_nota = st.selectbox("Prioridad:", OPCIONES_PRIORIDAD)
+        btn_guardar_nota = st.form_submit_button("➕ Añadir Recordatorio", type="primary", use_container_width=True)
 
         if btn_guardar_nota and titulo_nota.strip():
             ws_recordatorios.append_row([
@@ -458,17 +456,42 @@ with tab_notes:
                 st.markdown(f"""
                     <div class="card-note" style="border-left-color: {c_info['border']}; background-color: {c_info['bg']};">
                         <h4 style="margin:0 0 6px 0; color:#1e293b;">{tit}</h4>
-                        <p style="margin:0 0 8px 0; color:#475569; font-size:0.9rem;">{det}</p>
+                        <p style="margin:0 0 8px 0; color:#475569; font-size:0.9rem;">{det if det else '<em>Sin detalle adicional</em>'}</p>
                         <span style="font-size:0.75rem; color:#64748b;">
-                            👤 Creado por <strong>{autor}</strong> | 🕒 {fec}
+                            📌 Prioridad: <strong>{prio}</strong> | 👤 Por <strong>{autor}</strong> ({fec})
                         </span>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                if st.button("Borrar", key=f"btn_del_nota_{idx}_{id_n}", use_container_width=True):
-                    if id_n:
-                        cell = ws_recordatorios.find(id_n)
-                        if cell:
-                            ws_recordatorios.delete_rows(cell.row)
-                    st.rerun()
+                col_edit, col_del = st.columns([1, 1])
+                
+                with col_edit:
+                    with st.popover("✏️ Editar Recordatorio", use_container_width=True):
+                        st.markdown(f"**Editar Recordatorio**")
+                        with st.form(key=f"form_edit_note_{idx}_{id_n}"):
+                            new_tit = st.text_input("Nota / Título:", value=tit)
+                            new_det = st.text_area("Detalle:", value=det, height=70)
+                            
+                            prio_idx = OPCIONES_PRIORIDAD.index(prio) if prio in OPCIONES_PRIORIDAD else 0
+                            new_prio = st.selectbox("Prioridad / Urgencia:", OPCIONES_PRIORIDAD, index=prio_idx)
+                            
+                            if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                                if new_tit.strip():
+                                    cell = ws_recordatorios.find(id_n)
+                                    if cell:
+                                        row_num = cell.row
+                                        ws_recordatorios.update_cell(row_num, 2, new_tit.strip())
+                                        ws_recordatorios.update_cell(row_num, 3, new_det.strip())
+                                        ws_recordatorios.update_cell(row_num, 4, new_prio)
+                                        st.success("¡Recordatorio actualizado!")
+                                        st.rerun()
+
+                with col_del:
+                    if st.button("🗑️ Borrar", key=f"btn_del_nota_{idx}_{id_n}", use_container_width=True):
+                        if id_n:
+                            cell = ws_recordatorios.find(id_n)
+                            if cell:
+                                ws_recordatorios.delete_rows(cell.row)
+                        st.rerun()
+                        
                 st.markdown("<br>", unsafe_allow_html=True)
