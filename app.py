@@ -8,8 +8,8 @@ import json
 
 # Configuración de página
 st.set_page_config(
-    page_title="Agenda de Capillas",
-    page_icon="📅",
+    page_title="Agenda de Capillas - Sistema Privado",
+    page_icon="🔒",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -78,7 +78,41 @@ with c_out:
 st.divider()
 
 CAPILLAS_DEFAULT = ["Barrio 1", "Barrio 2", "Barrio 3", "Barrio 4", "Alberdi", "Güiraldes", "Puerto Tirol"]
-MESES_ESP = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+
+PDF_CHECKLIST_ITEMS = {
+    "🚶 Pasillos, Naves y Salón": [
+        "1. Limpieza y barrido de pisos generales.",
+        "2. Lavado y desinfección de pisos con producto adecuado.",
+        "3. Limpieza de techos, tirantes y paredes (eliminación de telarañas).",
+        "4. Sacudido y limpieza de bancos, sillas y mobiliario principal.",
+        "5. Limpieza de vidrios, ventanas y marcos.",
+        "6. Limpieza y sacudido de imágenes, altares y elementos litúrgicos.",
+        "7. Vaciado y desinfección de papeleros y cestos de basura."
+    ],
+    "Resto Baños y Sanitarios": [
+        "1. Limpieza y desinfección profunda de inodoros y bidet.",
+        "2. Limpieza de piletas, lavamanos y griferías.",
+        "3. Limpieza y secado de espejos y azulejos.",
+        "4. Reposición de insumos (papel higiénico, jabón, toallas de mano).",
+        "5. Barrido, trapeado y desinfección de pisos de baño.",
+        "6. Vaciado y desinfección de cestos de residuos."
+    ],
+    "🚪 Accesos y Fachada": [
+        "1. Barrido de veredas, veredones y atrio de acceso.",
+        "2. Limpieza de puertas principales, picaportes y rejas.",
+        "3. Reorganización de afiches, carteleras e informativos.",
+        "4. Control visual de luminarias exteriores e internas."
+    ]
+}
+
+CHECKLIST_JARDINERIA_DEFAULT = [
+    "1. Corte de césped en sectores generales y patios.",
+    "2. Bordeado, orillado y desmalezado de muros/caminos.",
+    "3. Riego de plantas, arbustos y jardines.",
+    "4. Podado de mantenimiento de cercos vivos y ramas bajas.",
+    "5. Juntado, embolsado y retiro de restos de poda y césped.",
+    "6. Control e inspección general del estado del patio/jardín."
+]
 
 PALETA_COLORES = {
     "💚 Verde - Confirmado": {"bg": "#d1e7dd", "border": "#0f5132", "text": "#0f5132"},
@@ -93,6 +127,23 @@ if "lista_capillas" not in st.session_state:
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
+# Estilos CSS generales para las tarjetas de notas
+st.markdown("""
+    <style>
+    .card-note {
+        background-color: #ffffff;
+        border-left: 5px solid #0284c7;
+        border-radius: 8px;
+        padding: 14px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        border-top: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 tab_cal, tab_check, tab_capillas, tab_notes = st.tabs([
     "📅 1. Agenda Principal", 
     "📝 2. Checklist Digital", 
@@ -106,7 +157,6 @@ tab_cal, tab_check, tab_capillas, tab_notes = st.tabs([
 with tab_cal:
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
-    hoy_real = date.today()
 
     try:
         eventos_gsheets = ws_eventos.get_all_records()
@@ -117,7 +167,6 @@ with tab_cal:
 
     st.markdown(f"<h3 style='text-align: center; color: #0284c7; margin-bottom: 5px;'>📅 Semana del {f_sel.strftime('%d/%m/%Y')}</h3>", unsafe_allow_html=True)
 
-    # Botones de navegación de semana
     col_nav1, col_hoy, col_nav2 = st.columns([1, 1, 1])
     if col_nav1.button("◄ Semana", use_container_width=True):
         st.session_state["fecha_seleccionada"] -= timedelta(days=7)
@@ -131,7 +180,6 @@ with tab_cal:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Barra horizontal de los 7 días de la semana seleccionada (entra perfecto en celular)
     inicio_semana = f_sel - timedelta(days=f_sel.weekday())
     dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
     nombres_cortos = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
@@ -151,7 +199,6 @@ with tab_cal:
 
     st.divider()
 
-    # Contenedores para tareas del día y formulario de carga
     col_izq, col_der = st.columns([1.2, 1], gap="medium")
 
     with col_izq:
@@ -159,14 +206,14 @@ with tab_cal:
         evs_dia = [e for e in eventos_gsheets if str(e.get("fecha")) == f_sel_str]
         
         if not evs_dia:
-            st.info("No hay tareas programadas para este día.")
+            st.info("No hay tareas programadas para esta fecha.")
         else:
             for ev in evs_dia:
                 cat_ev = ev.get("categoria", "💚 Verde - Confirmado")
                 estilo = PALETA_COLORES.get(cat_ev, PALETA_COLORES["💚 Verde - Confirmado"])
                 
                 st.markdown(f"""
-                    <div style="background-color: {estilo['bg']}; border-left: 5px solid {estilo['border']}; padding: 10px; border-radius: 8px; margin-bottom: 8px; color: {estilo['text']};">
+                    <div style="background-color: {estilo['bg']}; border-left: 5px solid {estilo['border']}; padding: 12px; border-radius: 8px; margin-bottom: 8px; color: {estilo['text']};">
                         <strong>{ev.get('title', 'Sin Título')}</strong><br>
                         ⏱️ {int(ev.get('inicio', 0)):02d}:00 - {int(ev.get('fin', 0)):02d}:00 hs
                         {f'<br>💬 {ev.get("nota")}' if ev.get("nota") else ''}
@@ -207,51 +254,108 @@ with tab_cal:
                     st.rerun()
 
 # ==========================================
-# 2. CHECKLIST DIGITAL
+# 2. CHECKLIST DIGITAL RESTAURADO
 # ==========================================
 with tab_check:
-    st.header("📝 Checklist Digital")
-    capilla_sel = st.selectbox("Capilla:", st.session_state["lista_capillas"])
-    tipo_insp = st.radio("Tipo:", ["🧹 Limpieza", "🌿 Jardinería"], horizontal=True)
+    st.header("📝 Checklist Digital de Control")
+    
+    col_c1, col_c2 = st.columns([1, 1])
+    with col_c1:
+        capilla_manual = st.text_input("✍️ Nombre de la Capilla:", placeholder="Escribir nombre...")
+        capilla_lista = st.selectbox("O seleccionar de la lista:", st.session_state["lista_capillas"], key="chk_cap_sel")
+        capilla_trabajo = capilla_manual.strip() if capilla_manual.strip() else capilla_lista
+
+    with col_c2:
+        tipo_checklist = st.radio("Tipo de Inspección:", ["🧹 Limpieza", "🌿 Jardinería"], horizontal=True, key="chk_tipo_sel")
+
+    st.markdown(f"### Revisión: **{capilla_trabajo}** ({f_sel.strftime('%d/%m/%Y')})")
+    
+    if "Limpieza" in tipo_checklist:
+        for cat, items in PDF_CHECKLIST_ITEMS.items():
+            with st.expander(cat, expanded=True):
+                for item in items:
+                    st.checkbox(item, key=f"chk_item_{capilla_trabajo}_{item}")
+                    st.text_input(f"Observación ({item})", key=f"obs_item_{capilla_trabajo}_{item}", placeholder="Detalles u observaciones...")
+                    st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
+    else:
+        with st.expander("🌿 Jardinería y Exteriores", expanded=True):
+            for item in CHECKLIST_JARDINERIA_DEFAULT:
+                st.checkbox(item, key=f"chk_jard_{capilla_trabajo}_{item}")
+                st.text_input(f"Observación ({item})", key=f"obs_jard_{capilla_trabajo}_{item}", placeholder="Detalles u observaciones...")
+                st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
 # 3. RESUMEN DE CAPILLAS
 # ==========================================
 with tab_capillas:
-    st.header("⛪ Capillas")
+    st.header("⛪ Resumen de Capillas")
     for c in st.session_state["lista_capillas"]:
         st.subheader(c)
-        st.selectbox(f"Estado {c}:", ["Pendiente", "En Proceso", "Completado"], key=f"est_{c}")
+        st.selectbox(f"Estado de {c}:", ["Pendiente", "En Proceso", "Completado"], key=f"est_{c}")
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS
+# 4. RECORDATORIOS RÁPIDOS (DISEÑO BONITO RESTAURADO)
 # ==========================================
 with tab_notes:
-    st.header("📌 Recordatorios")
+    st.markdown("## 📌 Recordatorios")
+
     with st.form("form_nueva_nota_libre", clear_on_submit=True):
-        titulo_nota = st.text_input("Nota:")
-        detalle_nota = st.text_area("Detalle:")
-        prioridad_nota = st.selectbox("Prioridad:", ["💛 Normal", "🩷 Urgente", "💚 Idea"])
-        if st.form_submit_button("➕ Añadir", type="primary", use_container_width=True):
-            if titulo_nota.strip():
-                ws_recordatorios.append_row([
-                    str(uuid.uuid4()),
-                    titulo_nota.strip(),
-                    detalle_nota.strip(),
-                    prioridad_nota,
-                    st.session_state["usuario_actual"],
-                    datetime.now().strftime("%d/%m/%Y %H:%M")
-                ])
-                st.success("Guardado")
-                st.rerun()
+        titulo_nota = st.text_input("Nota:", placeholder="Ej: Comprar bolsas de residuos para la capilla Alberdi")
+        detalle_nota = st.text_area("Detalle:", placeholder="Ej: Pedir en la ferretería de la esquina", height=80)
+        prioridad_nota = st.selectbox("Prioridad:", ["💛 Normal", "🩷 Urgente / Importante", "💚 Idea / Nota"])
+        btn_guardar_nota = st.form_submit_button("➕ Añadir", type="primary", use_container_width=True)
+
+        if btn_guardar_nota and titulo_nota.strip():
+            ws_recordatorios.append_row([
+                str(uuid.uuid4()),
+                titulo_nota.strip(),
+                detalle_nota.strip(),
+                prioridad_nota,
+                st.session_state["usuario_actual"],
+                datetime.now().strftime("%d/%m/%Y %H:%M")
+            ])
+            st.success("¡Recordatorio guardado!")
+            st.rerun()
 
     st.divider()
+    
     recs = ws_recordatorios.get_all_records()
-    for idx, nota in enumerate(recs):
-        st.markdown(f"**{nota.get('titulo')}**: {nota.get('detalle')}")
-        if st.button("Borrar", key=f"del_n_{idx}_{nota.get('id')}"):
-            cell = ws_recordatorios.find(str(nota.get('id')))
-            if cell:
-                ws_recordatorios.delete_rows(cell.row)
-            st.rerun()
+    
+    if not recs:
+        st.info("No hay recordatorios pendientes.")
+    else:
+        mapa_colores_notas = {
+            "💛 Normal": {"border": "#eab308", "bg": "#fefce8"},
+            "🩷 Urgente / Importante": {"border": "#ef4444", "bg": "#fef2f2"},
+            "💚 Idea / Nota": {"border": "#22c55e", "bg": "#f0fdf4"}
+        }
+
+        for idx, nota in enumerate(recs):
+            tit = nota.get("titulo", "Sin título")
+            det = nota.get("detalle", "")
+            prio = nota.get("prioridad", "💛 Normal")
+            autor = nota.get("creado_por", "Sistema")
+            fec = nota.get("fecha_creacion", "")
+            id_n = str(nota.get("id", ""))
+
+            c_info = mapa_colores_notas.get(prio, {"border": "#0284c7", "bg": "#ffffff"})
+            
+            with st.container():
+                st.markdown(f"""
+                    <div class="card-note" style="border-left-color: {c_info['border']}; background-color: {c_info['bg']};">
+                        <h4 style="margin:0 0 6px 0; color:#1e293b;">{tit}</h4>
+                        <p style="margin:0 0 8px 0; color:#475569; font-size:0.9rem;">{det}</p>
+                        <span style="font-size:0.75rem; color:#64748b;">
+                            👤 Creado por <strong>{autor}</strong> | 🕒 {fec}
+                        </span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button("Borrar", key=f"btn_del_nota_{idx}_{id_n}", use_container_width=True):
+                    if id_n:
+                        cell = ws_recordatorios.find(id_n)
+                        if cell:
+                            ws_recordatorios.delete_rows(cell.row)
+                    st.rerun()
+                st.markdown("<br>", unsafe_allow_html=True)
