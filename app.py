@@ -52,6 +52,7 @@ USUARIOS_AUTORIZADOS = {
     "trabajador1": "clave123",
     "encargado": "parroquia2026",
     "Silvia": "Caceresythomas123"
+    "Luzmi": "Caceresythomas123"
 }
 
 if "usuario_autenticado" not in st.session_state:
