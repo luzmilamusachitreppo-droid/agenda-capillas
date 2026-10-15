@@ -310,7 +310,7 @@ with tab_check:
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. RESUMEN DE CAPILLAS (ORGANIZADO POR ZONAS)
+# 3. RESUMEN DE CAPILLAS (ESTADO DE PLANILLA Y DÍAS VISITADOS)
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas por Zona")
@@ -318,11 +318,26 @@ with tab_capillas:
     for zona, capillas in ZONAS_CAPILLAS.items():
         st.markdown(f"### 📍 {zona}")
         for c in capillas:
-            col_cap, col_est = st.columns([2, 1])
-            with col_cap:
-                st.write(f"• **{c}**")
-            with col_est:
-                st.selectbox(f"Estado {c}", ["Pendiente", "En Proceso", "Completado"], key=f"est_{c}", label_visibility="collapsed")
+            st.markdown(f"**• {c}**")
+            
+            # Columnas para organizar el Estado de planilla y los Días visitados
+            col_estado, col_visitas = st.columns([1, 1.5])
+            
+            with col_estado:
+                st.selectbox(
+                    "Estado de planilla", 
+                    ["Pendiente", "En Proceso", "Completado"], 
+                    key=f"est_planilla_{c}"
+                )
+            
+            with col_visitas:
+                st.text_input(
+                    "📅 Días visitados este mes", 
+                    placeholder="Ej: 04/10, 12/10, 18/10", 
+                    key=f"dias_visita_{c}"
+                )
+            
+            st.markdown("<hr style='margin: 10px 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
         st.divider()
 
 # ==========================================
