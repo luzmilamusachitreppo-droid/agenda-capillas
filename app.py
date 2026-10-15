@@ -30,7 +30,7 @@ def init_connection():
     
 # Conectarse a la planilla y abrir las solapas
 client = init_connection()
-sheet = client.open_by_key("https://docs.google.com/spreadsheets/d/12zw7JZ3cHMg7wKZWMTsfJmmWrpP4DDjLN9K2K_w715w/edit?gid=0#gid=0")
+sheet = client.open_by_key("sheet = client.open_by_key("12zw7JZ3cHMg7wKZWMTsfJmmWrpP4DDjLN9K2K_w715w")
 
 ws_recordatorios = sheet.worksheet("recordatorios")
 ws_eventos = sheet.worksheet("eventos")
