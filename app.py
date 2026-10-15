@@ -35,11 +35,17 @@ sheet = client.open_by_key("12zw7JZ3cHMg7wKZWMTsfJmmWrpP4DDjLN9K2K_w715w")
 ws_recordatorios = sheet.worksheet("recordatorios")
 ws_eventos = sheet.worksheet("eventos")
 
-# Cargar o verificar hoja de resumen de capillas
+# Verificar o conectar hoja de resumen de capillas
 try:
     ws_resumen = sheet.worksheet("resumen_capillas")
 except Exception:
     ws_resumen = None
+
+# Verificar o conectar hoja de seguimiento de Gmail
+try:
+    ws_gmail = sheet.worksheet("gmail_tracking")
+except Exception:
+    ws_gmail = None
 
 # Autenticación de usuarios
 USUARIOS_AUTORIZADOS = {
@@ -188,11 +194,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-tab_cal, tab_check, tab_capillas, tab_notes = st.tabs([
+# 5 Pestañas principales incluyendo Gmail
+tab_cal, tab_check, tab_capillas, tab_notes, tab_gmail = st.tabs([
     "📅 1. Agenda Principal", 
     "📝 2. Checklist Digital", 
     "⛪ 3. Resumen de Capillas",
-    "📌 4. Recordatorios Rápidos"
+    "📌 4. Recordatorios Rápidos",
+    "✉️ 5. Gmail"
 ])
 
 # ==========================================
@@ -404,7 +412,7 @@ with tab_capillas:
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS (CON EDICIÓN Y PRIORIDAD)
+# 4. RECORDATORIOS RÁPIDOS
 # ==========================================
 with tab_notes:
     st.markdown("## 📌 Recordatorios")
@@ -494,4 +502,139 @@ with tab_notes:
                                 ws_recordatorios.delete_rows(cell.row)
                         st.rerun()
                         
+                st.markdown("<br>", unsafe_allow_html=True)
+
+# ==========================================
+# 5. GMAIL - SEGUIMIENTO DE CORREOS Y OT
+# ==========================================
+with tab_gmail:
+    st.markdown("## ✉️ Control y Seguimiento de Gmailes / OT")
+    st.write("Registra y controla los correos enviados, su estado, proceso y situación financiera.")
+
+    OPCIONES_ESTADO_MAIL = ["Enviado", "No enviado"]
+    OPCIONES_PROCESO = ["Aprobado", "Rechazado", "Pendiente respuesta"]
+    OPCIONES_FINANCIERO = ["Por facturar", "Facturado", "Cobrado"]
+
+    with st.form("form_nuevo_gmail", clear_on_submit=True):
+        asunto_mail = st.text_input("Asunto del correo:", placeholder="Ej: Presupuesto de mantenimiento Capilla Alberdi")
+        
+        c_g1, c_g2 = st.columns(2)
+        with c_g1:
+            fecha_envio = st.date_input("Fecha de envío:", value=date.today())
+            estado_mail = st.selectbox("Estado del Gmail:", OPCIONES_ESTADO_MAIL)
+            etapa_proc = st.selectbox("Etapa del proceso:", OPCIONES_PROCESO)
+        with c_g2:
+            nro_ot = st.text_input("N° OT:", placeholder="Ej: OT-2026-048")
+            estado_fin = st.selectbox("Estado financiero:", OPCIONES_FINANCIERO)
+
+        btn_guardar_mail = st.form_submit_button("➕ Registrar Correo / OT", type="primary", use_container_width=True)
+
+        if btn_guardar_mail and asunto_mail.strip():
+            if ws_gmail:
+                ws_gmail.append_row([
+                    str(uuid.uuid4()),
+                    asunto_mail.strip(),
+                    fecha_envio.strftime("%d/%m/%Y"),
+                    estado_mail,
+                    etapa_proc,
+                    nro_ot.strip() if nro_ot else "S/N",
+                    estado_fin,
+                    st.session_state["usuario_actual"],
+                    datetime.now().strftime("%d/%m/%Y %H:%M")
+                ])
+                st.success("¡Seguimiento de correo guardado con éxito!")
+                st.rerun()
+            else:
+                st.error("⚠️ La solapa 'gmail_tracking' no fue encontrada en Google Sheets. Por favor, creala con los encabezados correspondientes.")
+
+    st.divider()
+
+    # Cargar registros de Gmail desde Google Sheets
+    registros_gmail = []
+    if ws_gmail:
+        try:
+            registros_gmail = ws_gmail.get_all_records()
+        except Exception:
+            registros_gmail = []
+
+    if not registros_gmail:
+        st.info("No hay correos ni órdenes de trabajo registradas todavía.")
+    else:
+        # Colores según estado financiero o proceso
+        mapa_colores_mail = {
+            "Aprobado": {"border": "#22c55e", "bg": "#f0fdf4"},
+            "Rechazado": {"border": "#ef4444", "bg": "#fef2f2"},
+            "Pendiente respuesta": {"border": "#eab308", "bg": "#fefce8"}
+        }
+
+        for idx, mail in enumerate(registros_gmail):
+            id_m = str(mail.get("id", ""))
+            asunto = mail.get("asunto", "Sin asunto")
+            fec_env = mail.get("fecha_envio", "")
+            est_m = mail.get("estado_gmail", "Enviado")
+            etapa = mail.get("etapa_proceso", "Pendiente respuesta")
+            ot = mail.get("nro_ot", "S/N")
+            finan = mail.get("estado_financiero", "Por facturar")
+            autor = mail.get("creado_por", "Sistema")
+            f_crea = mail.get("fecha_creacion", "")
+
+            c_mail_info = mapa_colores_mail.get(etapa, {"border": "#0284c7", "bg": "#ffffff"})
+
+            with st.container():
+                st.markdown(f"""
+                    <div class="card-note" style="border-left-color: {c_mail_info['border']}; background-color: {c_mail_info['bg']};">
+                        <h4 style="margin:0 0 6px 0; color:#1e293b;">✉️ {asunto}</h4>
+                        <p style="margin:0 0 4px 0; color:#475569; font-size:0.9rem;">
+                            🏷️ <strong>N° OT:</strong> {ot} &nbsp;|&nbsp; 
+                            📤 <strong>Envío:</strong> {fec_env} ({est_m})
+                        </p>
+                        <p style="margin:0 0 8px 0; color:#334155; font-size:0.9rem;">
+                            🔄 <strong>Proceso:</strong> {etapa} &nbsp;|&nbsp; 
+                            💰 <strong>Financiero:</strong> {finan}
+                        </p>
+                        <span style="font-size:0.75rem; color:#64748b;">
+                            👤 Registrado por <strong>{autor}</strong> ({f_crea})
+                        </span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                col_em_edit, col_em_del = st.columns([1, 1])
+
+                with col_em_edit:
+                    with st.popover("✏️ Editar Registro", use_container_width=True):
+                        st.markdown("**Editar Seguimiento de Correo**")
+                        with st.form(key=f"form_edit_mail_{idx}_{id_m}"):
+                            new_asunto = st.text_input("Asunto:", value=asunto)
+                            new_ot = st.text_input("N° OT:", value=ot)
+                            
+                            idx_est = OPCIONES_ESTADO_MAIL.index(est_m) if est_m in OPCIONES_ESTADO_MAIL else 0
+                            new_est = st.selectbox("Estado Gmail:", OPCIONES_ESTADO_MAIL, index=idx_est)
+                            
+                            idx_eta = OPCIONES_PROCESO.index(etapa) if etapa in OPCIONES_PROCESO else 0
+                            new_eta = st.selectbox("Etapa Proceso:", OPCIONES_PROCESO, index=idx_eta)
+                            
+                            idx_fin = OPCIONES_FINANCIERO.index(finan) if finan in OPCIONES_FINANCIERO else 0
+                            new_fin = st.selectbox("Estado Financiero:", OPCIONES_FINANCIERO, index=idx_fin)
+
+                            if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                                if new_asunto.strip():
+                                    cell = ws_gmail.find(id_m)
+                                    if cell:
+                                        row_num = cell.row
+                                        ws_gmail.update_cell(row_num, 2, new_asunto.strip())
+                                        ws_gmail.update_cell(row_num, 4, new_est)
+                                        ws_gmail.update_cell(row_num, 5, new_eta)
+                                        ws_gmail.update_cell(row_num, 6, new_ot.strip())
+                                        ws_gmail.update_cell(row_num, 7, new_fin)
+                                        st.success("¡Registro de Gmail actualizado!")
+                                        st.rerun()
+
+                with col_em_del:
+                    if st.button("🗑️ Borrar", key=f"btn_del_mail_{idx}_{id_m}", use_container_width=True):
+                        if id_m:
+                            cell = ws_gmail.find(id_m)
+                            if cell:
+                                ws_gmail.delete_rows(cell.row)
+                        st.rerun()
+
                 st.markdown("<br>", unsafe_allow_html=True)
