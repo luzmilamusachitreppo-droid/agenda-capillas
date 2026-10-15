@@ -10,6 +10,7 @@ import tempfile
 import os
 
 # Configuración de la conexión a Google Sheets usando los Secrets de Streamlit de forma segura
+@st.cache_resource
 def init_connection():
     import re
     scope = [
@@ -21,7 +22,7 @@ def init_connection():
     try:
         creds_dict = json.loads(raw, strict=False)
     except json.JSONDecodeError as e:
-        st.error("El JSON de los Secrets tiene un error: " + e.msg + ". Línea " + str(e.lineno) + ", columna " + str(e.colno) + " (contando desde la primera línea del JSON, la que tiene la llave de apertura).")
+        st.error("El JSON de los Secrets tiene un error: " + e.msg + ". Línea " + str(e.lineno) + ", columna " + str(e.colno) + ".")
         st.stop()
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
@@ -306,3 +307,108 @@ tab_cal, tab_check, tab_capillas, tab_notes = st.tabs([
     "⛪ 3. Resumen de Capillas",
     "📌 4. Recordatorios Rápidos"
 ])
+
+# ==========================================
+# VISTA COMPUTADORA (INTACTA)
+# ==========================================
+def render_agenda_desktop():
+    f_sel = st.session_state["fecha_seleccionada"]
+    f_sel_str = f_sel.strftime("%Y-%m-%d")
+    hoy_real = date.today()
+
+    eventos_desde_gsheets = ws_eventos.get_all_records()
+
+    col_grilla, col_panel_derecho = st.columns([3.5, 1.1], gap="medium")
+
+    with col_grilla:
+        c_act, c_nav_l, c_titulo_m, c_nav_r, _ = st.columns([1, 0.4, 2.5, 0.4, 1])
+        
+        if c_act.button("Hoy", use_container_width=True, key="btn_hoy_desk"):
+            st.session_state["fecha_seleccionada"] = hoy_real
+            st.rerun()
+
+        if c_nav_l.button("◄", use_container_width=True, key="btn_prev_desk"):
+            st.session_state["fecha_seleccionada"] -= timedelta(days=7)
+            st.rerun()
+
+        inicio_semana = f_sel - timedelta(days=f_sel.weekday())
+        dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
+        
+        mes_principal = dias_semana[3]
+        titulo_semana = f"{MESES_ESP[mes_principal.month - 1]} {mes_principal.year}"
+
+        c_titulo_m.markdown(f"<h3 style='margin:0; text-align:center;'>{titulo_semana}</h3>", unsafe_allow_html=True)
+
+        if c_nav_r.button("►", use_container_width=True, key="btn_next_desk"):
+            st.session_state["fecha_seleccionada"] += timedelta(days=7)
+            st.rerun()
+
+        st.divider()
+
+        cols_hdr = st.columns([0.6] + [1.8]*7)
+        cols_hdr[0].write("")
+        
+        dias_nombres = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+        for idx, d_f in enumerate(dias_semana):
+            es_hoy = (d_f == hoy_real)
+            es_seleccionado = (d_f == f_sel)
+            
+            if es_seleccionado:
+                clase_num = "day-num-selected"
+            elif es_hoy:
+                clase_num = "day-num-hoy"
+            else:
+                clase_num = "day-num-inactive"
+            
+            badge_mes = ""
+            if d_f.day == 1 or idx == 0:
+                badge_mes = f"<br><span class='month-badge'>{MESES_ESP_CORTO[d_f.month-1]}</span>"
+
+            cols_hdr[idx+1].markdown(
+                f"<div class='day-header'>{dias_nombres[idx]}<br><span class='{clase_num}'>{d_f.day}</span>{badge_mes}</div>", 
+                unsafe_allow_html=True
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        for hora in range(8, 17):
+            cols_h = st.columns([0.6] + [1.8]*7)
+            cols_h[0].markdown(f"<span style='color:#64748b; font-size:0.75rem; font-weight:600;'>{hora:02d}:00</span>", unsafe_allow_html=True)
+            
+            for idx, d_f in enumerate(dias_semana):
+                d_str = d_f.strftime("%Y-%m-%d")
+                evs_h = [e for e in eventos_desde_gsheets if str(e.get("fecha")) == d_str and int(e.get("inicio", 0)) == hora]
+                
+                with cols_h[idx+1]:
+                    if evs_h:
+                        for ev in evs_h:
+                            st.markdown(f"""
+                                <div class="block-evento" style="background-color: #d1e7dd; color: #0f5132; border-left-color: #0f5132; font-size:0.75rem;">
+                                    {ev['title']}<br>
+                                    <span style="font-size:0.68rem; opacity:0.85;">⏱️ {int(ev['inicio']):02d}:00 - {int(ev['fin']):02d}:00 hs</span>
+                                </div>
+                            """, unsafe_allow_html=True)
+                    else:
+                        st.write("")
+            
+            st.markdown("<div class='hora-row-separator'></div>", unsafe_allow_html=True)
+
+    with col_panel_derecho:
+        with st.popover("➕ Nueva tarea", use_container_width=True):
+            st.markdown("#### Agendar Tarea")
+            with st.form("form_nuevo_turno_desk", clear_on_submit=True):
+                f_t = st.date_input("Fecha", value=f_sel)
+                tit_t = st.text_input("Título / Capilla", placeholder="Ej: Evento Parroquial")
+                nota_t = st.text_input("Detalle", placeholder="Ej: Reunión especial")
+                cat_t = st.selectbox("Categoría / Color", options=list(PALETA_COLORES.keys()))
+                
+                c_i, c_f = st.columns(2)
+                h_i = c_i.number_input("Inicio", min_value=7, max_value=20, value=8)
+                h_f = c_f.number_input("Fin", min_value=8, max_value=21, value=12)
+                
+                if st.form_submit_button("Guardar Turno", type="primary", use_container_width=True):
+                    if tit_t.strip():
+                        ws_eventos.append_row([
+                            str(uuid.uuid4()),
+                            tit_t.strip(),
+                            f_t.strftime("%Y-%
