@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import calendar
 from datetime import datetime, date, timedelta
 import uuid
 import gspread
@@ -94,19 +93,6 @@ if "lista_capillas" not in st.session_state:
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
-# Estilos CSS optimizados para evitar saltos y mejorar visualización móvil
-st.markdown("""
-    <style>
-    @media (max-width: 768px) {
-        .stButton button {
-            min-height: 42px !important;
-            font-size: 0.85rem !important;
-            padding: 2px 4px !important;
-        }
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 tab_cal, tab_check, tab_capillas, tab_notes = st.tabs([
     "📅 1. Agenda Principal", 
     "📝 2. Checklist Digital", 
@@ -129,103 +115,96 @@ with tab_cal:
 
     fechas_con_tareas = {str(e.get("fecha")) for e in eventos_gsheets if e.get("fecha")}
 
-    mes_act = f_sel.month
-    ano_act = f_sel.year
+    st.markdown(f"<h3 style='text-align: center; color: #0284c7; margin-bottom: 5px;'>📅 Semana del {f_sel.strftime('%d/%m/%Y')}</h3>", unsafe_allow_html=True)
 
-    st.markdown(f"""
-        <div style="text-align: center; margin-bottom: 8px;">
-            <h3 style="color: #0284c7; margin:0; font-weight:700;">
-                📅 {MESES_ESP[mes_act - 1].upper()} {ano_act}
-            </h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    if st.button("📍 Ir al día de hoy", use_container_width=True):
+    # Botones de navegación de semana
+    col_nav1, col_hoy, col_nav2 = st.columns([1, 1, 1])
+    if col_nav1.button("◄ Semana", use_container_width=True):
+        st.session_state["fecha_seleccionada"] -= timedelta(days=7)
+        st.rerun()
+    if col_hoy.button("📍 Hoy", use_container_width=True):
         st.session_state["fecha_seleccionada"] = date.today()
         st.rerun()
+    if col_nav2.button("Semana ►", use_container_width=True):
+        st.session_state["fecha_seleccionada"] += timedelta(days=7)
+        st.rerun()
 
-    # Calendario con botones compactos para celda y compu
-    cal_obj = calendar.Calendar(firstweekday=0)
-    matriz_mes = cal_obj.monthdayscalendar(ano_act, mes_act)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    dias_semana_hdr = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
-    cols_hdr = st.columns(7)
-    for i, d_nom in enumerate(dias_semana_hdr):
-        cols_hdr[i].markdown(f"<div style='text-align: center; font-size: 0.75rem; font-weight: bold; color: #64748b;'>{d_nom}</div>", unsafe_allow_html=True)
+    # Barra horizontal de los 7 días de la semana seleccionada (entra perfecto en celular)
+    inicio_semana = f_sel - timedelta(days=f_sel.weekday())
+    dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
+    nombres_cortos = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 
-    for semana in matriz_mes:
-        cols_sem = st.columns(7)
-        for i, d_num in enumerate(semana):
-            if d_num != 0:
-                f_check = date(ano_act, mes_act, d_num)
-                f_check_str = f_check.strftime("%Y-%m-%d")
+    cols_semana = st.columns(7)
+    for idx, d_f in enumerate(dias_semana):
+        d_str = d_f.strftime("%Y-%m-%d")
+        tiene_tarea = d_str in fechas_con_tareas
+        etiqueta = f"{nombres_cortos[idx]}\n{d_f.day}" + (" •" if tiene_tarea else "")
+        
+        es_seleccionado = (d_f == f_sel)
+        tipo_btn = "primary" if es_seleccionado else "secondary"
+        
+        if cols_semana[idx].button(etiqueta, key=f"btn_semana_{d_str}", type=tipo_btn, use_container_width=True):
+            st.session_state["fecha_seleccionada"] = d_f
+            st.rerun()
+
+    st.divider()
+
+    # Contenedores para tareas del día y formulario de carga
+    col_izq, col_der = st.columns([1.2, 1], gap="medium")
+
+    with col_izq:
+        st.markdown(f"#### 📋 Tareas del {f_sel.strftime('%d/%m/%Y')}")
+        evs_dia = [e for e in eventos_gsheets if str(e.get("fecha")) == f_sel_str]
+        
+        if not evs_dia:
+            st.info("No hay tareas programadas para este día.")
+        else:
+            for ev in evs_dia:
+                cat_ev = ev.get("categoria", "💚 Verde - Confirmado")
+                estilo = PALETA_COLORES.get(cat_ev, PALETA_COLORES["💚 Verde - Confirmado"])
                 
-                tiene_tarea = f_check_str in fechas_con_tareas
-                etiqueta = f"{d_num} •" if tiene_tarea else str(d_num)
+                st.markdown(f"""
+                    <div style="background-color: {estilo['bg']}; border-left: 5px solid {estilo['border']}; padding: 10px; border-radius: 8px; margin-bottom: 8px; color: {estilo['text']};">
+                        <strong>{ev.get('title', 'Sin Título')}</strong><br>
+                        ⏱️ {int(ev.get('inicio', 0)):02d}:00 - {int(ev.get('fin', 0)):02d}:00 hs
+                        {f'<br>💬 {ev.get("nota")}' if ev.get("nota") else ''}
+                    </div>
+                """, unsafe_allow_html=True)
                 
-                es_seleccionado = (f_check == f_sel)
-                tipo_btn = "primary" if es_seleccionado else "secondary"
-                
-                if cols_sem[i].button(etiqueta, key=f"btn_dia_{ano_act}_{mes_act}_{d_num}", type=tipo_btn, use_container_width=True):
-                    st.session_state["fecha_seleccionada"] = f_check
+                if st.button("🗑️ Borrar", key=f"del_ev_{ev.get('id')}", use_container_width=True):
+                    cell = ws_eventos.find(str(ev.get('id')))
+                    if cell:
+                        ws_eventos.delete_rows(cell.row)
                     st.rerun()
-            else:
-                cols_sem[i].write("")
 
-    st.divider()
-
-    # Secciones separadas verticalmente en móvil para que no se amontone
-    st.markdown(f"#### 📋 Tareas del {f_sel.strftime('%d/%m/%Y')}")
-    evs_dia = [e for e in eventos_gsheets if str(e.get("fecha")) == f_sel_str]
-    
-    if not evs_dia:
-        st.info("No hay tareas programadas para este día.")
-    else:
-        for ev in evs_dia:
-            cat_ev = ev.get("categoria", "💚 Verde - Confirmado")
-            estilo = PALETA_COLORES.get(cat_ev, PALETA_COLORES["💚 Verde - Confirmado"])
+    with col_der:
+        st.markdown("#### ➕ Agregar Tarea")
+        with st.form("form_add_evento_col", clear_on_submit=True):
+            f_tarea = st.date_input("Fecha:", value=f_sel)
+            tit_t = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Barrio 1")
+            cat_t = st.selectbox("Situación / Color:", options=list(PALETA_COLORES.keys()))
+            nota_t = st.text_area("Detalle adicional", placeholder="Notas...", height=68)
             
-            st.markdown(f"""
-                <div style="background-color: {estilo['bg']}; border-left: 5px solid {estilo['border']}; padding: 10px; border-radius: 8px; margin-bottom: 8px; color: {estilo['text']};">
-                    <strong>{ev.get('title', 'Sin Título')}</strong><br>
-                    ⏱️ {int(ev.get('inicio', 0)):02d}:00 - {int(ev.get('fin', 0)):02d}:00 hs
-                    {f'<br>💬 {ev.get("nota")}' if ev.get("nota") else ''}
-                </div>
-            """, unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            h_i = c1.number_input("Inicio", min_value=7, max_value=20, value=8)
+            h_f = c2.number_input("Fin", min_value=8, max_value=21, value=12)
             
-            if st.button("🗑️ Borrar Tarea", key=f"del_ev_{ev.get('id')}", use_container_width=True):
-                cell = ws_eventos.find(str(ev.get('id')))
-                if cell:
-                    ws_eventos.delete_rows(cell.row)
-                st.rerun()
-
-    st.divider()
-
-    st.markdown("#### ➕ Agregar Nueva Tarea")
-    with st.form("form_add_evento_col", clear_on_submit=True):
-        f_tarea = st.date_input("Fecha de la tarea:", value=f_sel)
-        tit_t = st.text_input("Título / Capilla", placeholder="Ej: Jardinería Barrio 1")
-        cat_t = st.selectbox("Situación / Color:", options=list(PALETA_COLORES.keys()))
-        nota_t = st.text_area("Detalle adicional", placeholder="Notas...", height=70)
-        
-        c1, c2 = st.columns(2)
-        h_i = c1.number_input("Hora Inicio", min_value=7, max_value=20, value=8)
-        h_f = c2.number_input("Hora Fin", min_value=8, max_value=21, value=12)
-        
-        if st.form_submit_button("Guardar en Agenda", type="primary", use_container_width=True):
-            if tit_t.strip():
-                ws_eventos.append_row([
-                    str(uuid.uuid4()),
-                    tit_t.strip(),
-                    f_tarea.strftime("%Y-%m-%d"),
-                    int(h_i),
-                    int(h_f),
-                    nota_t.strip(),
-                    cat_t
-                ])
-                st.session_state["fecha_seleccionada"] = f_tarea
-                st.success("¡Agregado con éxito!")
-                st.rerun()
+            if st.form_submit_button("Guardar en Agenda", type="primary", use_container_width=True):
+                if tit_t.strip():
+                    ws_eventos.append_row([
+                        str(uuid.uuid4()),
+                        tit_t.strip(),
+                        f_tarea.strftime("%Y-%m-%d"),
+                        int(h_i),
+                        int(h_f),
+                        nota_t.strip(),
+                        cat_t
+                    ])
+                    st.session_state["fecha_seleccionada"] = f_tarea
+                    st.success("¡Agregado con éxito!")
+                    st.rerun()
 
 # ==========================================
 # 2. CHECKLIST DIGITAL
