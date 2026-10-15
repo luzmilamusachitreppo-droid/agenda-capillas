@@ -419,3 +419,159 @@ def render_agenda_desktop():
                         st.session_state["fecha_seleccionada"] = f_t
                         st.success("¡Agendado en Google Sheets!")
                         st.rerun()
+                        # ==========================================
+# 1. PESTAÑA CALENDARIO
+# ==========================================
+with tab_cal:
+    if st.session_state.get("selector_modo_dispositivo") == "📱 Celular":
+        render_agenda_mobile()
+    else:
+        render_agenda_desktop()
+
+# ==========================================
+# 2. PESTAÑA CHECKLIST DIGITAL
+# ==========================================
+with tab_check:
+    st.header("📝 Checklist Digital de Control")
+    f_sel = st.session_state["fecha_seleccionada"]
+    f_sel_str = f_sel.strftime("%Y-%m-%d")
+
+    col_cap_input, col_tipo_sel = st.columns([1, 1])
+    with col_cap_input:
+        capilla_manual = st.text_input("✍️ Nombre de la Capilla:", placeholder="Escribir nombre de la capilla...")
+        capilla_lista = st.selectbox("O seleccionar de la lista:", st.session_state["lista_capillas"], key="chk_cap_sel")
+        capilla_trabajo = capilla_manual.strip() if capilla_manual.strip() else capilla_lista
+
+    with col_tipo_sel:
+        tipo_checklist = st.radio("Tipo de Inspección:", ["🧹 Limpieza", "🌿 Jardinería"], horizontal=True, key="chk_tipo_sel")
+
+    clave_base = f"{f_sel_str}_{capilla_trabajo}_{tipo_checklist}"
+    
+    if clave_base not in st.session_state["respuestas_checklist"]:
+        st.session_state["respuestas_checklist"][clave_base] = {}
+    if clave_base not in st.session_state["observaciones_checklist"]:
+        st.session_state["observaciones_checklist"][clave_base] = {}
+    if clave_base not in st.session_state["fotos_checklist"]:
+        st.session_state["fotos_checklist"][clave_base] = {}
+    if clave_base not in st.session_state["tareas_personalizadas"]:
+        st.session_state["tareas_personalizadas"][clave_base] = []
+
+    st.markdown(f"### Revisión: **{capilla_trabajo}** ({f_sel.strftime('%d/%m/%Y')})")
+    
+    def render_fila_item(item_nombre):
+        st.markdown(f"**{item_nombre}**")
+        
+        v_act = st.session_state["respuestas_checklist"][clave_base].get(item_nombre, False)
+        chk = st.checkbox("Realizado / Completado", value=v_act, key=f"chk_{clave_base}_{item_nombre}")
+        st.session_state["respuestas_checklist"][clave_base][item_nombre] = chk
+        
+        obs_act = st.session_state["observaciones_checklist"][clave_base].get(item_nombre, "")
+        obs_val = st.text_input("Observación:", value=obs_act, key=f"obs_{clave_base}_{item_nombre}", placeholder="Detalles u observaciones...")
+        st.session_state["observaciones_checklist"][clave_base][item_nombre] = obs_val
+            
+        foto_subida = st.file_uploader("📷 Adjuntar Foto:", type=["png", "jpg", "jpeg"], key=f"foto_{clave_base}_{item_nombre}")
+        if foto_subida is not None:
+            st.session_state["fotos_checklist"][clave_base][item_nombre] = foto_subida
+            st.image(foto_subida, caption="Foto adjunta", width=160)
+
+    if "Limpieza" in tipo_checklist:
+        for cat, items in PDF_CHECKLIST_ITEMS.items():
+            with st.expander(cat, expanded=True):
+                for item in items:
+                    render_fila_item(item)
+                    st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
+    else:
+        with st.expander("🌿 Jardinería y Exteriores", expanded=True):
+            for item in CHECKLIST_JARDINERIA_DEFAULT:
+                render_fila_item(item)
+                st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    with st.popover("➕ Añadir tarea personalizada al checklist", use_container_width=True):
+        st.markdown("#### Nueva Tarea Extra")
+        nueva_tarea_nom = st.text_input("Nombre de la tarea adicional:", placeholder="Ej: Reparar foco del altar")
+        if st.button("Guardar Tarea Extra", type="primary", use_container_width=True):
+            if nueva_tarea_nom.strip():
+                st.session_state["tareas_personalizadas"][clave_base].append(nueva_tarea_nom.strip())
+                st.success("¡Tarea personalizada agregada!")
+                st.rerun()
+
+    if st.session_state["tareas_personalizadas"][clave_base]:
+        with st.expander("⭐ Tareas Personalizadas Agregadas", expanded=True):
+            for t_custom in st.session_state["tareas_personalizadas"][clave_base]:
+                render_fila_item(f"📌 {t_custom}")
+                st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
+
+    st.markdown("#### 💬 Observaciones Generales de la Inspección")
+    obs_gen_val = st.text_area("Notas generales:", placeholder="Comentarios finales...", key=f"obs_gen_{clave_base}")
+
+# ==========================================
+# 3. PESTAÑA RESUMEN DE CAPILLAS
+# ==========================================
+with tab_capillas:
+    st.header("⛪ Resumen de Capillas")
+    for c in st.session_state["lista_capillas"]:
+        st.subheader(c)
+        st.selectbox(f"Estado de {c}:", ["Pendiente", "En Proceso", "Completado"], key=f"est_{c}")
+        st.divider()
+
+# ==========================================
+# 4. PESTAÑA RECORDATORIOS RÁPIDOS
+# ==========================================
+with tab_notes:
+    st.header("📌 Bloc de Notas y Recordatorios Rápidos")
+    st.caption("Anotá pendientes generales, avisos o recordatorios sin asignarle un día u horario específico.")
+
+    with st.form("form_nueva_nota_libre", clear_on_submit=True):
+        titulo_nota = st.text_input("📌 Recordatorio / Nota:", placeholder="Ej: Comprar bolsas de residuos para la capilla Alberdi")
+        detalle_nota = st.text_area("✍️ Detalle adicional (opcional):", placeholder="Ej: Pedir en la ferretería de la esquina", height=80)
+        prioridad_nota = st.selectbox("Prioridad / Color:", ["💛 Normal", "🩷 Urgente / Importante", "💚 Idea / Nota"])
+        btn_guardar_nota = st.form_submit_button("➕ Añadir Recordatorio", type="primary", use_container_width=True)
+
+        if btn_guardar_nota and titulo_nota.strip():
+            ws_recordatorios.append_row([
+                str(uuid.uuid4()),
+                titulo_nota.strip(),
+                detalle_nota.strip(),
+                prioridad_nota,
+                st.session_state["usuario_actual"],
+                datetime.now().strftime("%d/%m/%Y %H:%M")
+            ])
+            st.success("¡Recordatorio guardado en Google Sheets!")
+            st.rerun()
+
+    st.divider()
+    
+    recordatorios_desde_gsheets = ws_recordatorios.get_all_records()
+    
+    st.subheader(f"📋 Recordatorios Guardados ({len(recordatorios_desde_gsheets)})")
+
+    if not recordatorios_desde_gsheets:
+        st.info("No hay recordatorios pendientes. Podés agregar uno arriba.")
+    else:
+        mapa_colores_notas = {
+            "💛 Normal": {"border": "#eab308", "bg": "#fefce8"},
+            "🩷 Urgente / Importante": {"border": "#ef4444", "bg": "#fef2f2"},
+            "💚 Idea / Nota": {"border": "#22c55e", "bg": "#f0fdf4"}
+        }
+
+        for idx, nota in enumerate(recordatorios_desde_gsheets):
+            c_info = mapa_colores_notas.get(nota["prioridad"], {"border": "#0284c7", "bg": "#ffffff"})
+            
+            with st.container():
+                st.markdown(f"""
+                    <div class="card-note" style="border-left-color: {c_info['border']}; background-color: {c_info['bg']};">
+                        <h4 style="margin:0 0 6px 0; color:#1e293b;">{nota['titulo']}</h4>
+                        <p style="margin:0 0 8px 0; color:#475569; font-size:0.9rem;">{nota['detalle']}</p>
+                        <span style="font-size:0.75rem; color:#64748b;">
+                            👤 Creado por <strong>{nota['creado_por']}</strong> | 🕒 {nota['fecha_creacion']}
+                        </span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button("✔️ Marcar como resuelto / Borrar", key=f"btn_del_nota_{nota['id']}", use_container_width=True):
+                    cell = ws_recordatorios.find(str(nota["id"]))
+                    if cell:
+                        ws_recordatorios.delete_rows(cell.row)
+                    st.rerun()
+                st.markdown("<br>", unsafe_allow_html=True)
