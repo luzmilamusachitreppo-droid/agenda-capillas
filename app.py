@@ -130,7 +130,6 @@ todas_las_capillas = []
 for z, caps in ZONAS_CAPILLAS.items():
     todas_las_capillas.extend(caps)
 
-# Lista de capillas con opción general opcional
 OPCIONES_CAPILLA_FORM = ["(Ninguna / Tarea General)"] + todas_las_capillas
 
 PDF_CHECKLIST_ITEMS = {
@@ -249,7 +248,7 @@ with tab_cal:
     except Exception:
         eventos_gsheets = []
 
-    # BLOQUE DE ALERTAS Y AVISOS SEMANALES
+    # BLOQUE DE ALERTAS Y AVISOS SEMANALES CON COLOR DINÁMICO
     inicio_sem_actual = f_sel - timedelta(days=f_sel.weekday())
     fin_sem_actual = inicio_sem_actual + timedelta(days=6)
     
@@ -270,12 +269,15 @@ with tab_cal:
             cols_ev = st.columns(min(len(eventos_semana), 3))
             for idx_ev, (f_dt, ev_data) in enumerate(eventos_semana):
                 col_idx = idx_ev % 3
+                cat_aviso = ev_data.get("categoria", "") or ev_data.get("color", "💚 Verde - Confirmado")
+                estilo_aviso = PALETA_COLORES.get(cat_aviso, PALETA_COLORES["💚 Verde - Confirmado"])
+                
                 with cols_ev[col_idx]:
                     st.markdown(f"""
-                        <div style="background-color: #f0f9ff; border-left: 4px solid #0284c7; padding: 10px; border-radius: 6px; margin-bottom: 8px;">
+                        <div style="background-color: {estilo_aviso['bg']}; border-left: 4px solid {estilo_aviso['border']}; color: {estilo_aviso['text']}; padding: 10px; border-radius: 6px; margin-bottom: 8px;">
                             <strong>📅 {f_dt.strftime('%d/%m (%a)')}: {ev_data.get('title')}</strong><br>
                             ⏱️ {int(ev_data.get('inicio', 0)):02d}:00 - {int(ev_data.get('fin', 0)):02d}:00 hs<br>
-                            <span style="font-size:0.8rem; color:#475569;">{ev_data.get('nota', 'Sin detalle')}</span>
+                            <span style="font-size:0.8rem;">{ev_data.get('nota', 'Sin detalle')}</span>
                         </div>
                     """, unsafe_allow_html=True)
 
@@ -325,8 +327,9 @@ with tab_cal:
             st.info("No hay tareas programadas para esta fecha.")
         else:
             for ev in evs_dia:
-                cat_ev = ev.get("categoria", "💚 Verde - Confirmado")
+                cat_ev = ev.get("categoria", "") or ev.get("color", "💚 Verde - Confirmado")
                 estilo = PALETA_COLORES.get(cat_ev, PALETA_COLORES["💚 Verde - Confirmado"])
+                id_ev = str(ev.get("id", ""))
                 
                 st.markdown(f"""
                     <div style="background-color: {estilo['bg']}; border-left: 5px solid {estilo['border']}; padding: 12px; border-radius: 8px; margin-bottom: 8px; color: {estilo['text']};">
@@ -336,21 +339,73 @@ with tab_cal:
                     </div>
                 """, unsafe_allow_html=True)
                 
-                if st.button("🗑️ Borrar", key=f"del_ev_{ev.get('id')}", use_container_width=True):
-                    cell = ws_eventos.find(str(ev.get('id')))
-                    if cell:
-                        ws_eventos.delete_rows(cell.row)
-                    st.rerun()
+                col_ev_edit, col_ev_del = st.columns([1, 1])
+                
+                with col_ev_edit:
+                    with st.popover("✏️ Editar", use_container_width=True):
+                        st.markdown("**Editar Tarea de Agenda**")
+                        with st.form(key=f"form_edit_ev_{id_ev}"):
+                            # Extraer datos actuales
+                            tit_actual = str(ev.get("title", ""))
+                            cap_def = "(Ninguna / Tarea General)"
+                            t_puro = tit_actual
+                            if " - " in tit_actual:
+                                partes = tit_actual.split(" - ", 1)
+                                if partes[0] in todas_las_capillas:
+                                    cap_def = partes[0]
+                                    t_puro = partes[1]
+
+                            new_f_tarea = st.date_input("Fecha:", value=f_sel, key=f"f_ed_{id_ev}")
+                            
+                            idx_cap_def = OPCIONES_CAPILLA_FORM.index(cap_def) if cap_def in OPCIONES_CAPILLA_FORM else 0
+                            new_cap_opc = st.selectbox("Capilla (Opcional):", options=OPCIONES_CAPILLA_FORM, index=idx_cap_def, key=f"cap_ed_{id_ev}")
+                            new_tit_input = st.text_input("Título / Tarea:", value=t_puro, key=f"tit_ed_{id_ev}")
+                            
+                            idx_cat_def = list(PALETA_COLORES.keys()).index(cat_ev) if cat_ev in PALETA_COLORES else 0
+                            new_cat_t = st.selectbox("Situación / Color:", options=list(PALETA_COLORES.keys()), index=idx_cat_def, key=f"cat_ed_{id_ev}")
+                            new_nota_t = st.text_area("Detalle adicional", value=str(ev.get("nota", "")), height=68, key=f"nota_ed_{id_ev}")
+                            
+                            ce1, ce2 = st.columns(2)
+                            new_h_i = ce1.number_input("Inicio", min_value=7, max_value=20, value=int(ev.get("inicio", 8)), key=f"hi_ed_{id_ev}")
+                            new_h_f = ce2.number_input("Fin", min_value=8, max_value=21, value=int(ev.get("fin", 12)), key=f"hf_ed_{id_ev}")
+
+                            if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                                if new_tit_input.strip():
+                                    if new_cap_opc != "(Ninguna / Tarea General)":
+                                        titulo_final = f"{new_cap_opc} - {new_tit_input.strip()}"
+                                    else:
+                                        titulo_final = new_tit_input.strip()
+                                else:
+                                    titulo_final = new_cap_opc if new_cap_opc != "(Ninguna / Tarea General)" else "Tarea General"
+
+                                cell = ws_eventos.find(id_ev)
+                                if cell:
+                                    row_n = cell.row
+                                    ws_eventos.update_cell(row_n, 2, titulo_final)
+                                    ws_eventos.update_cell(row_n, 3, new_f_tarea.strftime("%Y-%m-%d"))
+                                    ws_eventos.update_cell(row_n, 4, int(new_h_i))
+                                    ws_eventos.update_cell(row_num=row_n, col=5, value=int(new_h_f))
+                                    ws_eventos.update_cell(row_n, 6, new_nota_t.strip())
+                                    ws_eventos.update_cell(row_n, 7, new_cat_t)
+                                    st.session_state["fecha_seleccionada"] = new_f_tarea
+                                    st.success("¡Tarea actualizada!")
+                                    st.rerun()
+
+                with col_ev_del:
+                    if st.button("🗑️ Borrar", key=f"del_ev_{id_ev}", use_container_width=True):
+                        cell = ws_eventos.find(id_ev)
+                        if cell:
+                            ws_eventos.delete_rows(cell.row)
+                        st.rerun()
+                
+                st.markdown("<br>", unsafe_allow_html=True)
 
     with col_der:
         st.markdown("#### ➕ Agregar Tarea")
         with st.form("form_add_evento_col", clear_on_submit=True):
             f_tarea = st.date_input("Fecha:", value=f_sel)
             
-            # 1. Selección opcional de Capilla
             cap_opcional = st.selectbox("Capilla (Opcional):", options=OPCIONES_CAPILLA_FORM)
-            
-            # 2. Título de la tarea independiente
             tit_tarea_input = st.text_input("Título / Tarea:", placeholder="Ej: Limpieza profunda, Control de luminarias, etc.")
             
             cat_t = st.selectbox("Situación / Color:", options=list(PALETA_COLORES.keys()))
@@ -361,7 +416,6 @@ with tab_cal:
             h_f = c2.number_input("Fin", min_value=8, max_value=21, value=12)
             
             if st.form_submit_button("Guardar en Agenda", type="primary", use_container_width=True):
-                # Formatear el título final de forma clara
                 if tit_tarea_input.strip():
                     if cap_opcional != "(Ninguna / Tarea General)":
                         titulo_completo = f"{cap_opcional} - {tit_tarea_input.strip()}"
@@ -446,7 +500,6 @@ with tab_capillas:
             if r.get("estado_planilla"):
                 mapa_resumen[cap]["estado"] = r.get("estado_planilla")
 
-    # Panel de Métricas Rápidas Arriba
     st.markdown("### 📊 Estadísticas Generales del Mes")
     c_met1, c_met2, c_met3 = st.columns(3)
     c_met1.metric("📌 Total de Visitas Registradas", total_visitas_global)
