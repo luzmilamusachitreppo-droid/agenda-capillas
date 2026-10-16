@@ -200,6 +200,28 @@ st.markdown("""
         margin-right: 6px;
         margin-bottom: 6px;
     }
+    .badge-alerta-roja {
+        background-color: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: inline-block;
+        margin: 4px;
+    }
+    .badge-alerta-amarilla {
+        background-color: #fef9c3;
+        color: #854d0e;
+        border: 1px solid #fef08a;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: inline-block;
+        margin: 4px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -342,7 +364,7 @@ with tab_check:
                 st.text_input(f"Observación ({item})", key=f"obs_jard_{capilla_trabajo}_{item}", placeholder="Detalles u observaciones...")
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
                 # ==========================================
-# 3. RESUMEN DE CAPILLAS Y ESTADÍSTICAS DE VISITAS
+# 3. RESUMEN DE CAPILLAS Y ESTADÍSTICAS VISUALES
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas y Control de Visitas")
@@ -387,39 +409,45 @@ with tab_capillas:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Clasificación de Capillas por cantidad de visitas (0 visitas o 1 a 2 visitas)
+    # Clasificación visual en tarjetas/badges bonitos
     sin_visitas = []
-    pocas_visitas = [] # 1 o 2 visitas
+    pocas_visitas = []
 
     for c in todas_las_capillas:
         cant_v = len(mapa_resumen.get(c, {}).get("visitas", []))
         if cant_v == 0:
             sin_visitas.append(c)
         elif cant_v <= 2:
-            pocas_visitas.append(f"{c} ({cant_v} visita{'s' if cant_v > 1 else ''})")
+            pocas_visitas.append((c, cant_v))
 
     col_rep1, col_rep2 = st.columns(2)
     with col_rep1:
         st.markdown("""
-            <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-                <h4 style="margin:0 0 6px 0; color: #991b1b;">🔴 Capillas SIN visitas este mes (0)</h4>
+            <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+                <h4 style="margin:0 0 4px 0; color: #991b1b; font-size:1rem;">🔴 Capillas SIN visitas este mes (0)</h4>
             </div>
         """, unsafe_allow_html=True)
         if not sin_visitas:
             st.success("¡Excelente! Todas las capillas recibieron al menos una visita este mes.")
         else:
-            st.write(", ".join(f"**{c}**" for c in sin_visitas))
+            html_sin = ""
+            for c in sin_visitas:
+                html_sin += f'<span class="badge-alerta-roja">⛪ {c}</span>'
+            st.markdown(html_sin, unsafe_allow_html=True)
 
     with col_rep2:
         st.markdown("""
-            <div style="background-color: #fefce8; border-left: 5px solid #eab308; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-                <h4 style="margin:0 0 6px 0; color: #854d0e;">💛 Capillas visitadas de 1 a 2 veces</h4>
+            <div style="background-color: #fefce8; border-left: 5px solid #eab308; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+                <h4 style="margin:0 0 4px 0; color: #854d0e; font-size:1rem;">💛 Capillas visitadas de 1 a 2 veces</h4>
             </div>
         """, unsafe_allow_html=True)
         if not pocas_visitas:
             st.info("No hay capillas en el rango de 1 a 2 visitas.")
         else:
-            st.write(", ".join(f"**{c}**" for c in pocas_visitas))
+            html_pocas = ""
+            for c, cant in pocas_visitas:
+                html_pocas += f'<span class="badge-alerta-amarilla">⛪ {c} ({cant} visita{"s" if cant > 1 else ""})</span>'
+            st.markdown(html_pocas, unsafe_allow_html=True)
 
     st.divider()
 
