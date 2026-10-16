@@ -412,12 +412,12 @@ with tab_capillas:
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS
+# 4. RECORDATORIOS RÁPIDOS (ORDENADOS POR PRIORIDAD Y FECHA)
 # ==========================================
 with tab_notes:
     st.markdown("## 📌 Recordatorios")
 
-    OPCIONES_PRIORIDAD = ["💛 Normal", "🩷 Urgente / Importante", "💚 Idea / Nota"]
+    OPCIONES_PRIORIDAD = ["🩷 Urgente / Importante", "💛 Normal", "💚 Idea / Nota"]
 
     with st.form("form_nueva_nota_libre", clear_on_submit=True):
         titulo_nota = st.text_input("Nota:", placeholder="Ej: Comprar bolsas de residuos para la capilla Alberdi")
@@ -445,12 +445,29 @@ with tab_notes:
         st.info("No hay recordatorios pendientes.")
     else:
         mapa_colores_notas = {
-            "💛 Normal": {"border": "#eab308", "bg": "#fefce8"},
-            "🩷 Urgente / Importante": {"border": "#ef4444", "bg": "#fef2f2"},
-            "💚 Idea / Nota": {"border": "#22c55e", "bg": "#f0fdf4"}
+            "🩷 Urgente / Importante": {"border": "#ef4444", "bg": "#fef2f2", "orden": 1},
+            "💛 Normal": {"border": "#eab308", "bg": "#fefce8", "orden": 2},
+            "💚 Idea / Nota": {"border": "#22c55e", "bg": "#f0fdf4", "orden": 3}
         }
 
-        for idx, nota in enumerate(recs):
+        # Función para convertir string de fecha a objeto datetime para ordenar
+        def parse_fecha(f_str):
+            try:
+                return datetime.strptime(str(f_str), "%d/%m/%Y %H:%M")
+            except Exception:
+                return datetime.min
+
+        # Ordenar primero por prioridad (1: Rojo, 2: Amarillo, 3: Verde) y luego por fecha descendente
+        recs_ordenados = sorted(
+            recs,
+            key=lambda x: (
+                mapa_colores_notas.get(x.get("prioridad", ""), {"orden": 99})["orden"],
+                parse_fecha(x.get("fecha_creacion", ""))
+            ),
+            reverse=False
+        )
+
+        for idx, nota in enumerate(recs_ordenados):
             tit = nota.get("titulo", "Sin título")
             det = nota.get("detalle", "")
             prio = nota.get("prioridad", "💛 Normal")
@@ -458,7 +475,7 @@ with tab_notes:
             fec = nota.get("fecha_creacion", "")
             id_n = str(nota.get("id", ""))
 
-            c_info = mapa_colores_notas.get(prio, {"border": "#0284c7", "bg": "#ffffff"})
+            c_info = mapa_colores_notas.get(prio, {"border": "#0284c7", "bg": "#ffffff", "orden": 2})
             
             with st.container():
                 st.markdown(f"""
@@ -480,7 +497,7 @@ with tab_notes:
                             new_tit = st.text_input("Nota / Título:", value=tit)
                             new_det = st.text_area("Detalle:", value=det, height=70)
                             
-                            prio_idx = OPCIONES_PRIORIDAD.index(prio) if prio in OPCIONES_PRIORIDAD else 0
+                            prio_idx = OPCIONES_PRIORIDAD.index(prio) if prio in OPCIONES_PRIORIDAD else 1
                             new_prio = st.selectbox("Prioridad / Urgencia:", OPCIONES_PRIORIDAD, index=prio_idx)
                             
                             if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
