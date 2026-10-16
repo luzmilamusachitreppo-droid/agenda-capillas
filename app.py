@@ -235,7 +235,7 @@ tab_cal, tab_check, tab_capillas, tab_notes, tab_gmail = st.tabs([
 ])
 
 # ==========================================
-# 1. AGENDA PRINCIPAL
+# 1. AGENDA PRINCIPAL Y AVISOS PRÓXIMOS
 # ==========================================
 with tab_cal:
     f_sel = st.session_state["fecha_seleccionada"]
@@ -245,6 +245,36 @@ with tab_cal:
         eventos_gsheets = ws_eventos.get_all_records()
     except Exception:
         eventos_gsheets = []
+
+    # BLOQUE DE ALERTAS Y AVISOS SEMANALES
+    inicio_sem_actual = f_sel - timedelta(days=f_sel.weekday())
+    fin_sem_actual = inicio_sem_actual + timedelta(days=6)
+    
+    eventos_semana = []
+    for ev in eventos_gsheets:
+        f_ev_str = str(ev.get("fecha", ""))
+        try:
+            f_ev_dt = datetime.strptime(f_ev_str, "%Y-%m-%d").date()
+            if inicio_sem_actual <= f_ev_dt <= fin_sem_actual:
+                eventos_semana.append((f_ev_dt, ev))
+        except Exception:
+            pass
+            
+    eventos_semana.sort(key=lambda x: x[0])
+
+    if eventos_semana:
+        with st.expander(f"🔔 **Avisos de Tareas Programadas para esta Semana ({inicio_sem_actual.strftime('%d/%m')} al {fin_sem_actual.strftime('%d/%m')})**", expanded=True):
+            cols_ev = st.columns(min(len(eventos_semana), 3))
+            for idx_ev, (f_dt, ev_data) in enumerate(eventos_semana):
+                col_idx = idx_ev % 3
+                with cols_ev[col_idx]:
+                    st.markdown(f"""
+                        <div style="background-color: #f0f9ff; border-left: 4px solid #0284c7; padding: 10px; border-radius: 6px; margin-bottom: 8px;">
+                            <strong>📅 {f_dt.strftime('%d/%m (%a)')}: {ev_data.get('title')}</strong><br>
+                            ⏱️ {int(ev_data.get('inicio', 0)):02d}:00 - {int(ev_data.get('fin', 0)):02d}:00 hs<br>
+                            <span style="font-size:0.8rem; color:#475569;">{ev_data.get('nota', 'Sin detalle')}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
 
     fechas_con_tareas = {str(e.get("fecha")) for e in eventos_gsheets if e.get("fecha")}
 
@@ -335,8 +365,7 @@ with tab_cal:
                     st.session_state["fecha_seleccionada"] = f_tarea
                     st.success("¡Agregado con éxito!")
                     st.rerun()
-
-# ==========================================
+                    # ==========================================
 # 2. CHECKLIST DIGITAL
 # ==========================================
 with tab_check:
@@ -363,8 +392,9 @@ with tab_check:
                 st.checkbox(item, key=f"chk_jard_{capilla_trabajo}_{item}")
                 st.text_input(f"Observación ({item})", key=f"obs_jard_{capilla_trabajo}_{item}", placeholder="Detalles u observaciones...")
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
-                # ==========================================
-# 3. RESUMEN DE CAPILLAS Y ESTADÍSTICAS VISUALES
+
+# ==========================================
+# 3. RESUMEN DE CAPILLAS
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas y Control de Visitas")
@@ -396,7 +426,6 @@ with tab_capillas:
             if r.get("estado_planilla"):
                 mapa_resumen[cap]["estado"] = r.get("estado_planilla")
 
-    # Panel de Métricas Rápidas Arriba
     st.markdown("### 📊 Estadísticas Generales del Mes")
     c_met1, c_met2, c_met3 = st.columns(3)
     c_met1.metric("📌 Total de Visitas Registradas", total_visitas_global)
@@ -409,7 +438,6 @@ with tab_capillas:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Clasificación visual en tarjetas/badges bonitos
     sin_visitas = []
     pocas_visitas = []
 
@@ -620,7 +648,7 @@ with tab_notes:
                 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# 5. GMAIL - CONTROL Y SEGUIMIENTO DE GMAIL / OT
+# 5. GMAIL - CONTROL Y SEGUIMIENTO DE GMAIL / OT (CON ALERTAS DE PENDIENTES)
 # ==========================================
 with tab_gmail:
     st.markdown("## ✉️ Control y Seguimiento de Gmail / OT")
@@ -670,6 +698,32 @@ with tab_gmail:
             registros_gmail = ws_gmail.get_all_records()
         except Exception:
             registros_gmail = []
+
+    # DETECCIÓN DE CORREOS EN ESPERA HACE VARIOS DÍAS
+    mails_demorados = []
+    hoy_date = date.today()
+
+    for mail in registros_gmail:
+        if mail.get("etapa_proceso") == "Pendiente respuesta":
+            fec_env_str = str(mail.get("fecha_envio", ""))
+            try:
+                fec_env_dt = datetime.strptime(fec_env_str, "%d/%m/%Y").date()
+                dias_transcurridos = (hoy_date - fec_env_dt).days
+                if dias_transcurridos >= 3:
+                    mails_demorados.append((mail, dias_transcurridos))
+            except Exception:
+                pass
+
+    if mails_demorados:
+        with st.expander(f"⚠️ **Atención: {len(mails_demorados)} correo(s) en 'Pendiente respuesta' desde hace más de 3 días**", expanded=True):
+            for m_dem, d_trans in mails_demorados:
+                st.markdown(f"""
+                    <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 10px; border-radius: 6px; margin-bottom: 6px;">
+                        🚨 <strong>{m_dem.get('asunto')}</strong> (OT: {m_dem.get('nro_ot')}) — <em>Sin respuesta hace {d_trans} días</em> (Enviado: {m_dem.get('fecha_envio')})
+                    </div>
+                """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     if not registros_gmail:
         st.info("No hay correos ni órdenes de trabajo registradas todavía.")
