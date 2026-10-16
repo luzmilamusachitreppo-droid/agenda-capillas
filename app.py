@@ -313,7 +313,8 @@ with tab_cal:
                     st.session_state["fecha_seleccionada"] = f_tarea
                     st.success("¡Agregado con éxito!")
                     st.rerun()
-                    # ==========================================
+
+# ==========================================
 # 2. CHECKLIST DIGITAL
 # ==========================================
 with tab_check:
@@ -340,12 +341,11 @@ with tab_check:
                 st.checkbox(item, key=f"chk_jard_{capilla_trabajo}_{item}")
                 st.text_input(f"Observación ({item})", key=f"obs_jard_{capilla_trabajo}_{item}", placeholder="Detalles u observaciones...")
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
-
-# ==========================================
-# 3. RESUMEN DE CAPILLAS (CON BORRADO DE VISITAS)
+                # ==========================================
+# 3. RESUMEN DE CAPILLAS Y ESTADÍSTICAS DE VISITAS
 # ==========================================
 with tab_capillas:
-    st.header("⛪ Resumen de Capillas por Zona")
+    st.header("⛪ Resumen de Capillas y Estadísticas de Visitas")
     
     registros_capillas = []
     if ws_resumen:
@@ -355,6 +355,8 @@ with tab_capillas:
             registros_capillas = []
 
     mapa_resumen = {}
+    total_visitas_global = 0
+
     for idx_r, r in enumerate(registros_capillas):
         cap = str(r.get("capilla", "")).strip()
         if cap:
@@ -367,16 +369,31 @@ with tab_capillas:
                     "row_index": idx_r + 2,
                     "texto": dias_str
                 })
+                total_visitas_global += 1
             
             if r.get("estado_planilla"):
                 mapa_resumen[cap]["estado"] = r.get("estado_planilla")
 
+    # Panel de Estadísticas Rápidas Arriba
+    st.markdown("### 📊 Estadísticas Generales del Mes")
+    c_met1, c_met2, c_met3 = st.columns(3)
+    c_met1.metric("📌 Total de Visitas Registradas", total_visitas_global)
+    
+    capillas_visitadas_count = sum(1 for c in todas_las_capillas if len(mapa_resumen.get(c, {}).get("visitas", [])) > 0)
+    c_met2.metric("⛪ Capillas con al menos 1 Visita", f"{capillas_visitadas_count} / {len(todas_las_capillas)}")
+    
+    completadas_count = sum(1 for c in todas_las_capillas if mapa_resumen.get(c, {}).get("estado") == "Completado")
+    c_met3.metric("📋 Planillas Completadas", f"{completadas_count} / {len(todas_las_capillas)}")
+
+    st.divider()
+
     for zona, capillas in ZONAS_CAPILLAS.items():
         st.markdown(f"### 📍 {zona}")
         for c in capillas:
-            st.markdown(f"#### ⛪ {c}")
-            
             data_capilla = mapa_resumen.get(c, {"estado": "Pendiente", "visitas": []})
+            cant_v = len(data_capilla["visitas"])
+            
+            st.markdown(f"#### ⛪ {c} &nbsp;&nbsp;|&nbsp;&nbsp; <span style='font-size:0.9rem; color:#0284c7;'>📊 Visitas este mes: <strong>{cant_v}</strong></span>", unsafe_allow_html=True)
             
             col_est, col_add_v = st.columns([1, 1.5])
             
