@@ -237,7 +237,7 @@ tab_cal, tab_check, tab_capillas, tab_notes, tab_gmail = st.tabs([
 ])
 
 # ==========================================
-# 1. AGENDA PRINCIPAL Y AVISOS PRÓXIMOS
+# 1. AGENDA PRINCIPAL, VISTA MENSUAL Y SEMANAL
 # ==========================================
 with tab_cal:
     f_sel = st.session_state["fecha_seleccionada"]
@@ -248,7 +248,47 @@ with tab_cal:
     except Exception:
         eventos_gsheets = []
 
-    # BLOQUE DE ALERTAS Y AVISOS SEMANALES CON COLOR DINÁMICO
+    # 1. VISTA MENSUAL GENERAL DE TAREAS
+    meses_nombres = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+        7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
+    
+    col_m1, col_m2 = st.columns([2, 1])
+    with col_m1:
+        st.markdown(f"### 🗓️ Vista General del Mes: **{meses_nombres[f_sel.month]} {f_sel.year}**")
+    
+    # Filtrar eventos del mes seleccionado
+    eventos_mes = []
+    for ev in eventos_gsheets:
+        f_ev_str = str(ev.get("fecha", ""))
+        try:
+            f_ev_dt = datetime.strptime(f_ev_str, "%Y-%m-%d").date()
+            if f_ev_dt.year == f_sel.year and f_ev_dt.month == f_sel.month:
+                eventos_mes.append((f_ev_dt, ev))
+        except Exception:
+            pass
+            
+    eventos_mes.sort(key=lambda x: x[0])
+
+    with st.expander(f"📅 **Ver el Calendario Completo del Mes ({len(eventos_mes)} tareas registradas en {meses_nombres[f_sel.month]})**", expanded=False):
+        if not eventos_mes:
+            st.info("No hay tareas registradas para este mes.")
+        else:
+            for f_dt, ev_data in eventos_mes:
+                cat_mes = ev_data.get("categoria", "") or ev_data.get("color", "💚 Verde - Confirmado")
+                est_mes = PALETA_COLORES.get(cat_mes, PALETA_COLORES["💚 Verde - Confirmado"])
+                st.markdown(f"""
+                    <div style="background-color: {est_mes['bg']}; border-left: 5px solid {est_mes['border']}; color: {est_mes['text']}; padding: 10px; border-radius: 6px; margin-bottom: 6px;">
+                        <strong>📅 {f_dt.strftime('%d/%m/%Y (%a)')} | ⏱️ {int(ev_data.get('inicio', 0)):02d}:00 - {int(ev_data.get('fin', 0)):02d}:00 hs</strong><br>
+                        <strong>{ev_data.get('title')}</strong>
+                        {f'<br>💬 {ev_data.get("nota")}' if ev_data.get("nota") else ''}
+                    </div>
+                """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # BLOQUE DE AVISOS SEMANALES
     inicio_sem_actual = f_sel - timedelta(days=f_sel.weekday())
     fin_sem_actual = inicio_sem_actual + timedelta(days=6)
     
@@ -345,7 +385,6 @@ with tab_cal:
                     with st.popover("✏️ Editar", use_container_width=True):
                         st.markdown("**Editar Tarea de Agenda**")
                         with st.form(key=f"form_edit_ev_{id_ev}"):
-                            # Extraer datos actuales
                             tit_actual = str(ev.get("title", ""))
                             cap_def = "(Ninguna / Tarea General)"
                             t_puro = tit_actual
@@ -384,7 +423,7 @@ with tab_cal:
                                     ws_eventos.update_cell(row_n, 2, titulo_final)
                                     ws_eventos.update_cell(row_n, 3, new_f_tarea.strftime("%Y-%m-%d"))
                                     ws_eventos.update_cell(row_n, 4, int(new_h_i))
-                                    ws_eventos.update_cell(row_num=row_n, col=5, value=int(new_h_f))
+                                    ws_eventos.update_cell(row_n, 5, int(new_h_f))
                                     ws_eventos.update_cell(row_n, 6, new_nota_t.strip())
                                     ws_eventos.update_cell(row_n, 7, new_cat_t)
                                     st.session_state["fecha_seleccionada"] = new_f_tarea
