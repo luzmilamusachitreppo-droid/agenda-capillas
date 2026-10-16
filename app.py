@@ -600,40 +600,113 @@ with tab_capillas:
 
     st.divider()
 
-    # 2. GENERADOR DE INFORME AUTOMÁTICO PARA COPIAR
-    st.markdown("### 📩 Generar Informe Semanal para Compartir")
+    # 2. GENERADOR DE MENSAJE SEMANAL DE PRIORIDADES EN CUADROS SEPARADOS
+    st.markdown("### 📩 Mensaje semanal de prioridades")
     
     col_saludo, col_vac = st.columns([1, 1])
     with col_saludo:
         saludo_tipo = st.selectbox("Saludo inicial:", ["Buenos días", "Buenas tardes", "Buenas noches"])
     
-    lineas_mensaje = [f"{saludo_tipo}, comparto el informe semanal de las capillas visitadas:\n"]
+    CAPILLAS_INDIVIDUALES = ["Bella Vista", "Goya", "El Colorado", "La Leonesa", "San Martin"]
+
+    # --- CUADRO 1: MENSAJE POR ZONAS CON ROTACIÓN SEMANAL ---
+    lineas_zonas = [f"{saludo_tipo}, comparto el informe semanal de las capillas visitadas:\n"]
     
     for zona, capillas in ZONAS_CAPILLAS.items():
-        lineas_mensaje.append(f"📍 *{zona}*")
-        for c in capillas:
+        capillas_grupales = [c for c in capillas if c not in CAPILLAS_INDIVIDUALES]
+        if not capillas_grupales:
+            continue
+
+        lineas_zonas.append(f"📍 *{zona}*")
+        
+        capillas_visitadas_esta_semana = []
+        capillas_no_visitadas_esta_semana = []
+        
+        for c in capillas_grupales:
             visitas = mapa_resumen.get(c, {}).get("visitas", [])
             if visitas:
-                fechas_txt = ", ".join([v["texto"] for v in visitas])
-                lineas_mensaje.append(f"• {c}: Visitada ({fechas_txt})")
+                fechas_limpias = []
+                for v in visitas:
+                    txt_v = v["texto"]
+                    if " (por " in txt_v:
+                        txt_v = txt_v.split(" (por ")[0]
+                    fechas_limpias.append(txt_v)
+                
+                fechas_txt = ", ".join(fechas_limpias)
+                lineas_zonas.append(f"• {c}: Visitada ({fechas_txt})")
+                
+                # Se toma la última visita para evaluar la rotación
+                capillas_visitadas_esta_semana.append(c)
             else:
-                lineas_mensaje.append(f"• {c}: Sin visitas registradas")
-        lineas_mensaje.append("")
+                lineas_zonas.append(f"• {c}: Sin visitas registradas")
+                capillas_no_visitadas_esta_semana.append(c)
 
-    texto_final_informe = "\n".join(lineas_mensaje)
+        # Si algunas se visitaron y otras no, las no visitadas son la prioridad inmediata de rotación
+        if capillas_no_visitadas_esta_semana:
+            prioridad_rotacion = capillas_no_visitadas_esta_semana
+        else:
+            # Si todas fueron visitadas al menos una vez, prioriza las de menor cantidad total
+            prioridad_rotacion = sorted(capillas_grupales, key=lambda x: len(mapa_resumen.get(x, {}).get("visitas", [])))[:2]
+        
+        if prioridad_rotacion:
+            lineas_zonas.append(f"⚠️ *Prioridad para la próxima semana:* {', '.join(prioridad_rotacion)}")
+        
+        lineas_zonas.append("")
 
-    with st.expander("📄 **Hacé clic acá para ver y copiar el informe**", expanded=False):
+    lineas_zonas.append("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*")
+    txt_zonas_completo = "\n".join(lineas_zonas)
+
+    # --- CUADRO 2: MENSAJE CAPILLAS INDIVIDUALES ---
+    lineas_ind = [f"{saludo_tipo}, comparto el informe de capillas individuales:\n"]
+    for c_ind in CAPILLAS_INDIVIDUALES:
+        visitas_ind = mapa_resumen.get(c_ind, {}).get("visitas", [])
+        if visitas_ind:
+            fechas_limpias_ind = []
+            for v in visitas_ind:
+                txt_v = v["texto"]
+                if " (por " in txt_v:
+                    txt_v = txt_v.split(" (por ")[0]
+                fechas_limpias_ind.append(txt_v)
+            
+            fechas_txt_ind = ", ".join(fechas_limpias_ind)
+            lineas_ind.append(f"• {c_ind}: Visitada ({fechas_txt_ind})")
+        else:
+            lineas_ind.append(f"• {c_ind}: Sin visitas registradas")
+
+    txt_ind_completo = "\n".join(lineas_ind)
+
+    # --- CUADRO 3: MENSAJE UNIFICADO ---
+    txt_unificado_completo = txt_zonas_completo.replace("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*", "").strip() + "\n\n" + "👤 *CAPILLAS INDIVIDUALES*\n" + "\n".join(lineas_ind[1:]) + "\n\n📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*"
+
+    # RENDERIZADO DE LOS 3 CUADROS
+    with st.expander("📄 **1. Copiar Informe de Zonas (Grupales con Rotación)**", expanded=False):
         st.text_area(
-            "Texto listo para copiar:", 
-            value=texto_final_informe, 
-            height=220, 
-            help="Copiá el texto seleccionándolo o mediante el botón en la esquina superior del cuadro."
+            "Texto listo para copiar (Zonas):", 
+            value=txt_zonas_completo, 
+            height=280, 
+            key="txt_area_zonas"
+        )
+
+    with st.expander("👤 **2. Copiar Informe de Capillas Individuales**", expanded=False):
+        st.text_area(
+            "Texto listo para copiar (Individuales):", 
+            value=txt_ind_completo, 
+            height=180, 
+            key="txt_area_ind"
+        )
+
+    with st.expander("📋 **3. Copiar Informe Completo (Unificado)**", expanded=False):
+        st.text_area(
+            "Texto listo para copiar (Completo):", 
+            value=txt_unificado_completo, 
+            height=340, 
+            key="txt_area_unificado"
         )
 
     st.divider()
 
     # 3. LISTADO DETALLADO DE ZONAS Y REGISTRO DE VISITAS
-for zona, capillas in ZONAS_CAPILLAS.items():
+    for zona, capillas in ZONAS_CAPILLAS.items():
         st.markdown(f"### 📍 {zona}")
         for c in capillas:
             data_capilla = mapa_resumen.get(c, {"estado": "Pendiente", "visitas": []})
