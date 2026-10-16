@@ -30,7 +30,6 @@ def get_spreadsheet():
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
     
-    # Reintento por si la API está ocupada
     for intento in range(3):
         try:
             return client.open_by_key("12zw7JZ3cHMg7wKZWMTsfJmmWrpP4DDjLN9K2K_w715w")
@@ -314,8 +313,7 @@ with tab_cal:
                     st.session_state["fecha_seleccionada"] = f_tarea
                     st.success("¡Agregado con éxito!")
                     st.rerun()
-
-# ==========================================
+                    # ==========================================
 # 2. CHECKLIST DIGITAL
 # ==========================================
 with tab_check:
@@ -344,7 +342,7 @@ with tab_check:
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. RESUMEN DE CAPILLAS
+# 3. RESUMEN DE CAPILLAS (CON BORRADO DE VISITAS)
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas por Zona")
@@ -357,14 +355,19 @@ with tab_capillas:
             registros_capillas = []
 
     mapa_resumen = {}
-    for r in registros_capillas:
+    for idx_r, r in enumerate(registros_capillas):
         cap = str(r.get("capilla", "")).strip()
         if cap:
             if cap not in mapa_resumen:
                 mapa_resumen[cap] = {"estado": r.get("estado_planilla", "Pendiente"), "visitas": []}
+            
             dias_str = str(r.get("dias_visitados", "")).strip()
-            if dias_str and dias_str not in mapa_resumen[cap]["visitas"]:
-                mapa_resumen[cap]["visitas"].append(dias_str)
+            if dias_str:
+                mapa_resumen[cap]["visitas"].append({
+                    "row_index": idx_r + 2,
+                    "texto": dias_str
+                })
+            
             if r.get("estado_planilla"):
                 mapa_resumen[cap]["estado"] = r.get("estado_planilla")
 
@@ -409,14 +412,20 @@ with tab_capillas:
                         st.success(f"¡Visita {nueva_fecha_v} guardada para {c}!")
                         st.rerun()
 
-            st.markdown("**📅 Días visitados este mes:**")
+            st.markdown("📅 **Días visitados este mes:**")
             if not data_capilla["visitas"]:
                 st.caption("Aún no hay visitas registradas este mes.")
             else:
-                html_badges = ""
-                for v in data_capilla["visitas"]:
-                    html_badges += f'<span class="badge-visita">✔ {v}</span>'
-                st.markdown(html_badges, unsafe_allow_html=True)
+                for v_info in data_capilla["visitas"]:
+                    c_badge, c_del = st.columns([4, 1])
+                    with c_badge:
+                        st.markdown(f'<span class="badge-visita">✔ {v_info["texto"]}</span>', unsafe_allow_html=True)
+                    with c_del:
+                        if st.button("🗑️ Borrar", key=f"del_v_{c}_{v_info['row_index']}", help="Borrar esta visita"):
+                            if ws_resumen:
+                                ws_resumen.delete_rows(v_info["row_index"])
+                                st.success("Visita eliminada con éxito.")
+                                st.rerun()
 
             st.markdown("<hr style='margin: 15px 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
         st.divider()
