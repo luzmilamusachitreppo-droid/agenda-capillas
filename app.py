@@ -633,7 +633,7 @@ with tab_capillas:
     st.divider()
 
     # 3. LISTADO DETALLADO DE ZONAS Y REGISTRO DE VISITAS
-    for zona, capillas in ZONAS_CAPILLAS.items():
+for zona, capillas in ZONAS_CAPILLAS.items():
         st.markdown(f"### 📍 {zona}")
         for c in capillas:
             data_capilla = mapa_resumen.get(c, {"estado": "Pendiente", "visitas": []})
@@ -675,7 +675,7 @@ with tab_capillas:
                         st.success(f"¡Visita {nueva_fecha_v} guardada para {c}!")
                         st.rerun()
 
-          st.markdown("📅 **Días visitados este mes:**")
+            st.markdown("📅 **Días visitados este mes:**")
             if not data_capilla["visitas"]:
                 st.caption("Aún no hay visitas registradas este mes.")
             else:
@@ -689,6 +689,9 @@ with tab_capillas:
                                 ws_resumen.delete_rows(v_info["row_index"])
                                 st.success("Visita eliminada con éxito.")
                                 st.rerun()
+
+            st.markdown("<hr style='margin: 15px 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+        st.divider()
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS
 # ==========================================
