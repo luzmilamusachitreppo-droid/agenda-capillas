@@ -675,13 +675,20 @@ with tab_capillas:
                         st.success(f"¡Visita {nueva_fecha_v} guardada para {c}!")
                         st.rerun()
 
-            st.markdown("📅 **Días visitados este mes:**")
+           st.markdown("📅 **Días visitados este mes:**")
             if not data_capilla["visitas"]:
                 st.caption("Aún no hay visitas registradas este mes.")
             else:
                 for v_info in data_capilla["visitas"]:
                     c_badge, c_del = st.columns([4, 1])
-                    with c_badge
+                    with c_badge:  # <--- AQUÍ FALTABAN LOS DOS PUNTOS
+                        st.markdown(f'<span class="badge-visita">✔ {v_info["texto"]}</span>', unsafe_allow_html=True)
+                    with c_del:    # <--- Y ACÁ TAMBIÉN POR LAS DUDAS
+                        if st.button("🗑️ Borrar", key=f"del_v_{c}_{v_info['row_index']}", help="Borrar esta visita"):
+                            if ws_resumen:
+                                ws_resumen.delete_rows(v_info["row_index"])
+                                st.success("Visita eliminada con éxito.")
+                                st.rerun()
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS
 # ==========================================
