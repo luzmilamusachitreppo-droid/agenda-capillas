@@ -546,7 +546,7 @@ with tab_capillas:
             if r.get("estado_planilla"):
                 mapa_resumen[cap]["estado"] = r.get("estado_planilla")
 
-    # 📊 Panel de Estadísticas
+    # 1. ESTADÍSTICAS GENERALES Y TARJETAS DE ALERTA
     st.markdown("### 📊 Estadísticas Generales del Mes")
     c_met1, c_met2, c_met3 = st.columns(3)
     c_met1.metric("📌 Total de Visitas Registradas", total_visitas_global)
@@ -557,16 +557,56 @@ with tab_capillas:
     completadas_count = sum(1 for c in todas_las_capillas if mapa_resumen.get(c, {}).get("estado") == "Completado")
     c_met3.metric("📋 Planillas Completadas", f"{completadas_count} / {len(todas_las_capillas)}")
 
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    sin_visitas = []
+    pocas_visitas = []
+
+    for c in todas_las_capillas:
+        cant_v = len(mapa_resumen.get(c, {}).get("visitas", []))
+        if cant_v == 0:
+            sin_visitas.append(c)
+        elif cant_v <= 2:
+            pocas_visitas.append((c, cant_v))
+
+    col_rep1, col_rep2 = st.columns(2)
+    with col_rep1:
+        st.markdown("""
+            <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+                <h4 style="margin:0 0 4px 0; color: #991b1b; font-size:1rem;">🔴 Capillas SIN visitas este mes</h4>
+            </div>
+        """, unsafe_allow_html=True)
+        if not sin_visitas:
+            st.success("¡Excelente! Todas las capillas recibieron al menos una visita este mes.")
+        else:
+            html_sin = ""
+            for c in sin_visitas:
+                html_sin += f'<span class="badge-alerta-roja">⛪ {c}</span>'
+            st.markdown(html_sin, unsafe_allow_html=True)
+
+    with col_rep2:
+        st.markdown("""
+            <div style="background-color: #fefce8; border-left: 5px solid #eab308; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+                <h4 style="margin:0 0 4px 0; color: #854d0e; font-size:1rem;">💛 Capillas visitadas de 1 a 2 veces</h4>
+            </div>
+        """, unsafe_allow_html=True)
+        if not pocas_visitas:
+            st.info("No hay capillas en el rango de 1 a 2 visitas.")
+        else:
+            html_pocas = ""
+            for c, cant in pocas_visitas:
+                html_pocas += f'<span class="badge-alerta-amarilla">⛪ {c} ({cant} visita{"s" if cant > 1 else ""})</span>'
+            st.markdown(html_pocas, unsafe_allow_html=True)
+
     st.divider()
 
-    # 📲 GENERADOR DE MENSAJE AUTOMÁTICO PARA COPIAR
+    # 2. GENERADOR DE INFORME AUTOMÁTICO PARA COPIAR
     st.markdown("### 📩 Generar Informe Semanal para Compartir")
     
-    col_saludo, col_btn_gen = st.columns([1, 1])
+    col_saludo, col_vac = st.columns([1, 1])
     with col_saludo:
         saludo_tipo = st.selectbox("Saludo inicial:", ["Buenos días", "Buenas tardes", "Buenas noches"])
     
-    # Construcción dinámica del mensaje
     lineas_mensaje = [f"{saludo_tipo}, comparto el informe semanal de las capillas visitadas:\n"]
     
     for zona, capillas in ZONAS_CAPILLAS.items():
@@ -578,22 +618,21 @@ with tab_capillas:
                 lineas_mensaje.append(f"• {c}: Visitada ({fechas_txt})")
             else:
                 lineas_mensaje.append(f"• {c}: Sin visitas registradas")
-        lineas_mensaje.append("") # Línea en blanco entre zonas
+        lineas_mensaje.append("")
 
     texto_final_informe = "\n".join(lineas_mensaje)
 
     with st.expander("📄 **Hacé clic acá para ver y copiar el informe**", expanded=False):
         st.text_area(
-            "Copia el siguiente texto:", 
+            "Texto listo para copiar:", 
             value=texto_final_informe, 
             height=220, 
-            help="Seleccioná todo el texto o usa el botón de copiar de la esquina del cuadro."
+            help="Copiá el texto seleccionándolo o mediante el botón en la esquina superior del cuadro."
         )
-        st.caption("💡 *Tip: Podés copiar este texto directamente y pegarlo en WhatsApp o por correo.*")
 
     st.divider()
 
-    # 📍 LISTADO POR ZONAS Y REGISTRO DE VISITAS
+    # 3. LISTADO DETALLADO DE ZONAS Y REGISTRO DE VISITAS
     for zona, capillas in ZONAS_CAPILLAS.items():
         st.markdown(f"### 📍 {zona}")
         for c in capillas:
@@ -642,17 +681,7 @@ with tab_capillas:
             else:
                 for v_info in data_capilla["visitas"]:
                     c_badge, c_del = st.columns([4, 1])
-                    with c_badge:
-                        st.markdown(f'<span class="badge-visita">✔ {v_info["texto"]}</span>', unsafe_allow_html=True)
-                    with c_del:
-                        if st.button("🗑️ Borrar", key=f"del_v_{c}_{v_info['row_index']}", help="Borrar esta visita"):
-                            if ws_resumen:
-                                ws_resumen.delete_rows(v_info["row_index"])
-                                st.success("Visita eliminada con éxito.")
-                                st.rerun()
-
-            st.markdown("<hr style='margin: 15px 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-        st.divider()
+                    with c_badge
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS
 # ==========================================
