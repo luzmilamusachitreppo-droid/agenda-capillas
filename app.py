@@ -5,6 +5,7 @@ import uuid
 import gspread
 from google.oauth2.service_account import Credentials
 import json
+import time
 
 # Configuración de página
 st.set_page_config(
@@ -14,9 +15,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Conexión a Google Sheets
+# Conexión optimizada a Google Sheets con reintento automático
 @st.cache_resource
-def init_connection():
+def get_spreadsheet():
     import re
     scope = [
         "https://www.googleapis.com/auth/spreadsheets",
@@ -27,25 +28,34 @@ def init_connection():
     creds_dict = json.loads(raw, strict=False)
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    return gspread.authorize(creds)
+    client = gspread.authorize(creds)
+    
+    # Reintento por si la API está ocupada
+    for intento in range(3):
+        try:
+            return client.open_by_key("12zw7JZ3cHMg7wKZWMTsfJmmWrpP4DDjLN9K2K_w715w")
+        except Exception as e:
+            if intento == 2:
+                raise e
+            time.sleep(2)
 
-client = init_connection()
-sheet = client.open_by_key("12zw7JZ3cHMg7wKZWMTsfJmmWrpP4DDjLN9K2K_w715w")
-
-ws_recordatorios = sheet.worksheet("recordatorios")
-ws_eventos = sheet.worksheet("eventos")
-
-# Verificar o conectar hoja de resumen de capillas
 try:
-    ws_resumen = sheet.worksheet("resumen_capillas")
-except Exception:
-    ws_resumen = None
+    sheet = get_spreadsheet()
+    ws_recordatorios = sheet.worksheet("recordatorios")
+    ws_eventos = sheet.worksheet("eventos")
+    
+    try:
+        ws_resumen = sheet.worksheet("resumen_capillas")
+    except Exception:
+        ws_resumen = None
 
-# Verificar o conectar hoja de seguimiento de Gmail
-try:
-    ws_gmail = sheet.worksheet("gmail_tracking")
-except Exception:
-    ws_gmail = None
+    try:
+        ws_gmail = sheet.worksheet("gmail_tracking")
+    except Exception:
+        ws_gmail = None
+except Exception as e:
+    st.error("⚠️ Error de conexión con Google Sheets. Por favor, aguardá un minuto y recargá la página.")
+    st.stop()
 
 # Autenticación de usuarios
 USUARIOS_AUTORIZADOS = {
@@ -412,7 +422,7 @@ with tab_capillas:
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS (ORDENADOS POR PRIORIDAD Y FECHA)
+# 4. RECORDATORIOS RÁPIDOS
 # ==========================================
 with tab_notes:
     st.markdown("## 📌 Recordatorios")
@@ -450,14 +460,12 @@ with tab_notes:
             "💚 Idea / Nota": {"border": "#22c55e", "bg": "#f0fdf4", "orden": 3}
         }
 
-        # Función para convertir string de fecha a objeto datetime para ordenar
         def parse_fecha(f_str):
             try:
                 return datetime.strptime(str(f_str), "%d/%m/%Y %H:%M")
             except Exception:
                 return datetime.min
 
-        # Ordenar primero por prioridad (1: Rojo, 2: Amarillo, 3: Verde) y luego por fecha descendente
         recs_ordenados = sorted(
             recs,
             key=lambda x: (
@@ -544,7 +552,7 @@ with tab_gmail:
             nro_ot = st.text_input("N° OT:", placeholder="Ej: OT-2026-048")
             estado_fin = st.selectbox("Estado financiero:", OPCIONES_FINANCIERO)
 
-        btn_guardar_mail = st.form_submit_button("➕ Registrar Correo / OT", type="primary", use_container_width=True)
+        btn_guardar_mail = st.form_submit_button("➕ Registrar Correo / OT", type="primary", use_container_width=True):
 
         if btn_guardar_mail and asunto_mail.strip():
             if ws_gmail:
@@ -566,7 +574,6 @@ with tab_gmail:
 
     st.divider()
 
-    # Cargar registros de Gmail desde Google Sheets
     registros_gmail = []
     if ws_gmail:
         try:
