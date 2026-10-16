@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date, timedelta
+import calendar
 import uuid
 import gspread
 from google.oauth2.service_account import Credentials
@@ -237,7 +238,7 @@ tab_cal, tab_check, tab_capillas, tab_notes, tab_gmail = st.tabs([
 ])
 
 # ==========================================
-# 1. AGENDA PRINCIPAL, VISTA MENSUAL Y SEMANAL
+# 1. AGENDA PRINCIPAL, CALENDARIO MENSUAL Y VISTA SEMANAL
 # ==========================================
 with tab_cal:
     f_sel = st.session_state["fecha_seleccionada"]
@@ -248,43 +249,87 @@ with tab_cal:
     except Exception:
         eventos_gsheets = []
 
-    # 1. VISTA MENSUAL GENERAL DE TAREAS
+    # Mapas de eventos por fecha
+    mapa_eventos_por_fecha = {}
+    fechas_con_tareas = set()
+    for ev in eventos_gsheets:
+        f_str = str(ev.get("fecha", ""))
+        if f_str:
+            fechas_con_tareas.add(f_str)
+            if f_str not in mapa_eventos_por_fecha:
+                mapa_eventos_por_fecha[f_str] = []
+            mapa_eventos_por_fecha[f_str].append(ev)
+
+    # Nombres de meses
     meses_nombres = {
         1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
         7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
     }
-    
-    col_m1, col_m2 = st.columns([2, 1])
-    with col_m1:
-        st.markdown(f"### 🗓️ Vista General del Mes: **{meses_nombres[f_sel.month]} {f_sel.year}**")
-    
-    # Filtrar eventos del mes seleccionado
-    eventos_mes = []
-    for ev in eventos_gsheets:
-        f_ev_str = str(ev.get("fecha", ""))
-        try:
-            f_ev_dt = datetime.strptime(f_ev_str, "%Y-%m-%d").date()
-            if f_ev_dt.year == f_sel.year and f_ev_dt.month == f_sel.month:
-                eventos_mes.append((f_ev_dt, ev))
-        except Exception:
-            pass
-            
-    eventos_mes.sort(key=lambda x: x[0])
 
-    with st.expander(f"📅 **Ver el Calendario Completo del Mes ({len(eventos_mes)} tareas registradas en {meses_nombres[f_sel.month]})**", expanded=False):
-        if not eventos_mes:
-            st.info("No hay tareas registradas para este mes.")
-        else:
-            for f_dt, ev_data in eventos_mes:
-                cat_mes = ev_data.get("categoria", "") or ev_data.get("color", "💚 Verde - Confirmado")
-                est_mes = PALETA_COLORES.get(cat_mes, PALETA_COLORES["💚 Verde - Confirmado"])
-                st.markdown(f"""
-                    <div style="background-color: {est_mes['bg']}; border-left: 5px solid {est_mes['border']}; color: {est_mes['text']}; padding: 10px; border-radius: 6px; margin-bottom: 6px;">
-                        <strong>📅 {f_dt.strftime('%d/%m/%Y (%a)')} | ⏱️ {int(ev_data.get('inicio', 0)):02d}:00 - {int(ev_data.get('fin', 0)):02d}:00 hs</strong><br>
-                        <strong>{ev_data.get('title')}</strong>
-                        {f'<br>💬 {ev_data.get("nota")}' if ev_data.get("nota") else ''}
-                    </div>
-                """, unsafe_allow_html=True)
+    # 🗓️ SECCIÓN: CALENDARIO MENSUAL EN CUADRÍCULA
+    st.markdown(f"### 🗓️ Calendario Mensual Completo: **{meses_nombres[f_sel.month]} {f_sel.year}**")
+    
+    col_cm1, col_cm2, col_cm3 = st.columns([1, 1, 1])
+    if col_cm1.button("◄ Mes Anterior", use_container_width=True):
+        primer_dia_mes = f_sel.replace(day=1)
+        st.session_state["fecha_seleccionada"] = primer_dia_mes - timedelta(days=1)
+        st.rerun()
+    if col_cm2.button("📍 Ir al Mes Actual", use_container_width=True):
+        st.session_state["fecha_seleccionada"] = date.today()
+        st.rerun()
+    if col_cm3.button("Mes Siguiente ►", use_container_width=True):
+        dias_en_mes = calendar.monthrange(f_sel.year, f_sel.month)[1]
+        ultimo_dia = f_sel.replace(day=dias_en_mes)
+        st.session_state["fecha_seleccionada"] = ultimo_dia + timedelta(days=1)
+        st.rerun()
+
+    # Generar matriz del mes (Semana empieza en Lunes = 0)
+    cal_matriz = calendar.monthcalendar(f_sel.year, f_sel.month)
+    dias_encabezado = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+    
+    # Renderizar Encabezado de Días
+    cols_hdr = st.columns(7)
+    for i, h in enumerate(dias_encabezado):
+        cols_hdr[i].markdown(f"<div style='text-align: center; font-weight: bold; background-color: #0284c7; color: white; padding: 4px; border-radius: 4px;'>{h}</div>", unsafe_allow_html=True)
+
+    st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
+
+    # Renderizar Cuadrícula del Mes
+    for semana in cal_matriz:
+        cols_sem = st.columns(7)
+        for i, d in enumerate(semana):
+            if d == 0:
+                cols_sem[i].write("")
+            else:
+                f_cur = date(f_sel.year, f_sel.month, d)
+                f_cur_str = f_cur.strftime("%Y-%m-%d")
+                evs_cur = mapa_eventos_por_fecha.get(f_cur_str, [])
+                
+                # Resumen visual del día
+                info_txt = f"**{d}**"
+                if evs_cur:
+                    info_txt += f" ({len(evs_cur)})"
+                
+                es_hoy = (f_cur == date.today())
+                es_sel = (f_cur == f_sel)
+                
+                btn_type = "primary" if es_sel else ("secondary" if not es_hoy else "primary")
+                
+                if cols_sem[i].button(info_txt, key=f"cal_m_{f_cur_str}", type=btn_type, use_container_width=True):
+                    st.session_state["fecha_seleccionada"] = f_cur
+                    st.rerun()
+                
+                # Badges de tareas dentro del día
+                for ev_m in evs_cur[:2]:
+                    c_ev = ev_m.get("categoria", "") or ev_m.get("color", "💚 Verde - Confirmado")
+                    e_style = PALETA_COLORES.get(c_ev, PALETA_COLORES["💚 Verde - Confirmado"])
+                    cols_sem[i].markdown(f"""
+                        <div style="background-color: {e_style['bg']}; color: {e_style['text']}; font-size: 0.72rem; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{ev_m.get('title')}">
+                            • {ev_m.get('title')}
+                        </div>
+                    """, unsafe_allow_html=True)
+                if len(evs_cur) > 2:
+                    cols_sem[i].caption(f"+{len(evs_cur)-2} más")
 
     st.divider()
 
@@ -320,8 +365,6 @@ with tab_cal:
                             <span style="font-size:0.8rem;">{ev_data.get('nota', 'Sin detalle')}</span>
                         </div>
                     """, unsafe_allow_html=True)
-
-    fechas_con_tareas = {str(e.get("fecha")) for e in eventos_gsheets if e.get("fecha")}
 
     st.markdown(f"<h3 style='text-align: center; color: #0284c7; margin-bottom: 5px;'>📅 Semana del {f_sel.strftime('%d/%m/%Y')}</h3>", unsafe_allow_html=True)
 
@@ -479,10 +522,25 @@ with tab_cal:
                 st.success("¡Tarea guardada con éxito!")
                 st.rerun()
                 # ==========================================
-# 2. CHECKLIST DIGITAL
+# 2. CHECKLIST DIGITAL Y DESCARGA DE PLANILLA WORD
 # ==========================================
 with tab_check:
     st.header("📝 Checklist Digital de Control")
+    
+    # Botón para descargar la planilla base Word
+    try:
+        with open("planilla_base.docx", "rb") as archivo_word:
+            st.download_button(
+                label="📥 Descargar Planilla Base (Word)",
+                data=archivo_word,
+                file_name="Planilla_Base_Capillas.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
+    except Exception:
+        pass
+
+    st.markdown("<br>", unsafe_allow_html=True)
     
     col_c1, col_c2 = st.columns([1, 1])
     with col_c1:
