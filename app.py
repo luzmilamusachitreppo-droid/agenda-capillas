@@ -552,7 +552,7 @@ with tab_gmail:
             nro_ot = st.text_input("N° OT:", placeholder="Ej: OT-2026-048")
             estado_fin = st.selectbox("Estado financiero:", OPCIONES_FINANCIERO)
 
-        btn_guardar_mail = st.form_submit_button("➕ Registrar Correo / OT", type="primary", use_container_width=True):
+        btn_guardar_mail = st.form_submit_button("➕ Registrar Correo / OT", type="primary", use_container_width=True)
 
         if btn_guardar_mail and asunto_mail.strip():
             if ws_gmail:
