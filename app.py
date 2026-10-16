@@ -345,7 +345,7 @@ with tab_check:
 # 3. RESUMEN DE CAPILLAS Y ESTADÍSTICAS DE VISITAS
 # ==========================================
 with tab_capillas:
-    st.header("⛪ Resumen de Capillas y Estadísticas de Visitas")
+    st.header("⛪ Resumen de Capillas y Control de Visitas")
     
     registros_capillas = []
     if ws_resumen:
@@ -374,7 +374,7 @@ with tab_capillas:
             if r.get("estado_planilla"):
                 mapa_resumen[cap]["estado"] = r.get("estado_planilla")
 
-    # Panel de Estadísticas Rápidas Arriba
+    # Panel de Métricas Rápidas Arriba
     st.markdown("### 📊 Estadísticas Generales del Mes")
     c_met1, c_met2, c_met3 = st.columns(3)
     c_met1.metric("📌 Total de Visitas Registradas", total_visitas_global)
@@ -384,6 +384,42 @@ with tab_capillas:
     
     completadas_count = sum(1 for c in todas_las_capillas if mapa_resumen.get(c, {}).get("estado") == "Completado")
     c_met3.metric("📋 Planillas Completadas", f"{completadas_count} / {len(todas_las_capillas)}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Clasificación de Capillas por cantidad de visitas (0 visitas o 1 a 2 visitas)
+    sin_visitas = []
+    pocas_visitas = [] # 1 o 2 visitas
+
+    for c in todas_las_capillas:
+        cant_v = len(mapa_resumen.get(c, {}).get("visitas", []))
+        if cant_v == 0:
+            sin_visitas.append(c)
+        elif cant_v <= 2:
+            pocas_visitas.append(f"{c} ({cant_v} visita{'s' if cant_v > 1 else ''})")
+
+    col_rep1, col_rep2 = st.columns(2)
+    with col_rep1:
+        st.markdown("""
+            <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                <h4 style="margin:0 0 6px 0; color: #991b1b;">🔴 Capillas SIN visitas este mes (0)</h4>
+            </div>
+        """, unsafe_allow_html=True)
+        if not sin_visitas:
+            st.success("¡Excelente! Todas las capillas recibieron al menos una visita este mes.")
+        else:
+            st.write(", ".join(f"**{c}**" for c in sin_visitas))
+
+    with col_rep2:
+        st.markdown("""
+            <div style="background-color: #fefce8; border-left: 5px solid #eab308; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                <h4 style="margin:0 0 6px 0; color: #854d0e;">💛 Capillas visitadas de 1 a 2 veces</h4>
+            </div>
+        """, unsafe_allow_html=True)
+        if not pocas_visitas:
+            st.info("No hay capillas en el rango de 1 a 2 visitas.")
+        else:
+            st.write(", ".join(f"**{c}**" for c in pocas_visitas))
 
     st.divider()
 
