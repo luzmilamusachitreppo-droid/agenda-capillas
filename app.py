@@ -130,6 +130,9 @@ todas_las_capillas = []
 for z, caps in ZONAS_CAPILLAS.items():
     todas_las_capillas.extend(caps)
 
+# Lista de capillas con opción general opcional
+OPCIONES_CAPILLA_FORM = ["(Ninguna / Tarea General)"] + todas_las_capillas
+
 PDF_CHECKLIST_ITEMS = {
     "🚶 Pasillos, Naves y Salón": [
         "1. Limpieza y barrido de pisos generales.",
@@ -343,29 +346,46 @@ with tab_cal:
         st.markdown("#### ➕ Agregar Tarea")
         with st.form("form_add_evento_col", clear_on_submit=True):
             f_tarea = st.date_input("Fecha:", value=f_sel)
-            tit_t = st.selectbox("Capilla / Tarea:", options=todas_las_capillas)
+            
+            # 1. Selección opcional de Capilla
+            cap_opcional = st.selectbox("Capilla (Opcional):", options=OPCIONES_CAPILLA_FORM)
+            
+            # 2. Título de la tarea independiente
+            tit_tarea_input = st.text_input("Título / Tarea:", placeholder="Ej: Limpieza profunda, Control de luminarias, etc.")
+            
             cat_t = st.selectbox("Situación / Color:", options=list(PALETA_COLORES.keys()))
-            nota_t = st.text_area("Detalle adicional", placeholder="Notas...", height=68)
+            nota_t = st.text_area("Detalle adicional", placeholder="Notas u observaciones...", height=68)
             
             c1, c2 = st.columns(2)
             h_i = c1.number_input("Inicio", min_value=7, max_value=20, value=8)
             h_f = c2.number_input("Fin", min_value=8, max_value=21, value=12)
             
             if st.form_submit_button("Guardar en Agenda", type="primary", use_container_width=True):
-                if tit_t.strip():
-                    ws_eventos.append_row([
-                        str(uuid.uuid4()),
-                        tit_t.strip(),
-                        f_tarea.strftime("%Y-%m-%d"),
-                        int(h_i),
-                        int(h_f),
-                        nota_t.strip(),
-                        cat_t
-                    ])
-                    st.session_state["fecha_seleccionada"] = f_tarea
-                    st.success("¡Agregado con éxito!")
-                    st.rerun()
-                    # ==========================================
+                # Formatear el título final de forma clara
+                if tit_tarea_input.strip():
+                    if cap_opcional != "(Ninguna / Tarea General)":
+                        titulo_completo = f"{cap_opcional} - {tit_tarea_input.strip()}"
+                    else:
+                        titulo_completo = tit_tarea_input.strip()
+                else:
+                    if cap_opcional != "(Ninguna / Tarea General)":
+                        titulo_completo = cap_opcional
+                    else:
+                        titulo_completo = "Tarea General"
+
+                ws_eventos.append_row([
+                    str(uuid.uuid4()),
+                    titulo_completo,
+                    f_tarea.strftime("%Y-%m-%d"),
+                    int(h_i),
+                    int(h_f),
+                    nota_t.strip(),
+                    cat_t
+                ])
+                st.session_state["fecha_seleccionada"] = f_tarea
+                st.success("¡Tarea guardada con éxito!")
+                st.rerun()
+                # ==========================================
 # 2. CHECKLIST DIGITAL
 # ==========================================
 with tab_check:
@@ -394,7 +414,7 @@ with tab_check:
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. RESUMEN DE CAPILLAS
+# 3. RESUMEN DE CAPILLAS Y ESTADÍSTICAS VISUALES
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas y Control de Visitas")
@@ -426,6 +446,7 @@ with tab_capillas:
             if r.get("estado_planilla"):
                 mapa_resumen[cap]["estado"] = r.get("estado_planilla")
 
+    # Panel de Métricas Rápidas Arriba
     st.markdown("### 📊 Estadísticas Generales del Mes")
     c_met1, c_met2, c_met3 = st.columns(3)
     c_met1.metric("📌 Total de Visitas Registradas", total_visitas_global)
@@ -648,7 +669,7 @@ with tab_notes:
                 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# 5. GMAIL - CONTROL Y SEGUIMIENTO DE GMAIL / OT (CON ALERTAS DE PENDIENTES)
+# 5. GMAIL - CONTROL Y SEGUIMIENTO DE GMAIL / OT
 # ==========================================
 with tab_gmail:
     st.markdown("## ✉️ Control y Seguimiento de Gmail / OT")
