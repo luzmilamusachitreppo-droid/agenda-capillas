@@ -529,6 +529,17 @@ with tab_capillas:
     mapa_resumen = {}
     total_visitas_global = 0
 
+    # Función auxiliar para ordenar fechas cronológicamente (ej: "06/10" < "09/10" < "16/10")
+    def obtener_clave_fecha(v_obj):
+        txt = v_obj.get("texto", "")
+        # Extraemos la parte de la fecha antes de cualquier aclaración entre paréntesis
+        if " (" in txt:
+            txt = txt.split(" (")[0]
+        partes = txt.strip().split("/")
+        if len(partes) >= 2 and partes[0].isdigit() and partes[1].isdigit():
+            return (int(partes[1]), int(partes[0]))  # (Mes, Día)
+        return (99, 99)
+
     for idx_r, r in enumerate(registros_capillas):
         cap = str(r.get("capilla", "")).strip()
         if cap:
@@ -545,6 +556,10 @@ with tab_capillas:
             
             if r.get("estado_planilla"):
                 mapa_resumen[cap]["estado"] = r.get("estado_planilla")
+
+    # Ordenamos automáticamente las visitas de cada capilla por fecha ascendente
+    for cap_nombre in mapa_resumen:
+        mapa_resumen[cap_nombre]["visitas"].sort(key=obtener_clave_fecha)
 
     # 1. ESTADÍSTICAS GENERALES Y TARJETAS DE ALERTA
     st.markdown("### 📊 Estadísticas Generales del Mes")
@@ -635,17 +650,14 @@ with tab_capillas:
                 fechas_txt = ", ".join(fechas_limpias)
                 lineas_zonas.append(f"• {c}: Visitada ({fechas_txt})")
                 
-                # Se toma la última visita para evaluar la rotación
                 capillas_visitadas_esta_semana.append(c)
             else:
                 lineas_zonas.append(f"• {c}: Sin visitas registradas")
                 capillas_no_visitadas_esta_semana.append(c)
 
-        # Si algunas se visitaron y otras no, las no visitadas son la prioridad inmediata de rotación
         if capillas_no_visitadas_esta_semana:
             prioridad_rotacion = capillas_no_visitadas_esta_semana
         else:
-            # Si todas fueron visitadas al menos una vez, prioriza las de menor cantidad total
             prioridad_rotacion = sorted(capillas_grupales, key=lambda x: len(mapa_resumen.get(x, {}).get("visitas", [])))[:2]
         
         if prioridad_rotacion:
@@ -656,8 +668,8 @@ with tab_capillas:
     lineas_zonas.append("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*")
     txt_zonas_completo = "\n".join(lineas_zonas)
 
-    # --- CUADRO 2: MENSAJE CAPILLAS INDIVIDUALES ---
-    lineas_ind = [f"{saludo_tipo}, comparto el informe de capillas individuales:\n"]
+    # --- CUADRO 2: MENSAJE COMUNICADOS DE SEGUIMIENTO INDIVIDUAL ---
+    lineas_ind = [f"{saludo_tipo}, comparto el comunicado de seguimiento individual:\n"]
     for c_ind in CAPILLAS_INDIVIDUALES:
         visitas_ind = mapa_resumen.get(c_ind, {}).get("visitas", [])
         if visitas_ind:
@@ -676,10 +688,10 @@ with tab_capillas:
     txt_ind_completo = "\n".join(lineas_ind)
 
     # --- CUADRO 3: MENSAJE UNIFICADO ---
-    txt_unificado_completo = txt_zonas_completo.replace("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*", "").strip() + "\n\n" + "👤 *CAPILLAS INDIVIDUALES*\n" + "\n".join(lineas_ind[1:]) + "\n\n📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*"
+    txt_unificado_completo = txt_zonas_completo.replace("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*", "").strip() + "\n\n" + "👤 *COMUNICADOS DE SEGUIMIENTO INDIVIDUAL*\n" + "\n".join(lineas_ind[1:]) + "\n\n📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*"
 
     # RENDERIZADO DE LOS 3 CUADROS
-    with st.expander("📄 **1. Copiar Informe de Zonas (Grupales con Rotación)**", expanded=False):
+    with st.expander("📄 **1. Copiar Informe por Zonas (Grupales)**", expanded=False):
         st.text_area(
             "Texto listo para copiar (Zonas):", 
             value=txt_zonas_completo, 
@@ -687,9 +699,9 @@ with tab_capillas:
             key="txt_area_zonas"
         )
 
-    with st.expander("👤 **2. Copiar Informe de Capillas Individuales**", expanded=False):
+    with st.expander("👤 **2. Copiar Comunicados de Seguimiento Individual**", expanded=False):
         st.text_area(
-            "Texto listo para copiar (Individuales):", 
+            "Texto listo para copiar (Seguimiento Individual):", 
             value=txt_ind_completo, 
             height=180, 
             key="txt_area_ind"
