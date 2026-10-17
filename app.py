@@ -514,7 +514,7 @@ with tab_check:
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. RESUMEN DE CAPILLAS Y GENERADOR DE REPORTE
+# 3. RESUMEN DE CAPILLAS Y GENERADOR DE REPORTE (CON FILTRO DE MES)
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas y Control de Visitas")
@@ -526,18 +526,43 @@ with tab_capillas:
         except Exception:
             registros_capillas = []
 
+    # --- SELECTOR Y FILTRO DE MES DE TRABAJO ---
+    # Nombres de meses en español
+    MESES_NOMBRES = {
+        "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", 
+        "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto", 
+        "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+    }
+    
+    col_mes_sel, col_mes_info = st.columns([1.5, 2])
+    with col_mes_sel:
+        # Por defecto tomamos el mes actual (Ej: "10" para Octubre)
+        mes_actual_num = datetime.now().strftime("%m")
+        meses_opciones = ["10", "09", "08", "11", "12", "01", "02", "03", "04", "05", "06", "07"]
+        
+        mes_seleccionado = st.selectbox(
+            "📅 Seleccionar mes a consultar/registrar:",
+            options=meses_opciones,
+            format_func=lambda x: f"{MESES_NOMBRES.get(x, x)} (Mes {x})",
+            index=0
+        )
+    
+    with col_mes_info:
+        st.info(f"💡 Mostrando registros e informes del mes de **{MESES_NOMBRES.get(mes_seleccionado)}**.")
+
+    st.divider()
+
     mapa_resumen = {}
     total_visitas_global = 0
 
-    # Función auxiliar para ordenar fechas cronológicamente (ej: "06/10" < "09/10" < "16/10")
+    # Función auxiliar para ordenar fechas cronológicamente
     def obtener_clave_fecha(v_obj):
         txt = v_obj.get("texto", "")
-        # Extraemos la parte de la fecha antes de cualquier aclaración entre paréntesis
         if " (" in txt:
             txt = txt.split(" (")[0]
         partes = txt.strip().split("/")
         if len(partes) >= 2 and partes[0].isdigit() and partes[1].isdigit():
-            return (int(partes[1]), int(partes[0]))  # (Mes, Día)
+            return (int(partes[1]), int(partes[0]))
         return (99, 99)
 
     for idx_r, r in enumerate(registros_capillas):
@@ -548,21 +573,28 @@ with tab_capillas:
             
             dias_str = str(r.get("dias_visitados", "")).strip()
             if dias_str:
-                mapa_resumen[cap]["visitas"].append({
-                    "row_index": idx_r + 2,
-                    "texto": dias_str
-                })
-                total_visitas_global += 1
+                # Extraemos el mes de la fecha guardada (Ej: "12/10" -> mes "10")
+                txt_fecha = dias_str.split(" (")[0].strip()
+                partes_f = txt_fecha.split("/")
+                mes_registro = partes_f[1].zfill(2) if len(partes_f) >= 2 and partes_f[1].isdigit() else mes_actual_num
+                
+                # Filtramos para incluir solo las visitas del mes seleccionado
+                if mes_registro == mes_seleccionado:
+                    mapa_resumen[cap]["visitas"].append({
+                        "row_index": idx_r + 2,
+                        "texto": dias_str
+                    })
+                    total_visitas_global += 1
             
             if r.get("estado_planilla"):
                 mapa_resumen[cap]["estado"] = r.get("estado_planilla")
 
-    # Ordenamos automáticamente las visitas de cada capilla por fecha ascendente
+    # Ordenamos automáticamente las visitas por fecha ascendente
     for cap_nombre in mapa_resumen:
         mapa_resumen[cap_nombre]["visitas"].sort(key=obtener_clave_fecha)
 
     # 1. ESTADÍSTICAS GENERALES Y TARJETAS DE ALERTA
-    st.markdown("### 📊 Estadísticas Generales del Mes")
+    st.markdown(f"### 📊 Estadísticas Generales - {MESES_NOMBRES.get(mes_seleccionado)}")
     c_met1, c_met2, c_met3 = st.columns(3)
     c_met1.metric("📌 Total de Visitas Registradas", total_visitas_global)
     
@@ -586,9 +618,9 @@ with tab_capillas:
 
     col_rep1, col_rep2 = st.columns(2)
     with col_rep1:
-        st.markdown("""
+        st.markdown(f"""
             <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
-                <h4 style="margin:0 0 4px 0; color: #991b1b; font-size:1rem;">🔴 Capillas SIN visitas este mes</h4>
+                <h4 style="margin:0 0 4px 0; color: #991b1b; font-size:1rem;">🔴 Capillas SIN visitas en {MESES_NOMBRES.get(mes_seleccionado)}</h4>
             </div>
         """, unsafe_allow_html=True)
         if not sin_visitas:
@@ -600,7 +632,7 @@ with tab_capillas:
             st.markdown(html_sin, unsafe_allow_html=True)
 
     with col_rep2:
-        st.markdown("""
+        st.markdown(f"""
             <div style="background-color: #fefce8; border-left: 5px solid #eab308; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
                 <h4 style="margin:0 0 4px 0; color: #854d0e; font-size:1rem;">💛 Capillas visitadas de 1 a 2 veces</h4>
             </div>
@@ -615,7 +647,7 @@ with tab_capillas:
 
     st.divider()
 
-    # 2. GENERADOR DE MENSAJE SEMANAL DE PRIORIDADES EN CUADROS SEPARADOS
+    # 2. GENERADOR DE MENSAJE SEMANAL DE PRIORIDADES
     st.markdown("### 📩 Mensaje semanal de prioridades")
     
     col_saludo, col_vac = st.columns([1, 1])
@@ -625,7 +657,7 @@ with tab_capillas:
     CAPILLAS_INDIVIDUALES = ["Bella Vista", "Goya", "El Colorado", "La Leonesa", "San Martin"]
 
     # --- CUADRO 1: MENSAJE POR ZONAS CON ROTACIÓN SEMANAL ---
-    lineas_zonas = [f"{saludo_tipo}, comparto el informe semanal de las capillas visitadas:\n"]
+    lineas_zonas = [f"{saludo_tipo}, comparto el informe semanal de las capillas visitadas ({MESES_NOMBRES.get(mes_seleccionado)}):\n"]
     
     for zona, capillas in ZONAS_CAPILLAS.items():
         capillas_grupales = [c for c in capillas if c not in CAPILLAS_INDIVIDUALES]
@@ -649,7 +681,6 @@ with tab_capillas:
                 
                 fechas_txt = ", ".join(fechas_limpias)
                 lineas_zonas.append(f"• {c}: Visitada ({fechas_txt})")
-                
                 capillas_visitadas_esta_semana.append(c)
             else:
                 lineas_zonas.append(f"• {c}: Sin visitas registradas")
@@ -668,8 +699,8 @@ with tab_capillas:
     lineas_zonas.append("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*")
     txt_zonas_completo = "\n".join(lineas_zonas)
 
-    # --- CUADRO 2: MENSAJE COMUNICADOS DE SEGUIMIENTO INDIVIDUAL ---
-    lineas_ind = [f"{saludo_tipo}, comparto el comunicado de seguimiento individual:\n"]
+    # --- CUADRO 2: COMUNICADOS DE SEGUIMIENTO INDIVIDUAL ---
+    lineas_ind = [f"{saludo_tipo}, comparto el comunicado de seguimiento individual ({MESES_NOMBRES.get(mes_seleccionado)}):\n"]
     for c_ind in CAPILLAS_INDIVIDUALES:
         visitas_ind = mapa_resumen.get(c_ind, {}).get("visitas", [])
         if visitas_ind:
@@ -724,7 +755,7 @@ with tab_capillas:
             data_capilla = mapa_resumen.get(c, {"estado": "Pendiente", "visitas": []})
             cant_v = len(data_capilla["visitas"])
             
-            st.markdown(f"#### ⛪ {c} &nbsp;&nbsp;|&nbsp;&nbsp; <span style='font-size:0.9rem; color:#0284c7;'>📊 Visitas este mes: <strong>{cant_v}</strong></span>", unsafe_allow_html=True)
+            st.markdown(f"#### ⛪ {c} &nbsp;&nbsp;|&nbsp;&nbsp; <span style='font-size:0.9rem; color:#0284c7;'>📊 Visitas en {MESES_NOMBRES.get(mes_seleccionado)}: <strong>{cant_v}</strong></span>", unsafe_allow_html=True)
             
             col_est, col_add_v = st.columns([1, 1.5])
             
@@ -734,7 +765,7 @@ with tab_capillas:
                     "Estado de planilla", 
                     ["Pendiente", "En Proceso", "Completado"], 
                     index=idx_default,
-                    key=f"est_sel_{c}"
+                    key=f"est_sel_{c}_{mes_seleccionado}"
                 )
                 
                 if nuevo_estado != data_capilla["estado"]:
@@ -745,11 +776,11 @@ with tab_capillas:
 
             with col_add_v:
                 nueva_fecha_v = st.text_input(
-                    "➕ Registrar nueva visita este mes:", 
-                    placeholder="Ej: 02/10", 
-                    key=f"in_fecha_{c}"
+                    f"➕ Registrar nueva visita ({MESES_NOMBRES.get(mes_seleccionado)}):", 
+                    placeholder=f"Ej: 02/{mes_seleccionado}", 
+                    key=f"in_fecha_{c}_{mes_seleccionado}"
                 )
-                if st.button(f"📌 Registrar visita en {c}", key=f"btn_add_v_{c}", use_container_width=True):
+                if st.button(f"📌 Registrar visita en {c}", key=f"btn_add_v_{c}_{mes_seleccionado}", use_container_width=True):
                     if nueva_fecha_v.strip() and ws_resumen:
                         ws_resumen.append_row([
                             zona, 
@@ -760,16 +791,16 @@ with tab_capillas:
                         st.success(f"¡Visita {nueva_fecha_v} guardada para {c}!")
                         st.rerun()
 
-            st.markdown("📅 **Días visitados este mes:**")
+            st.markdown(f"📅 **Días visitados en {MESES_NOMBRES.get(mes_seleccionado)}:**")
             if not data_capilla["visitas"]:
-                st.caption("Aún no hay visitas registradas este mes.")
+                st.caption(f"Aún no hay visitas registradas en {MESES_NOMBRES.get(mes_seleccionado)}.")
             else:
                 for v_info in data_capilla["visitas"]:
                     c_badge, c_del = st.columns([4, 1])
                     with c_badge:
                         st.markdown(f'<span class="badge-visita">✔ {v_info["texto"]}</span>', unsafe_allow_html=True)
                     with c_del:
-                        if st.button("🗑️ Borrar", key=f"del_v_{c}_{v_info['row_index']}", help="Borrar esta visita"):
+                        if st.button("🗑️ Borrar", key=f"del_v_{c}_{v_info['row_index']}_{mes_seleccionado}", help="Borrar esta visita"):
                             if ws_resumen:
                                 ws_resumen.delete_rows(v_info["row_index"])
                                 st.success("Visita eliminada con éxito.")
