@@ -517,7 +517,7 @@ with tab_check:
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. RESUMEN DE CAPILLAS Y GENERADOR DE REPORTE
+# 3. RESUMEN DE CAPILLAS Y GENERADOR DE REPORTE (RESTAURADO)
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas y Control de Visitas")
@@ -642,6 +642,52 @@ with tab_capillas:
 
     st.divider()
 
+    # --- SECCIÓN DETALLADA DE CAPILLAS RESTAURADA ---
+    st.markdown(f"### 📍 Detalle por Zonas y Capillas ({MESES_NOMBRES.get(mes_seleccionado)})")
+    
+    if ws_resumen:
+        for zona_nom, capillas_lista in ZONAS_CAPILLAS.items():
+            st.subheader(f"📍 {zona_nom}")
+            for c_nombre in capillas_lista:
+                info_cap = mapa_resumen.get(c_nombre, {"estado": "Pendiente", "visitas": []})
+                visitas_lista = info_cap["visitas"]
+                estado_actual = info_cap["estado"]
+                
+                with st.expander(f"⛪ **{c_nombre}** — Visitas: {len(visitas_lista)} | Estado Planilla: {estado_actual}"):
+                    c_det1, c_det2 = st.columns([2, 1])
+                    with c_det1:
+                        st.markdown("**📅 Visitas Registradas:**")
+                        if not visitas_lista:
+                            st.caption("No hay visitas registradas para este mes.")
+                        else:
+                            for item_v in visitas_lista:
+                                col_v_txt, col_v_del = st.columns([4, 1])
+                                col_v_txt.markdown(f'<span class="badge-visita">📅 {item_v["texto"]}</span>', unsafe_allow_html=True)
+                                if col_v_del.button("🗑️ Borrar", key=f"del_vis_{c_nombre}_{item_v['row_index']}"):
+                                    ws_resumen.delete_rows(item_v['row_index'])
+                                    st.rerun()
+
+                    with c_det2:
+                        st.markdown("**➕ Registrar Visita / Cambio de Estado:**")
+                        with st.form(key=f"form_visita_{c_nombre}"):
+                            nueva_fecha_visita = st.date_input("Fecha de Visita:", value=f_sel, key=f"f_vis_{c_nombre}")
+                            nuevo_estado = st.selectbox("Estado Planilla:", ["Pendiente", "En proceso", "Completado"], index=["Pendiente", "En proceso", "Completado"].index(estado_actual) if estado_actual in ["Pendiente", "En proceso", "Completado"] else 0, key=f"est_vis_{c_nombre}")
+                            
+                            if st.form_submit_button("💾 Guardar Registro", type="primary", use_container_width=True):
+                                str_f_vis = f"{nueva_fecha_visita.strftime('%d/%m')} (por {st.session_state['usuario_actual']})"
+                                ws_resumen.append_row([
+                                    c_nombre,
+                                    str_f_vis,
+                                    nuevo_estado,
+                                    datetime.now().strftime("%Y-%m-%d %H:%M")
+                                ])
+                                st.success("¡Registro guardado!")
+                                st.rerun()
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+    st.divider()
+
     st.markdown("### 📩 Mensaje semanal de prioridades")
     
     col_saludo, col_vac = st.columns([1, 1])
@@ -743,7 +789,6 @@ with tab_notes:
     st.header("📌 Recordatorios Rápidos")
     
     try:
-        # Cargamos por valores para evitar problemas de nombres de columnas en Google Sheets
         rows_rec = ws_recordatorios.get_all_values()
         rec_data = []
         if len(rows_rec) > 1:
