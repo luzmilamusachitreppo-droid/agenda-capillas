@@ -477,7 +477,6 @@ with tab_cal:
 with tab_check:
     st.header("📝 Checklist Digital de Control")
     
-    # Botón para descargar la planilla base Word
     try:
         with open("planilla_base.docx", "rb") as archivo_word:
             st.download_button(
@@ -515,7 +514,7 @@ with tab_check:
                 st.markdown("<hr style='margin: 8px 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. RESUMEN DE CAPILLAS Y GENERADOR DE REPORTE (CON FILTRO DE MES)
+# 3. RESUMEN DE CAPILLAS Y GENERADOR DE REPORTE
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas y Control de Visitas")
@@ -527,7 +526,6 @@ with tab_capillas:
         except Exception:
             registros_capillas = []
 
-    # --- SELECTOR Y FILTRO DE MES DE TRABAJO ---
     MESES_NOMBRES = {
         "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", 
         "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto", 
@@ -588,7 +586,6 @@ with tab_capillas:
     for cap_nombre in mapa_resumen:
         mapa_resumen[cap_nombre]["visitas"].sort(key=obtener_clave_fecha)
 
-    # 1. ESTADÍSTICAS GENERALES Y TARJETAS DE ALERTA
     st.markdown(f"### 📊 Estadísticas Generales - {MESES_NOMBRES.get(mes_seleccionado)}")
     c_met1, c_met2, c_met3 = st.columns(3)
     c_met1.metric("📌 Total de Visitas Registradas", total_visitas_global)
@@ -642,7 +639,6 @@ with tab_capillas:
 
     st.divider()
 
-    # 2. GENERADOR DE MENSAJE SEMANAL DE PRIORIDADES
     st.markdown("### 📩 Mensaje semanal de prioridades")
     
     col_saludo, col_vac = st.columns([1, 1])
@@ -776,7 +772,32 @@ with tab_notes:
     if not rec_data:
         st.info("No hay recordatorios registrados.")
     else:
-        for r in rec_data:
+        # MAPEO DE ORDEN DE PRIORIDAD POR COLOR
+        PRIORIDAD_ORDEN = {
+            "🩷 Rosa - Alerta": 1,
+            "💛 Amarillo - Pendiente": 2,
+            "💚 Verde - Confirmado": 3,
+            "💙 Azul - En proceso": 4,
+            "💜 Violeta - Especial": 5
+        }
+
+        # Función auxiliar para convertir la fecha en un objeto datetime y ordenar
+        def obtener_clave_orden(item):
+            prio = str(item.get("prioridad", "💚 Verde - Confirmado"))
+            orden_prio = PRIORIDAD_ORDEN.get(prio, 99)
+            
+            f_str = str(item.get("fecha_creacion", "")).strip()
+            try:
+                dt_obj = datetime.strptime(f_str, "%d/%m/%Y %H:%M")
+            except Exception:
+                dt_obj = datetime.min
+                
+            return (orden_prio, dt_obj)
+
+        # Ordenar lista: Primero por color de prioridad y luego por fecha
+        rec_data_ordenada = sorted(rec_data, key=obtener_clave_orden)
+
+        for r in rec_data_ordenada:
             id_r = str(r.get("id", ""))
             tit_r = str(r.get("titulo", "Sin título"))
             det_r = str(r.get("detalle", "")).strip()
@@ -786,12 +807,17 @@ with tab_notes:
 
             estilo = PALETA_COLORES.get(prio_r, PALETA_COLORES["💚 Verde - Confirmado"])
 
-            # Renderizado directo con el detalle desplegado directamente en la tarjeta
+            # Formato de detalle bien legible (resaltado y con texto oscuro)
+            if det_r:
+                detalle_html = f'<div style="margin: 8px 0 10px 0; font-size: 0.95rem; font-style: italic; color: #334155;">{det_r}</div>'
+            else:
+                detalle_html = '<div style="margin: 8px 0 10px 0; font-size: 0.9rem; font-style: italic; color: #64748b;">Sin detalle adicional</div>'
+
             html_card = f"""
             <div style="background-color: {estilo['bg']}; border-left: 5px solid {estilo['border']}; color: {estilo['text']}; padding: 14px; border-radius: 8px; margin-bottom: 8px;">
-                <h3 style="margin: 0 0 8px 0; color: {estilo['text']}; font-size: 1.25rem;">{tit_r}</h3>
-                <p style="margin: 0 0 8px 0; font-size: 0.95rem; white-space: pre-wrap;">{det_r if det_r else '<em>Sin detalle adicional</em>'}</p>
-                <small style="opacity: 0.85;">📌 Prioridad: {prio_r} | 👤 Por <strong>{autor_r}</strong> ({fecha_r})</small>
+                <h3 style="margin: 0 0 6px 0; color: {estilo['text']}; font-size: 1.25rem;">{tit_r}</h3>
+                {detalle_html}
+                <small style="opacity: 0.9; font-weight: 500;">📌 Prioridad: {prio_r} | 👤 Por <strong>{autor_r}</strong> ({fecha_r})</small>
             </div>
             """
             st.markdown(html_card, unsafe_allow_html=True)
