@@ -254,7 +254,6 @@ with tab_cal:
     except Exception:
         eventos_gsheets = []
 
-    # 📱 VISTA MENSUAL EN TARJETAS PARA CELULAR
     meses_nombres = {
         1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
         7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
@@ -262,7 +261,6 @@ with tab_cal:
 
     st.markdown(f"### 🗓️ Resumen Mensual: **{meses_nombres[f_sel.month]} {f_sel.year}**")
     
-    # Filtrar eventos del mes
     eventos_mes = []
     for ev in eventos_gsheets:
         f_ev_str = str(ev.get("fecha", ""))
@@ -293,7 +291,6 @@ with tab_cal:
 
     st.divider()
 
-    # BLOQUE DE AVISOS SEMANALES
     inicio_sem_actual = f_sel - timedelta(days=f_sel.weekday())
     fin_sem_actual = inicio_sem_actual + timedelta(days=6)
     
@@ -746,7 +743,20 @@ with tab_notes:
     st.header("📌 Recordatorios Rápidos")
     
     try:
-        rec_data = ws_recordatorios.get_all_records()
+        # Cargamos por valores para evitar problemas de nombres de columnas en Google Sheets
+        rows_rec = ws_recordatorios.get_all_values()
+        rec_data = []
+        if len(rows_rec) > 1:
+            for r in rows_rec[1:]:
+                if len(r) >= 1 and r[0].strip():
+                    rec_data.append({
+                        "id": r[0] if len(r) > 0 else "",
+                        "titulo": r[1] if len(r) > 1 else "",
+                        "detalle": r[2] if len(r) > 2 else "",
+                        "prioridad": r[3] if len(r) > 3 else "",
+                        "autor": r[4] if len(r) > 4 else "",
+                        "fecha_creacion": r[5] if len(r) > 5 else ""
+                    })
     except Exception:
         rec_data = []
 
@@ -778,7 +788,6 @@ with tab_notes:
     if not rec_data:
         st.info("No hay recordatorios registrados.")
     else:
-        # FUNCIÓN PARA OBTENER EL ESTILO Y EL ORDEN SEGÚN EL TEXTO DE PRIORIDAD
         def obtener_estilo_y_orden(prio_str):
             prio_lower = str(prio_str).lower()
             if "urgente" in prio_lower or "rosa" in prio_lower or "alerta" in prio_lower:
@@ -806,7 +815,6 @@ with tab_notes:
                 
             return (orden_prio, dt_obj)
 
-        # Ordenar lista: Primero por nivel de prioridad (1. Urgente -> 2. Normal -> 3. Verde), luego por fecha
         rec_data_ordenada = sorted(rec_data, key=obtener_clave_orden)
 
         for r in rec_data_ordenada:
