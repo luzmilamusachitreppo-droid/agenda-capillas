@@ -470,7 +470,8 @@ with tab_cal:
             st.session_state["fecha_seleccionada"] = f_tarea
             st.success("¡Tarea guardada con éxito!")
             st.rerun()
-            # ==========================================
+
+# ==========================================
 # 2. CHECKLIST DIGITAL Y DESCARGA DE PLANILLA WORD
 # ==========================================
 with tab_check:
@@ -527,7 +528,6 @@ with tab_capillas:
             registros_capillas = []
 
     # --- SELECTOR Y FILTRO DE MES DE TRABAJO ---
-    # Nombres de meses en español
     MESES_NOMBRES = {
         "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", 
         "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto", 
@@ -536,7 +536,6 @@ with tab_capillas:
     
     col_mes_sel, col_mes_info = st.columns([1.5, 2])
     with col_mes_sel:
-        # Por defecto tomamos el mes actual (Ej: "10" para Octubre)
         mes_actual_num = datetime.now().strftime("%m")
         meses_opciones = ["10", "09", "08", "11", "12", "01", "02", "03", "04", "05", "06", "07"]
         
@@ -555,7 +554,6 @@ with tab_capillas:
     mapa_resumen = {}
     total_visitas_global = 0
 
-    # Función auxiliar para ordenar fechas cronológicamente
     def obtener_clave_fecha(v_obj):
         txt = v_obj.get("texto", "")
         if " (" in txt:
@@ -573,12 +571,10 @@ with tab_capillas:
             
             dias_str = str(r.get("dias_visitados", "")).strip()
             if dias_str:
-                # Extraemos el mes de la fecha guardada (Ej: "12/10" -> mes "10")
                 txt_fecha = dias_str.split(" (")[0].strip()
                 partes_f = txt_fecha.split("/")
                 mes_registro = partes_f[1].zfill(2) if len(partes_f) >= 2 and partes_f[1].isdigit() else mes_actual_num
                 
-                # Filtramos para incluir solo las visitas del mes seleccionado
                 if mes_registro == mes_seleccionado:
                     mapa_resumen[cap]["visitas"].append({
                         "row_index": idx_r + 2,
@@ -589,7 +585,6 @@ with tab_capillas:
             if r.get("estado_planilla"):
                 mapa_resumen[cap]["estado"] = r.get("estado_planilla")
 
-    # Ordenamos automáticamente las visitas por fecha ascendente
     for cap_nombre in mapa_resumen:
         mapa_resumen[cap_nombre]["visitas"].sort(key=obtener_clave_fecha)
 
@@ -656,7 +651,6 @@ with tab_capillas:
     
     CAPILLAS_INDIVIDUALES = ["Bella Vista", "Goya", "El Colorado", "La Leonesa", "San Martin"]
 
-    # --- CUADRO 1: MENSAJE POR ZONAS CON ROTACIÓN SEMANAL ---
     lineas_zonas = [f"{saludo_tipo}, comparto el informe semanal de las capillas visitadas ({MESES_NOMBRES.get(mes_seleccionado)}):\n"]
     
     for zona, capillas in ZONAS_CAPILLAS.items():
@@ -699,7 +693,6 @@ with tab_capillas:
     lineas_zonas.append("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*")
     txt_zonas_completo = "\n".join(lineas_zonas)
 
-    # --- CUADRO 2: COMUNICADOS DE SEGUIMIENTO INDIVIDUAL ---
     lineas_ind = [f"{saludo_tipo}, comparto el comunicado de seguimiento individual ({MESES_NOMBRES.get(mes_seleccionado)}):\n"]
     for c_ind in CAPILLAS_INDIVIDUALES:
         visitas_ind = mapa_resumen.get(c_ind, {}).get("visitas", [])
@@ -718,10 +711,8 @@ with tab_capillas:
 
     txt_ind_completo = "\n".join(lineas_ind)
 
-    # --- CUADRO 3: MENSAJE UNIFICADO ---
     txt_unificado_completo = txt_zonas_completo.replace("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*", "").strip() + "\n\n" + "👤 *COMUNICADOS DE SEGUIMIENTO INDIVIDUAL*\n" + "\n".join(lineas_ind[1:]) + "\n\n📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*"
 
-    # RENDERIZADO DE LOS 3 CUADROS
     with st.expander("📄 **1. Copiar Informe por Zonas (Grupales)**", expanded=False):
         st.text_area(
             "Texto listo para copiar (Zonas):", 
@@ -742,335 +733,100 @@ with tab_capillas:
         st.text_area(
             "Texto listo para copiar (Completo):", 
             value=txt_unificado_completo, 
-            height=340, 
+            height=320, 
             key="txt_area_unificado"
         )
 
-    st.divider()
-
-    # 3. LISTADO DETALLADO DE ZONAS Y REGISTRO DE VISITAS
-    for zona, capillas in ZONAS_CAPILLAS.items():
-        st.markdown(f"### 📍 {zona}")
-        for c in capillas:
-            data_capilla = mapa_resumen.get(c, {"estado": "Pendiente", "visitas": []})
-            cant_v = len(data_capilla["visitas"])
-            
-            st.markdown(f"#### ⛪ {c} &nbsp;&nbsp;|&nbsp;&nbsp; <span style='font-size:0.9rem; color:#0284c7;'>📊 Visitas en {MESES_NOMBRES.get(mes_seleccionado)}: <strong>{cant_v}</strong></span>", unsafe_allow_html=True)
-            
-            col_est, col_add_v = st.columns([1, 1.5])
-            
-            with col_est:
-                idx_default = ["Pendiente", "En Proceso", "Completado"].index(data_capilla["estado"]) if data_capilla["estado"] in ["Pendiente", "En Proceso", "Completado"] else 0
-                nuevo_estado = st.selectbox(
-                    "Estado de planilla", 
-                    ["Pendiente", "En Proceso", "Completado"], 
-                    index=idx_default,
-                    key=f"est_sel_{c}_{mes_seleccionado}"
-                )
-                
-                if nuevo_estado != data_capilla["estado"]:
-                    if ws_resumen:
-                        ws_resumen.append_row([zona, c, nuevo_estado, ""])
-                        st.success(f"Estado de {c} actualizado a {nuevo_estado}")
-                        st.rerun()
-
-            with col_add_v:
-                nueva_fecha_v = st.text_input(
-                    f"➕ Registrar nueva visita ({MESES_NOMBRES.get(mes_seleccionado)}):", 
-                    placeholder=f"Ej: 02/{mes_seleccionado}", 
-                    key=f"in_fecha_{c}_{mes_seleccionado}"
-                )
-                if st.button(f"📌 Registrar visita en {c}", key=f"btn_add_v_{c}_{mes_seleccionado}", use_container_width=True):
-                    if nueva_fecha_v.strip() and ws_resumen:
-                        ws_resumen.append_row([
-                            zona, 
-                            c, 
-                            nuevo_estado, 
-                            f"{nueva_fecha_v.strip()} (por {st.session_state['usuario_actual']})"
-                        ])
-                        st.success(f"¡Visita {nueva_fecha_v} guardada para {c}!")
-                        st.rerun()
-
-            st.markdown(f"📅 **Días visitados en {MESES_NOMBRES.get(mes_seleccionado)}:**")
-            if not data_capilla["visitas"]:
-                st.caption(f"Aún no hay visitas registradas en {MESES_NOMBRES.get(mes_seleccionado)}.")
-            else:
-                for v_info in data_capilla["visitas"]:
-                    c_badge, c_del = st.columns([4, 1])
-                    with c_badge:
-                        st.markdown(f'<span class="badge-visita">✔ {v_info["texto"]}</span>', unsafe_allow_html=True)
-                    with c_del:
-                        if st.button("🗑️ Borrar", key=f"del_v_{c}_{v_info['row_index']}_{mes_seleccionado}", help="Borrar esta visita"):
-                            if ws_resumen:
-                                ws_resumen.delete_rows(v_info["row_index"])
-                                st.success("Visita eliminada con éxito.")
-                                st.rerun()
-
-            st.markdown("<hr style='margin: 15px 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-        st.divider()
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS
 # ==========================================
 with tab_notes:
-    st.markdown("## 📌 Recordatorios")
-
-    OPCIONES_PRIORIDAD = ["🩷 Urgente / Importante", "💛 Normal", "💚 Idea / Nota"]
-
-    with st.form("form_nueva_nota_libre", clear_on_submit=True):
-        titulo_nota = st.text_input("Nota:", placeholder="Ej: Comprar bolsas de residuos para la capilla Alberdi")
-        detalle_nota = st.text_area("Detalle:", placeholder="Ej: Pedir en la ferretería de la esquina", height=80)
-        prioridad_nota = st.selectbox("Prioridad:", OPCIONES_PRIORIDAD)
-        btn_guardar_nota = st.form_submit_button("➕ Añadir Recordatorio", type="primary", use_container_width=True)
-
-        if btn_guardar_nota and titulo_nota.strip():
-            ws_recordatorios.append_row([
-                str(uuid.uuid4()),
-                titulo_nota.strip(),
-                detalle_nota.strip(),
-                prioridad_nota,
-                st.session_state["usuario_actual"],
-                datetime.now().strftime("%d/%m/%Y %H:%M")
-            ])
-            st.success("¡Recordatorio guardado!")
-            st.rerun()
-
-    st.divider()
+    st.header("📌 Recordatorios Rápidos")
     
-    recs = ws_recordatorios.get_all_records()
-    
-    if not recs:
-        st.info("No hay recordatorios pendientes.")
-    else:
-        mapa_colores_notas = {
-            "🩷 Urgente / Importante": {"border": "#ef4444", "bg": "#fef2f2", "orden": 1},
-            "💛 Normal": {"border": "#eab308", "bg": "#fefce8", "orden": 2},
-            "💚 Idea / Nota": {"border": "#22c55e", "bg": "#f0fdf4", "orden": 3}
-        }
+    try:
+        rec_data = ws_recordatorios.get_all_records()
+    except Exception:
+        rec_data = []
 
-        def parse_fecha(f_str):
-            try:
-                return datetime.strptime(str(f_str), "%d/%m/%Y %H:%M")
-            except Exception:
-                return datetime.min
-
-        recs_ordenados = sorted(
-            recs,
-            key=lambda x: (
-                mapa_colores_notas.get(x.get("prioridad", ""), {"orden": 99})["orden"],
-                parse_fecha(x.get("fecha_creacion", ""))
-            ),
-            reverse=False
-        )
-
-        for idx, nota in enumerate(recs_ordenados):
-            tit = nota.get("titulo", "Sin título")
-            det = nota.get("detalle", "")
-            prio = nota.get("prioridad", "💛 Normal")
-            autor = nota.get("creado_por", "Sistema")
-            fec = nota.get("fecha_creacion", "")
-            id_n = str(nota.get("id", ""))
-
-            c_info = mapa_colores_notas.get(prio, {"border": "#0284c7", "bg": "#ffffff", "orden": 2})
-            
-            with st.container():
-                st.markdown(f"""
-                    <div class="card-note" style="border-left-color: {c_info['border']}; background-color: {c_info['bg']};">
-                        <h4 style="margin:0 0 6px 0; color:#1e293b;">{tit}</h4>
-                        <p style="margin:0 0 8px 0; color:#475569; font-size:0.9rem;">{det if det else '<em>Sin detalle adicional</em>'}</p>
-                        <span style="font-size:0.75rem; color:#64748b;">
-                            📌 Prioridad: <strong>{prio}</strong> | 👤 Por <strong>{autor}</strong> ({fec})
-                        </span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                col_edit, col_del = st.columns([1, 1])
-                
-                with col_edit:
-                    with st.popover("✏️ Editar Recordatorio", use_container_width=True):
-                        st.markdown(f"**Editar Recordatorio**")
-                        with st.form(key=f"form_edit_note_{idx}_{id_n}"):
-                            new_tit = st.text_input("Nota / Título:", value=tit)
-                            new_det = st.text_area("Detalle:", value=det, height=70)
-                            
-                            prio_idx = OPCIONES_PRIORIDAD.index(prio) if prio in OPCIONES_PRIORIDAD else 1
-                            new_prio = st.selectbox("Prioridad / Urgencia:", OPCIONES_PRIORIDAD, index=prio_idx)
-                            
-                            if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
-                                if new_tit.strip():
-                                    cell = ws_recordatorios.find(id_n)
-                                    if cell:
-                                        row_num = cell.row
-                                        ws_recordatorios.update_cell(row_num, 2, new_tit.strip())
-                                        ws_recordatorios.update_cell(row_num, 3, new_det.strip())
-                                        ws_recordatorios.update_cell(row_num, 4, new_prio)
-                                        st.success("¡Recordatorio actualizado!")
-                                        st.rerun()
-
-                with col_del:
-                    if st.button("🗑️ Borrar", key=f"btn_del_nota_{idx}_{id_n}", use_container_width=True):
-                        if id_n:
-                            cell = ws_recordatorios.find(id_n)
-                            if cell:
-                                ws_recordatorios.delete_rows(cell.row)
-                        st.rerun()
-                        
-                st.markdown("<br>", unsafe_allow_html=True)
-
-# ==========================================
-# 5. GMAIL - CONTROL Y SEGUIMIENTO DE GMAIL / OT
-# ==========================================
-with tab_gmail:
-    st.markdown("## ✉️ Control y Seguimiento de Gmail / OT")
-    st.write("Registra y controla los correos enviados, su estado, proceso y situación financiera.")
-
-    OPCIONES_ESTADO_MAIL = ["Enviado", "No enviado"]
-    OPCIONES_PROCESO = ["Aprobado", "Rechazado", "Pendiente respuesta"]
-    OPCIONES_FINANCIERO = ["Por facturar", "Enviado a contador", "Facturado", "Cobrado"]
-
-    with st.form("form_nuevo_gmail", clear_on_submit=True):
-        asunto_mail = st.text_input("Asunto del correo:", placeholder="Ej: Presupuesto de mantenimiento Capilla Alberdi")
+    st.markdown("#### ➕ Nuevo Recordatorio")
+    with st.form("form_add_rec", clear_on_submit=True):
+        tit_rec = st.text_input("Título / Tarea:")
+        det_rec = st.text_area("Detalle adicional (Opcional):", height=68)
+        prio_rec = st.selectbox("Prioridad / Estado:", list(PALETA_COLORES.keys()))
         
-        c_g1, c_g2 = st.columns(2)
-        with c_g1:
-            fecha_envio = st.date_input("Fecha de envío:", value=date.today())
-            estado_mail = st.selectbox("Estado del Gmail:", OPCIONES_ESTADO_MAIL)
-            etapa_proc = st.selectbox("Etapa del proceso:", OPCIONES_PROCESO)
-        with c_g2:
-            nro_ot = st.text_input("N° OT:", placeholder="Ej: OT-2026-048")
-            estado_fin = st.selectbox("Estado financiero:", OPCIONES_FINANCIERO)
-
-        btn_guardar_mail = st.form_submit_button("➕ Registrar Correo / OT", type="primary", use_container_width=True)
-
-        if btn_guardar_mail and asunto_mail.strip():
-            if ws_gmail:
-                ws_gmail.append_row([
+        if st.form_submit_button("📌 Guardar Recordatorio", type="primary", use_container_width=True):
+            if tit_rec.strip():
+                now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+                ws_recordatorios.append_row([
                     str(uuid.uuid4()),
-                    asunto_mail.strip(),
-                    fecha_envio.strftime("%d/%m/%Y"),
-                    estado_mail,
-                    etapa_proc,
-                    nro_ot.strip() if nro_ot else "S/N",
-                    estado_fin,
+                    tit_rec.strip(),
+                    det_rec.strip(),
+                    prio_rec,
                     st.session_state["usuario_actual"],
-                    datetime.now().strftime("%d/%m/%Y %H:%M")
+                    now_str
                 ])
-                st.success("¡Seguimiento de correo guardado con éxito!")
+                st.success("¡Recordatorio guardado!")
                 st.rerun()
             else:
-                st.error("⚠️ La solapa 'gmail_tracking' no fue encontrada en Google Sheets.")
+                st.error("El título no puede estar vacío.")
 
     st.divider()
+    st.markdown("#### 📋 Recordatorios Activos")
 
-    registros_gmail = []
-    if ws_gmail:
-        try:
-            registros_gmail = ws_gmail.get_all_records()
-        except Exception:
-            registros_gmail = []
-
-    # DETECCIÓN DE CORREOS EN ESPERA HACE VARIOS DÍAS
-    mails_demorados = []
-    hoy_date = date.today()
-
-    for mail in registros_gmail:
-        if mail.get("etapa_proceso") == "Pendiente respuesta":
-            fec_env_str = str(mail.get("fecha_envio", ""))
-            try:
-                fec_env_dt = datetime.strptime(fec_env_str, "%d/%m/%Y").date()
-                dias_transcurridos = (hoy_date - fec_env_dt).days
-                if dias_transcurridos >= 3:
-                    mails_demorados.append((mail, dias_transcurridos))
-            except Exception:
-                pass
-
-    if mails_demorados:
-        with st.expander(f"⚠️ **Atención: {len(mails_demorados)} correo(s) en 'Pendiente respuesta' desde hace más de 3 días**", expanded=True):
-            for m_dem, d_trans in mails_demorados:
-                st.markdown(f"""
-                    <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 10px; border-radius: 6px; margin-bottom: 6px;">
-                        🚨 <strong>{m_dem.get('asunto')}</strong> (OT: {m_dem.get('nro_ot')}) — <em>Sin respuesta hace {d_trans} días</em> (Enviado: {m_dem.get('fecha_envio')})
-                    </div>
-                """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    if not registros_gmail:
-        st.info("No hay correos ni órdenes de trabajo registradas todavía.")
+    if not rec_data:
+        st.info("No hay recordatorios registrados.")
     else:
-        mapa_colores_mail = {
-            "Aprobado": {"border": "#22c55e", "bg": "#f0fdf4"},
-            "Rechazado": {"border": "#ef4444", "bg": "#fef2f2"},
-            "Pendiente respuesta": {"border": "#eab308", "bg": "#fefce8"}
-        }
+        for r in rec_data:
+            id_r = str(r.get("id", ""))
+            tit_r = str(r.get("titulo", "Sin título"))
+            det_r = str(r.get("detalle", "")).strip()
+            prio_r = str(r.get("prioridad", "💚 Verde - Confirmado"))
+            autor_r = str(r.get("autor", "Anónimo"))
+            fecha_r = str(r.get("fecha_creacion", ""))
 
-        for idx, mail in enumerate(registros_gmail):
-            id_m = str(mail.get("id", ""))
-            asunto = mail.get("asunto", "Sin asunto")
-            fec_env = mail.get("fecha_envio", "")
-            est_m = mail.get("estado_gmail", "Enviado")
-            etapa = mail.get("etapa_proceso", "Pendiente respuesta")
-            ot = mail.get("nro_ot", "S/N")
-            finan = mail.get("estado_financiero", "Por facturar")
-            autor = mail.get("creado_por", "Sistema")
-            f_crea = mail.get("fecha_creacion", "")
+            estilo = PALETA_COLORES.get(prio_r, PALETA_COLORES["💚 Verde - Confirmado"])
 
-            c_mail_info = mapa_colores_mail.get(etapa, {"border": "#0284c7", "bg": "#ffffff"})
+            # Renderizado directo con el detalle desplegado directamente en la tarjeta
+            html_card = f"""
+            <div style="background-color: {estilo['bg']}; border-left: 5px solid {estilo['border']}; color: {estilo['text']}; padding: 14px; border-radius: 8px; margin-bottom: 8px;">
+                <h3 style="margin: 0 0 8px 0; color: {estilo['text']}; font-size: 1.25rem;">{tit_r}</h3>
+                <p style="margin: 0 0 8px 0; font-size: 0.95rem; white-space: pre-wrap;">{det_r if det_r else '<em>Sin detalle adicional</em>'}</p>
+                <small style="opacity: 0.85;">📌 Prioridad: {prio_r} | 👤 Por <strong>{autor_r}</strong> ({fecha_r})</small>
+            </div>
+            """
+            st.markdown(html_card, unsafe_allow_html=True)
 
-            with st.container():
-                st.markdown(f"""
-                    <div class="card-note" style="border-left-color: {c_mail_info['border']}; background-color: {c_mail_info['bg']};">
-                        <h4 style="margin:0 0 6px 0; color:#1e293b;">✉️ {asunto}</h4>
-                        <p style="margin:0 0 4px 0; color:#475569; font-size:0.9rem;">
-                            🏷️ <strong>N° OT:</strong> {ot} &nbsp;|&nbsp; 
-                            📤 <strong>Envío:</strong> {fec_env} ({est_m})
-                        </p>
-                        <p style="margin:0 0 8px 0; color:#334155; font-size:0.9rem;">
-                            🔄 <strong>Proceso:</strong> {etapa} &nbsp;|&nbsp; 
-                            💰 <strong>Financiero:</strong> {finan}
-                        </p>
-                        <span style="font-size:0.75rem; color:#64748b;">
-                            👤 Registrado por <strong>{autor}</strong> ({f_crea})
-                        </span>
-                    </div>
-                """, unsafe_allow_html=True)
+            c_ed, c_del = st.columns([1, 1])
+            with c_ed:
+                with st.popover("✏️ Editar Recordatorio", use_container_width=True):
+                    with st.form(key=f"form_ed_rec_{id_r}"):
+                        new_tit = st.text_input("Título:", value=tit_r)
+                        new_det = st.text_area("Detalle adicional:", value=det_r, height=80)
+                        idx_prio = list(PALETA_COLORES.keys()).index(prio_r) if prio_r in PALETA_COLORES else 0
+                        new_prio = st.selectbox("Prioridad:", list(PALETA_COLORES.keys()), index=idx_prio)
 
-                col_em_edit, col_em_del = st.columns([1, 1])
-
-                with col_em_edit:
-                    with st.popover("✏️ Editar Registro", use_container_width=True):
-                        st.markdown("**Editar Seguimiento de Correo**")
-                        with st.form(key=f"form_edit_mail_{idx}_{id_m}"):
-                            new_asunto = st.text_input("Asunto:", value=asunto)
-                            new_ot = st.text_input("N° OT:", value=ot)
-                            
-                            idx_est = OPCIONES_ESTADO_MAIL.index(est_m) if est_m in OPCIONES_ESTADO_MAIL else 0
-                            new_est = st.selectbox("Estado Gmail:", OPCIONES_ESTADO_MAIL, index=idx_est)
-                            
-                            idx_eta = OPCIONES_PROCESO.index(etapa) if etapa in OPCIONES_PROCESO else 0
-                            new_eta = st.selectbox("Etapa Proceso:", OPCIONES_PROCESO, index=idx_eta)
-                            
-                            idx_fin = OPCIONES_FINANCIERO.index(finan) if finan in OPCIONES_FINANCIERO else 0
-                            new_fin = st.selectbox("Estado Financiero:", OPCIONES_FINANCIERO, index=idx_fin)
-
-                            if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
-                                if new_asunto.strip():
-                                    cell = ws_gmail.find(id_m)
-                                    if cell:
-                                        row_num = cell.row
-                                        ws_gmail.update_cell(row_num, 2, new_asunto.strip())
-                                        ws_gmail.update_cell(row_num, 4, new_est)
-                                        ws_gmail.update_cell(row_num, 5, new_eta)
-                                        ws_gmail.update_cell(row_num, 6, new_ot.strip())
-                                        ws_gmail.update_cell(row_num, 7, new_fin)
-                                        st.success("¡Registro de Gmail actualizado!")
-                                        st.rerun()
-
-                with col_em_del:
-                    if st.button("🗑️ Borrar", key=f"btn_del_mail_{idx}_{id_m}", use_container_width=True):
-                        if id_m:
-                            cell = ws_gmail.find(id_m)
+                        if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                            cell = ws_recordatorios.find(id_r)
                             if cell:
-                                ws_gmail.delete_rows(cell.row)
-                        st.rerun()
+                                row_n = cell.row
+                                ws_recordatorios.update_cell(row_n, 2, new_tit.strip())
+                                ws_recordatorios.update_cell(row_n, 3, new_det.strip())
+                                ws_recordatorios.update_cell(row_n, 4, new_prio)
+                                st.success("Recordatorio actualizado.")
+                                st.rerun()
 
-                st.markdown("<br>", unsafe_allow_html=True)
+            with c_del:
+                if st.button("🗑️ Borrar", key=f"del_rec_{id_r}", use_container_width=True):
+                    cell = ws_recordatorios.find(id_r)
+                    if cell:
+                        ws_recordatorios.delete_rows(cell.row)
+                    st.rerun()
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+# ==========================================
+# 5. GMAIL
+# ==========================================
+with tab_gmail:
+    st.header("✉️ Control y Seguimiento Gmail")
+    st.info("Espacio para el registro y seguimiento de correos e información vinculada.")
