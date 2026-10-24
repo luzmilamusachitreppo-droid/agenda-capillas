@@ -175,6 +175,12 @@ PALETA_COLORES = {
     "🩷 Rosa - Alerta": {"bg": "#f8d7da", "border": "#842029", "text": "#842029"}
 }
 
+OPCIONES_PRIORIDAD_RECORDATORIO = [
+    "💓 Urgente / Importante",
+    "💛 Normal",
+    "💚 Poco Urgente / Rutinario"
+]
+
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
@@ -748,7 +754,7 @@ with tab_notes:
     with st.form("form_add_rec", clear_on_submit=True):
         tit_rec = st.text_input("Título / Tarea:")
         det_rec = st.text_area("Detalle adicional (Opcional):", height=68)
-        prio_rec = st.selectbox("Prioridad / Estado:", list(PALETA_COLORES.keys()))
+        prio_rec = st.selectbox("Prioridad / Estado:", OPCIONES_PRIORIDAD_RECORDATORIO)
         
         if st.form_submit_button("📌 Guardar Recordatorio", type="primary", use_container_width=True):
             if tit_rec.strip():
@@ -772,19 +778,25 @@ with tab_notes:
     if not rec_data:
         st.info("No hay recordatorios registrados.")
     else:
-        # MAPEO DE ORDEN DE PRIORIDAD POR COLOR
-        PRIORIDAD_ORDEN = {
-            "🩷 Rosa - Alerta": 1,
-            "💛 Amarillo - Pendiente": 2,
-            "💚 Verde - Confirmado": 3,
-            "💙 Azul - En proceso": 4,
-            "💜 Violeta - Especial": 5
-        }
+        # FUNCIÓN PARA OBTENER EL ESTILO Y EL ORDEN SEGÚN EL TEXTO DE PRIORIDAD
+        def obtener_estilo_y_orden(prio_str):
+            prio_lower = str(prio_str).lower()
+            if "urgente" in prio_lower or "rosa" in prio_lower or "alerta" in prio_lower:
+                return PALETA_COLORES["🩷 Rosa - Alerta"], 1
+            elif "normal" in prio_lower or "amarillo" in prio_lower or "pendiente" in prio_lower:
+                return PALETA_COLORES["💛 Amarillo - Pendiente"], 2
+            elif "rutinario" in prio_lower or "poco urgente" in prio_lower or "verde" in prio_lower or "confirmado" in prio_lower:
+                return PALETA_COLORES["💚 Verde - Confirmado"], 3
+            elif "azul" in prio_lower or "proceso" in prio_lower:
+                return PALETA_COLORES["💙 Azul - En proceso"], 4
+            elif "violeta" in prio_lower or "especial" in prio_lower:
+                return PALETA_COLORES["💜 Violeta - Especial"], 5
+            else:
+                return PALETA_COLORES["💚 Verde - Confirmado"], 3
 
-        # Función auxiliar para convertir la fecha en un objeto datetime y ordenar
         def obtener_clave_orden(item):
-            prio = str(item.get("prioridad", "💚 Verde - Confirmado"))
-            orden_prio = PRIORIDAD_ORDEN.get(prio, 99)
+            prio = str(item.get("prioridad", ""))
+            _, orden_prio = obtener_estilo_y_orden(prio)
             
             f_str = str(item.get("fecha_creacion", "")).strip()
             try:
@@ -794,30 +806,29 @@ with tab_notes:
                 
             return (orden_prio, dt_obj)
 
-        # Ordenar lista: Primero por color de prioridad y luego por fecha
+        # Ordenar lista: Primero por nivel de prioridad (1. Urgente -> 2. Normal -> 3. Verde), luego por fecha
         rec_data_ordenada = sorted(rec_data, key=obtener_clave_orden)
 
         for r in rec_data_ordenada:
             id_r = str(r.get("id", ""))
             tit_r = str(r.get("titulo", "Sin título"))
             det_r = str(r.get("detalle", "")).strip()
-            prio_r = str(r.get("prioridad", "💚 Verde - Confirmado"))
+            prio_r = str(r.get("prioridad", "💚 Poco Urgente / Rutinario"))
             autor_r = str(r.get("autor", "Anónimo"))
             fecha_r = str(r.get("fecha_creacion", ""))
 
-            estilo = PALETA_COLORES.get(prio_r, PALETA_COLORES["💚 Verde - Confirmado"])
+            estilo, _ = obtener_estilo_y_orden(prio_r)
 
-            # Formato de detalle bien legible (resaltado y con texto oscuro)
             if det_r:
-                detalle_html = f'<div style="margin: 8px 0 10px 0; font-size: 0.95rem; font-style: italic; color: #334155;">{det_r}</div>'
+                detalle_html = f'<p style="margin: 6px 0 10px 0; font-size: 0.95rem; font-style: italic; color: #334155;">{det_r}</p>'
             else:
-                detalle_html = '<div style="margin: 8px 0 10px 0; font-size: 0.9rem; font-style: italic; color: #64748b;">Sin detalle adicional</div>'
+                detalle_html = '<p style="margin: 6px 0 10px 0; font-size: 0.9rem; font-style: italic; color: #64748b;">Sin detalle adicional</p>'
 
             html_card = f"""
-            <div style="background-color: {estilo['bg']}; border-left: 5px solid {estilo['border']}; color: {estilo['text']}; padding: 14px; border-radius: 8px; margin-bottom: 8px;">
+            <div style="background-color: {estilo['bg']}; border-left: 6px solid {estilo['border']}; color: {estilo['text']}; padding: 14px; border-radius: 8px; margin-bottom: 8px;">
                 <h3 style="margin: 0 0 6px 0; color: {estilo['text']}; font-size: 1.25rem;">{tit_r}</h3>
                 {detalle_html}
-                <small style="opacity: 0.9; font-weight: 500;">📌 Prioridad: {prio_r} | 👤 Por <strong>{autor_r}</strong> ({fecha_r})</small>
+                <small style="opacity: 0.95; font-weight: 600;">📌 Prioridad: {prio_r} | 👤 Por <strong>{autor_r}</strong> ({fecha_r})</small>
             </div>
             """
             st.markdown(html_card, unsafe_allow_html=True)
@@ -828,8 +839,14 @@ with tab_notes:
                     with st.form(key=f"form_ed_rec_{id_r}"):
                         new_tit = st.text_input("Título:", value=tit_r)
                         new_det = st.text_area("Detalle adicional:", value=det_r, height=80)
-                        idx_prio = list(PALETA_COLORES.keys()).index(prio_r) if prio_r in PALETA_COLORES else 0
-                        new_prio = st.selectbox("Prioridad:", list(PALETA_COLORES.keys()), index=idx_prio)
+                        
+                        idx_prio = 0
+                        for i, opt in enumerate(OPCIONES_PRIORIDAD_RECORDATORIO):
+                            if opt in prio_r or prio_r in opt:
+                                idx_prio = i
+                                break
+                                
+                        new_prio = st.selectbox("Prioridad:", OPCIONES_PRIORIDAD_RECORDATORIO, index=idx_prio)
 
                         if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
                             cell = ws_recordatorios.find(id_r)
