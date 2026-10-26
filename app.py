@@ -605,7 +605,7 @@ with tab_capillas:
     col_exp_excel, col_exp_pdf = st.columns(2)
     with col_exp_excel:
         buffer_excel = io.BytesIO()
-        with pd.ExcelWriter(buffer_excel, engine="xlsxwriter") as writer:
+        with pd.ExcelWriter(buffer_excel, engine="openpyxl") as writer:
             df_export.to_excel(writer, sheet_name=f"Visitas_{MESES_NOMBRES.get(mes_seleccionado)}", index=False)
         
         st.download_button(
@@ -615,7 +615,6 @@ with tab_capillas:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
-
     with col_exp_pdf:
         with st.popover("🖨️ Vista Imprimible / Guardar PDF", use_container_width=True):
             st.markdown(f"### 📋 Auditoría de Visitas - {MESES_NOMBRES.get(mes_seleccionado)}")
