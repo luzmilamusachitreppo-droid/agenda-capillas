@@ -575,18 +575,7 @@ with tab_capillas:
     for cap_nombre in mapa_resumen:
         mapa_resumen[cap_nombre]["visitas"].sort(key=obtener_clave_fecha)
 
-    # 1. ESTADÍSTICAS GENERALES Y EXPORTACIÓN
-    st.markdown(f"### 📊 Estadísticas Generales - {MESES_NOMBRES.get(mes_seleccionado)}")
-    c_met1, c_met2, c_met3 = st.columns(3)
-    c_met1.metric("📌 Total de Visitas Registradas", total_visitas_global)
-    
-    capillas_visitadas_count = sum(1 for c in todas_las_capillas if len(mapa_resumen.get(c, {}).get("visitas", [])) > 0)
-    c_met2.metric("⛪ Capillas con al menos 1 Visita", f"{capillas_visitadas_count} / {len(todas_las_capillas)}")
-    
-    completadas_count = sum(1 for c in todas_las_capillas if mapa_resumen.get(c, {}).get("estado") == "Completado")
-    c_met3.metric("📋 Planillas Completadas", f"{completadas_count} / {len(todas_las_capillas)}")
-
-    # EXPORTACIÓN
+# EXPORTACIÓN
     st.markdown("#### 📥 Exportar Reporte para Auditoría")
     filas_exportar = []
     for zona, capillas in ZONAS_CAPILLAS.items():
@@ -603,7 +592,8 @@ with tab_capillas:
 
     df_export = pd.DataFrame(filas_exportar)
     col_exp_excel, col_exp_pdf = st.columns(2)
- with col_exp_excel:
+    
+    with col_exp_excel:
         buffer_excel = io.BytesIO()
         with pd.ExcelWriter(buffer_excel) as writer:
             df_export.to_excel(writer, sheet_name=f"Visitas_{MESES_NOMBRES.get(mes_seleccionado)}", index=False)
@@ -615,13 +605,12 @@ with tab_capillas:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
+
     with col_exp_pdf:
         with st.popover("🖨️ Vista Imprimible / Guardar PDF", use_container_width=True):
             st.markdown(f"### 📋 Auditoría de Visitas - {MESES_NOMBRES.get(mes_seleccionado)}")
             st.caption("Usa la opción de imprimir del navegador (Ctrl + P) y selecciona 'Guardar como PDF'.")
             st.dataframe(df_export, use_container_width=True, hide_index=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
 
     sin_visitas = []
     pocas_visitas = []
