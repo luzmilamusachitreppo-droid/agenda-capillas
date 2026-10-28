@@ -789,7 +789,7 @@ with tab_capillas:
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS (CON TÍTULO, NOTA, COLORES Y ORDEN)
+# 4. RECORDATORIOS RÁPIDOS (CORREGIDO Y LIMPIO)
 # ==========================================
 with tab_notes:
     st.header("📌 Recordatorios Rápidos")
@@ -799,7 +799,6 @@ with tab_notes:
     except Exception:
         recs_gsheets = []
 
-    # Diccionario de colores según urgencia
     COLORES_URGENCIA = {
         "💓 Urgente / Importante": {"bg": "#f8d7da", "border": "#ef4444", "text": "#991b1b"},
         "💛 Normal": {"bg": "#fef9c3", "border": "#eab308", "text": "#854d0e"},
@@ -829,7 +828,6 @@ with tab_notes:
     if not recs_gsheets:
         st.info("No hay recordatorios pendientes.")
     else:
-        # Función para ordenar: Urgente (1) > Normal (2) > Rutinario (3), y luego por fecha
         def peso_prioridad(p):
             if "Urgente" in p:
                 return 1
@@ -837,7 +835,6 @@ with tab_notes:
                 return 2
             return 3
 
-        # Normalizamos y ordenamos los registros
         recs_ordenados = sorted(
             recs_gsheets, 
             key=lambda x: (peso_prioridad(str(x.get('prioridad') or x.get('Prioridad', ''))), str(x.get('fecha') or x.get('Fecha', ''))), 
@@ -854,11 +851,13 @@ with tab_notes:
 
             estilo = COLORES_URGENCIA.get(prio_val, COLORES_URGENCIA["💛 Normal"])
 
-            # Renderizado de tarjeta con color de fondo según urgencia
+            # Tarjeta renderizada correctamente con HTML seguro
+            contenido_nota = f"<p style='margin: 6px 0 0 0; font-size: 0.95rem;'>{nota_rec}</p>" if nota_rec else ""
+            
             st.markdown(f"""
                 <div style="background-color: {estilo['bg']}; border-left: 6px solid {estilo['border']}; color: {estilo['text']}; padding: 14px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                     <strong style="font-size: 1.05rem;">📌 {titulo_rec}</strong>
-                    {f'<p style="margin: 6px 0 0 0; font-size: 0.95rem;">{nota_rec}</p>' if nota_rec else ''}
+                    {contenido_nota}
                     <hr style="margin: 8px 0; border-top: 1px solid rgba(0,0,0,0.1);">
                     <small style="opacity: 0.85;">Prioridad: <strong>{prio_val}</strong> | 📅 {fecha_val}</small>
                 </div>
