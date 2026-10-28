@@ -789,7 +789,7 @@ with tab_capillas:
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS (100% NATIVO)
+# 4. RECORDATORIOS RÁPIDOS (CON COLORES Y ORDENAMIENTO)
 # ==========================================
 with tab_notes:
     st.header("📌 Recordatorios Rápidos")
@@ -799,17 +799,17 @@ with tab_notes:
     except Exception:
         recs_gsheets = []
 
-    COLORES_URGENCIA = [
-        "💓 Urgente / Importante",
-        "💛 Normal",
-        "💚 Poco Urgente / Rutinario"
-    ]
+    COLORES_URGENCIA = {
+        "💓 Urgente / Importante": {"bg": "#f8d7da", "border": "#ef4444", "text": "#991b1b"},
+        "💛 Normal": {"bg": "#fef9c3", "border": "#eab308", "text": "#854d0e"},
+        "💚 Poco Urgente / Rutinario": {"bg": "#d1e7dd", "border": "#10b981", "text": "#065f46"}
+    }
 
     with st.form("form_add_rec", clear_on_submit=True):
         st.markdown("**Nuevo Recordatorio**")
         titulo_rec_input = st.text_input("Título principal:")
         nota_rec_input = st.text_area("Nota / Detalle adicional:", placeholder="Escribí los detalles acá...", height=70)
-        prio_rec = st.selectbox("Nivel de Urgencia:", options=COLORES_URGENCIA)
+        prio_rec = st.selectbox("Nivel de Urgencia / Color:", options=list(COLORES_URGENCIA.keys()))
         
         if st.form_submit_button("📌 Guardar Recordatorio", type="primary", use_container_width=True):
             if titulo_rec_input.strip():
@@ -836,6 +836,7 @@ with tab_notes:
                 return 2
             return 3
 
+        # Ordenamos automáticamente por urgencia y fecha
         recs_ordenados = sorted(
             recs_gsheets, 
             key=lambda x: (peso_prioridad(str(x.get('prioridad') or x.get('Prioridad', ''))), str(x.get('fecha') or x.get('Fecha', ''))), 
@@ -850,39 +851,48 @@ with tab_notes:
             prio_val = str(r.get('prioridad') or r.get('Prioridad') or (vals[3] if len(vals) > 3 else '💛 Normal'))
             fecha_val = str(r.get('fecha') or r.get('Fecha') or (vals[4] if len(vals) > 4 else ''))
 
-            with st.container(border=True):
-                st.subheader(f"📌 {titulo_rec}")
-                if nota_rec:
-                    st.write(nota_rec)
-                st.caption(f"Prioridad: {prio_val} | Fecha: {fecha_val}")
+            estilo = COLORES_URGENCIA.get(prio_val, COLORES_URGENCIA["💛 Normal"])
 
-                col_ed_rec, col_del_rec = st.columns([1, 1])
-                with col_ed_rec:
-                    with st.popover("✏️ Editar", use_container_width=True):
-                        st.markdown("**Editar Recordatorio**")
-                        with st.form(key=f"form_edit_rec_{id_rec}"):
-                            new_tit = st.text_input("Título:", value=titulo_rec, key=f"t_ed_{id_rec}")
-                            new_nota = st.text_area("Nota:", value=nota_rec, key=f"n_ed_{id_rec}")
-                            idx_p = COLORES_URGENCIA.index(prio_val) if prio_val in COLORES_URGENCIA else 1
-                            new_prio = st.selectbox("Urgencia:", options=COLORES_URGENCIA, index=idx_p, key=f"p_ed_{id_rec}")
+            # Tarjeta con fondo de color, título arriba y nota detallada abajo
+            html_card = f"""
+            <div style="background-color: {estilo['bg']}; border-left: 6px solid {estilo['border']}; color: {estilo['text']}; padding: 14px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div style="font-size: 1.05rem; font-weight: bold; margin-bottom: 4px;">📌 {titulo_rec}</div>
+                {f'<div style="font-size: 0.95rem; margin-bottom: 8px;">{nota_rec}</div>' if nota_rec else ''}
+                <div style="font-size: 0.8rem; opacity: 0.85; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 6px; margin-top: 6px;">
+                    Prioridad: <strong>{prio_val}</strong> | 📅 {fecha_val}
+                </div>
+            </div>
+            """
+            st.markdown(html_card, unsafe_allow_html=True)
 
-                            if st.form_submit_button("💾 Guardar", type="primary", use_container_width=True):
-                                cell = ws_recordatorios.find(id_rec)
-                                if cell:
-                                    row_n = cell.row
-                                    ws_recordatorios.update_cell(row_n, 2, new_tit.strip())
-                                    ws_recordatorios.update_cell(row_n, 3, new_nota.strip())
-                                    ws_recordatorios.update_cell(row_n, 4, new_prio)
-                                    st.success("¡Actualizado!")
-                                    st.rerun()
+            col_ed_rec, col_del_rec = st.columns([1, 1])
+            with col_ed_rec:
+                with st.popover("✏️ Editar", use_container_width=True):
+                    st.markdown("**Editar Recordatorio**")
+                    with st.form(key=f"form_edit_rec_{id_rec}"):
+                        new_tit = st.text_input("Título:", value=titulo_rec, key=f"t_ed_{id_rec}")
+                        new_nota = st.text_area("Nota:", value=nota_rec, key=f"n_ed_{id_rec}")
+                        idx_p = list(COLORES_URGENCIA.keys()).index(prio_val) if prio_val in COLORES_URGENCIA else 1
+                        new_prio = st.selectbox("Urgencia:", options=list(COLORES_URGENCIA.keys()), index=idx_p, key=f"p_ed_{id_rec}")
 
-                with col_del_rec:
-                    if st.button("🗑️ Eliminar", key=f"del_rec_{id_rec}", use_container_width=True):
-                        cell = ws_recordatorios.find(id_rec)
-                        if cell:
-                            ws_recordatorios.delete_rows(cell.row)
-                        st.rerun()
-            
+                        if st.form_submit_button("💾 Guardar", type="primary", use_container_width=True):
+                            cell = ws_recordatorios.find(id_rec)
+                            if cell:
+                                row_n = cell.row
+                                ws_recordatorios.update_cell(row_n, 2, new_tit.strip())
+                                ws_recordatorios.update_cell(row_n, 3, new_nota.strip())
+                                ws_recordatorios.update_cell(row_n, 4, new_prio)
+                                st.success("¡Actualizado!")
+                                st.rerun()
+
+            with col_del_rec:
+                if st.button("🗑️ Eliminar", key=f"del_rec_{id_rec}", use_container_width=True):
+                    cell = ws_recordatorios.find(id_rec)
+                    if cell:
+                        ws_recordatorios.delete_rows(cell.row)
+                    st.rerun()
+
+            st.markdown("<br style='margin: 5px 0;'>", unsafe_allow_html=True)
 # ==========================================
 # 5. GMAIL / OT TRACKING
 # ==========================================
