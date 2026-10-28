@@ -789,7 +789,7 @@ with tab_capillas:
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS (CORREGIDO Y LIMPIO)
+# 4. RECORDATORIOS RÁPIDOS (CORREGIDO)
 # ==========================================
 with tab_notes:
     st.header("📌 Recordatorios Rápidos")
@@ -851,17 +851,16 @@ with tab_notes:
 
             estilo = COLORES_URGENCIA.get(prio_val, COLORES_URGENCIA["💛 Normal"])
 
-            # Tarjeta renderizada correctamente con HTML seguro
-            contenido_nota = f"<p style='margin: 6px 0 0 0; font-size: 0.95rem;'>{nota_rec}</p>" if nota_rec else ""
-            
-            st.markdown(f"""
-                <div style="background-color: {estilo['bg']}; border-left: 6px solid {estilo['border']}; color: {estilo['text']}; padding: 14px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <strong style="font-size: 1.05rem;">📌 {titulo_rec}</strong>
-                    {contenido_nota}
-                    <hr style="margin: 8px 0; border-top: 1px solid rgba(0,0,0,0.1);">
-                    <small style="opacity: 0.85;">Prioridad: <strong>{prio_val}</strong> | 📅 {fecha_val}</small>
-                </div>
-            """, unsafe_allow_html=True)
+            # Renderizado seguro con unsafe_allow_html=True
+            html_tarjeta = f"""
+            <div style="background-color: {estilo['bg']}; border-left: 6px solid {estilo['border']}; color: {estilo['text']}; padding: 14px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <strong style="font-size: 1.05rem;">📌 {titulo_rec}</strong>
+                {f'<p style="margin: 6px 0 0 0; font-size: 0.95rem;">{nota_rec}</p>' if nota_rec else ''}
+                <hr style="margin: 8px 0; border-top: 1px solid rgba(0,0,0,0.1);">
+                <small style="opacity: 0.85;">Prioridad: <strong>{prio_val}</strong> | 📅 {fecha_val}</small>
+            </div>
+            """
+            st.markdown(html_tarjeta, unsafe_allow_html=True)
 
             col_ed_rec, col_del_rec = st.columns([1, 1])
             with col_ed_rec:
@@ -891,6 +890,7 @@ with tab_notes:
                     st.rerun()
 
             st.markdown("<br style='margin: 5px 0;'>", unsafe_allow_html=True)
+            
 # ==========================================
 # 5. GMAIL / OT TRACKING
 # ==========================================
