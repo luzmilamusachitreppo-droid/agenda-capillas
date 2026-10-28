@@ -789,7 +789,7 @@ with tab_capillas:
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS (LIMPIO Y NATIVO)
+# 4. RECORDATORIOS RÁPIDOS (100% NATIVO)
 # ==========================================
 with tab_notes:
     st.header("📌 Recordatorios Rápidos")
@@ -818,8 +818,7 @@ with tab_notes:
                     titulo_rec_input.strip(), 
                     nota_rec_input.strip(), 
                     prio_rec, 
-                    datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    st.session_state["usuario_actual"]
+                    datetime.now().strftime("%Y-%m-%d %H:%M")
                 ])
                 st.success("¡Recordatorio guardado!")
                 st.rerun()
@@ -850,20 +849,12 @@ with tab_notes:
             nota_rec = str(r.get('nota') or r.get('Nota') or r.get('observacion') or (vals[2] if len(vals) > 2 else ''))
             prio_val = str(r.get('prioridad') or r.get('Prioridad') or (vals[3] if len(vals) > 3 else '💛 Normal'))
             fecha_val = str(r.get('fecha') or r.get('Fecha') or (vals[4] if len(vals) > 4 else ''))
-            autor_val = str(vals[5] if len(vals) > 5 else '')
 
-            # Contenedor nativo prolijo (sin código HTML roto)
             with st.container(border=True):
-                st.markdown(f"### 📌 {titulo_rec}")
+                st.subheader(f"📌 {titulo_rec}")
                 if nota_rec:
                     st.write(nota_rec)
-                
-                info_pie = f"Prioridad: **{prio_val}**"
-                if fecha_val:
-                    info_pie += f" | 📅 {fecha_val}"
-                if autor_val:
-                    info_pie += f" | 👤 {autor_val}"
-                st.caption(info_pie)
+                st.caption(f"Prioridad: {prio_val} | Fecha: {fecha_val}")
 
                 col_ed_rec, col_del_rec = st.columns([1, 1])
                 with col_ed_rec:
