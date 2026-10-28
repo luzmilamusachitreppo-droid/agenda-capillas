@@ -789,7 +789,7 @@ with tab_capillas:
         st.divider()
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS
+# 4. RECORDATORIOS RÁPIDOS (CON EDICIÓN Y LECTURA CORREGIDA)
 # ==========================================
 with tab_notes:
     st.header("📌 Recordatorios Rápidos")
@@ -804,7 +804,6 @@ with tab_notes:
         prio_rec = st.selectbox("Prioridad:", OPCIONES_PRIORIDAD_RECORDATORIO)
         if st.form_submit_button("📌 Guardar Recordatorio", type="primary"):
             if txt_rec.strip():
-                # Guardamos explícitamente con las columnas ordenadas
                 ws_recordatorios.append_row([
                     str(uuid.uuid4()), 
                     txt_rec.strip(), 
@@ -820,24 +819,47 @@ with tab_notes:
         st.info("No hay recordatorios pendientes.")
     else:
         for r in recs_gsheets:
-            # Capturamos el texto probando diferentes nombres de columnas por seguridad
-            texto_nota = r.get('texto') or r.get('observacion') or r.get('recordatorio') or str(list(r.values())[1] if len(r.values()) > 1 else "Sin texto")
-            id_nota = str(r.get('id') or r.get('ID') or list(r.values())[0])
-            prioridad_nota = r.get('prioridad') or r.get('Prioridad') or 'Normal'
-            fecha_nota = r.get('fecha') or r.get('Fecha') or ''
+            # Lectura segura adaptada a cualquier nombre de columna en Sheets
+            vals = list(r.values()) if isinstance(r, dict) else []
+            id_rec = str(r.get('id') or r.get('ID') or (vals[0] if len(vals) > 0 else ''))
+            texto_rec = str(r.get('texto') or r.get('observacion') or r.get('recordatorio') or (vals[1] if len(vals) > 1 else 'Sin texto'))
+            prio_rec_val = str(r.get('prioridad') or r.get('Prioridad') or (vals[2] if len(vals) > 2 else 'Normal'))
+            fecha_rec = str(r.get('fecha') or r.get('Fecha') or (vals[3] if len(vals) > 3 else ''))
 
             st.markdown(f"""
                 <div class="card-note">
-                    <strong>📌 {texto_nota}</strong><br>
-                    <small>Prioridad: {prioridad_nota} | {fecha_nota}</small>
+                    <strong>📌 {texto_rec}</strong><br>
+                    <small>Prioridad: {prio_rec_val} | 📅 {fecha_rec}</small>
                 </div>
             """, unsafe_allow_html=True)
+
+            col_ed_rec, col_del_rec = st.columns([1, 1])
             
-            if st.button("🗑️ Eliminar", key=f"del_rec_{id_nota}"):
-                cell = ws_recordatorios.find(id_nota)
-                if cell:
-                    ws_recordatorios.delete_rows(cell.row)
-                st.rerun()
+            with col_ed_rec:
+                with st.popover("✏️ Editar", use_container_width=True):
+                    st.markdown("**Editar Recordatorio**")
+                    with st.form(key=f"form_edit_rec_{id_rec}"):
+                        new_txt_rec = st.text_input("Texto:", value=texto_rec, key=f"txt_ed_rec_{id_rec}")
+                        idx_prio = OPCIONES_PRIORIDAD_RECORDATORIO.index(prio_rec_val) if prio_rec_val in OPCIONES_PRIORIDAD_RECORDATORIO else 0
+                        new_prio_rec = st.selectbox("Prioridad:", options=OPCIONES_PRIORIDAD_RECORDATORIO, index=idx_prio, key=f"prio_ed_rec_{id_rec}")
+
+                        if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                            cell = ws_recordatorios.find(id_rec)
+                            if cell:
+                                row_n = cell.row
+                                ws_recordatorios.update_cell(row_n, 2, new_txt_rec.strip())
+                                ws_recordatorios.update_cell(row_n, 3, new_prio_rec)
+                                st.success("¡Recordatorio actualizado!")
+                                st.rerun()
+
+            with col_del_rec:
+                if st.button("🗑️ Eliminar", key=f"del_rec_{id_rec}", use_container_width=True):
+                    cell = ws_recordatorios.find(id_rec)
+                    if cell:
+                        ws_recordatorios.delete_rows(cell.row)
+                    st.rerun()
+
+            st.markdown("<br>", unsafe_allow_html=True)
 # ==========================================
 # 5. GMAIL / OT TRACKING
 # ==========================================
