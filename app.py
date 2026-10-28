@@ -804,27 +804,40 @@ with tab_notes:
         prio_rec = st.selectbox("Prioridad:", OPCIONES_PRIORIDAD_RECORDATORIO)
         if st.form_submit_button("📌 Guardar Recordatorio", type="primary"):
             if txt_rec.strip():
-                ws_recordatorios.append_row([str(uuid.uuid4()), txt_rec.strip(), prio_rec, datetime.now().strftime("%Y-%m-%d %H:%M")])
+                # Guardamos explícitamente con las columnas ordenadas
+                ws_recordatorios.append_row([
+                    str(uuid.uuid4()), 
+                    txt_rec.strip(), 
+                    prio_rec, 
+                    datetime.now().strftime("%Y-%m-%d %H:%M")
+                ])
                 st.success("¡Recordatorio guardado!")
                 st.rerun()
 
     st.divider()
+    
     if not recs_gsheets:
         st.info("No hay recordatorios pendientes.")
     else:
         for r in recs_gsheets:
+            # Capturamos el texto probando diferentes nombres de columnas por seguridad
+            texto_nota = r.get('texto') or r.get('observacion') or r.get('recordatorio') or str(list(r.values())[1] if len(r.values()) > 1 else "Sin texto")
+            id_nota = str(r.get('id') or r.get('ID') or list(r.values())[0])
+            prioridad_nota = r.get('prioridad') or r.get('Prioridad') or 'Normal'
+            fecha_nota = r.get('fecha') or r.get('Fecha') or ''
+
             st.markdown(f"""
                 <div class="card-note">
-                    <strong>📌 {r.get('texto')}</strong><br>
-                    <small>Prioridad: {r.get('prioridad', 'Normal')} | {r.get('fecha', '')}</small>
+                    <strong>📌 {texto_nota}</strong><br>
+                    <small>Prioridad: {prioridad_nota} | {fecha_nota}</small>
                 </div>
             """, unsafe_allow_html=True)
-            if st.button("🗑️ Eliminar", key=f"del_rec_{r.get('id')}"):
-                cell = ws_recordatorios.find(str(r.get('id')))
+            
+            if st.button("🗑️ Eliminar", key=f"del_rec_{id_nota}"):
+                cell = ws_recordatorios.find(id_nota)
                 if cell:
                     ws_recordatorios.delete_rows(cell.row)
                 st.rerun()
-
 # ==========================================
 # 5. GMAIL / OT TRACKING
 # ==========================================
