@@ -185,55 +185,6 @@ OPCIONES_PRIORIDAD_RECORDATORIO = [
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
-st.markdown("""
-    <style>
-    .card-note {
-        background-color: #ffffff;
-        border-left: 5px solid #0284c7;
-        border-radius: 8px;
-        padding: 14px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-        border-top: 1px solid #e2e8f0;
-        border-right: 1px solid #e2e8f0;
-        border-bottom: 1px solid #e2e8f0;
-    }
-    .badge-visita {
-        background-color: #e0f2fe;
-        color: #0369a1;
-        border-radius: 6px;
-        padding: 4px 8px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        display: inline-block;
-        margin-right: 6px;
-        margin-bottom: 6px;
-    }
-    .badge-alerta-roja {
-        background-color: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fecaca;
-        border-radius: 6px;
-        padding: 6px 10px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        display: inline-block;
-        margin: 4px;
-    }
-    .badge-alerta-amarilla {
-        background-color: #fef9c3;
-        color: #854d0e;
-        border: 1px solid #fef08a;
-        border-radius: 6px;
-        padding: 6px 10px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        display: inline-block;
-        margin: 4px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # 5 Pestañas principales
 tab_cal, tab_check, tab_capillas, tab_notes, tab_gmail = st.tabs([
     "📅 1. Agenda Principal", 
@@ -575,7 +526,7 @@ with tab_capillas:
     for cap_nombre in mapa_resumen:
         mapa_resumen[cap_nombre]["visitas"].sort(key=obtener_clave_fecha)
 
-# EXPORTACIÓN
+    # EXPORTACIÓN
     st.markdown("#### 📥 Exportar Reporte para Auditoría")
     filas_exportar = []
     for zona, capillas in ZONAS_CAPILLAS.items():
@@ -623,32 +574,24 @@ with tab_capillas:
 
     col_rep1, col_rep2 = st.columns(2)
     with col_rep1:
-        st.markdown(f"""
-            <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
-                <h4 style="margin:0 0 4px 0; color: #991b1b; font-size:1rem;">🔴 Capillas SIN visitas en {MESES_NOMBRES.get(mes_seleccionado)}</h4>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"#### 🔴 Capillas SIN visitas en {MESES_NOMBRES.get(mes_seleccionado)}")
         if not sin_visitas:
             st.success("¡Excelente! Todas las capillas recibieron al menos una visita este mes.")
         else:
-            html_sin = "".join([f'<span class="badge-alerta-roja">⛪ {c}</span>' for c in sin_visitas])
-            st.markdown(html_sin, unsafe_allow_html=True)
+            for c in sin_visitas:
+                st.error(f"⛪ {c}")
 
     with col_rep2:
-        st.markdown(f"""
-            <div style="background-color: #fefce8; border-left: 5px solid #eab308; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
-                <h4 style="margin:0 0 4px 0; color: #854d0e; font-size:1rem;">💛 Capillas visitadas de 1 a 2 veces</h4>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"#### 💛 Capillas visitadas de 1 a 2 veces")
         if not pocas_visitas:
             st.info("No hay capillas en el rango de 1 a 2 visitas.")
         else:
-            html_pocas = "".join([f'<span class="badge-alerta-amarilla">⛪ {c} ({cant} visita{"s" if cant > 1 else ""})</span>' for c, cant in pocas_visitas])
-            st.markdown(html_pocas, unsafe_allow_html=True)
+            for c, cant in pocas_visitas:
+                st.warning(f"⛪ {c} ({cant} visita{'s' if cant > 1 else ''})")
 
     st.divider()
 
-    # 2. GENERADOR DE MENSAJE SEMANAL DE PRIORIDADES
+    # GENERADOR DE MENSAJE SEMANAL DE PRIORIDADES
     st.markdown("### 📩 Mensaje semanal de prioridades")
     col_saludo, col_vac = st.columns([1, 1])
     with col_saludo:
@@ -656,7 +599,6 @@ with tab_capillas:
     
     CAPILLAS_INDIVIDUALES = ["Bella Vista", "Goya", "El Colorado", "La Leonesa", "San Martin"]
 
-    # --- CUADRO 1: MENSAJE POR ZONAS (GRUPAL) ---
     lineas_zonas = [f"{saludo_tipo}, comparto el informe semanal de las capillas visitadas:\n"]
     
     for zona, capillas in ZONAS_CAPILLAS.items():
@@ -694,7 +636,6 @@ with tab_capillas:
     lineas_zonas.append("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*")
     txt_zonas_completo = "\n".join(lineas_zonas)
 
-    # --- CUADRO 2: COMUNICADOS DE SEGUIMIENTO INDIVIDUAL ---
     lineas_ind = [f"{saludo_tipo}, comparto el comunicado de seguimiento individual:\n"]
     for c_ind in CAPILLAS_INDIVIDUALES:
         visitas_ind = mapa_resumen.get(c_ind, {}).get("visitas", [])
@@ -711,10 +652,8 @@ with tab_capillas:
 
     txt_ind_completo = "\n".join(lineas_ind)
 
-    # --- CUADRO 3: UNIFICADO ---
     txt_unificado_completo = txt_zonas_completo.replace("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*", "").strip() + "\n\n" + "👤 *COMUNICADOS DE SEGUIMIENTO INDIVIDUAL*\n" + "\n".join(lineas_ind[1:]) + "\n\n📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*"
 
-    # RENDERIZADO DE LOS 3 CUADROS
     with st.expander("📄 **1. Copiar Informe por Zonas (Grupales)**", expanded=False):
         st.text_area("Texto listo para copiar (Zonas):", value=txt_zonas_completo, height=280, key="txt_area_zonas")
 
@@ -726,67 +665,27 @@ with tab_capillas:
 
     st.divider()
 
-    # 3. DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA
+    # DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA
     for zona, capillas in ZONAS_CAPILLAS.items():
         st.markdown(f"### 📍 {zona}")
         for c in capillas:
             data_capilla = mapa_resumen.get(c, {"estado": "Pendiente", "visitas": []})
             cant_v = len(data_capilla["visitas"])
-            estado_actual = data_capilla["estado"]
             
-            st.markdown(f"#### ⛪ {c} &nbsp;&nbsp;|&nbsp;&nbsp; <span style='font-size:0.9rem; color:#0284c7;'>📊 Visitas: <strong>{cant_v}</strong> | Planilla: <strong>{estado_actual}</strong></span>", unsafe_allow_html=True)
-            
-            col_est, col_add_v = st.columns([1, 1.5])
-            
-            with col_est:
-                idx_default = ["Pendiente", "En Proceso", "Completado"].index(estado_actual) if estado_actual in ["Pendiente", "En Proceso", "Completado"] else 0
-                nuevo_estado = st.selectbox("Estado de planilla", ["Pendiente", "En Proceso", "Completado"], index=idx_default, key=f"est_sel_{c}_{mes_seleccionado}")
-                
-                if nuevo_estado != estado_actual:
-                    if ws_resumen:
-                        ws_resumen.append_row([zona, c, nuevo_estado, ""])
-                        st.success(f"Estado de {c} actualizado a {nuevo_estado}")
-                        st.rerun()
+            with st.container(border=True):
+                col_cap_t, col_cap_e = st.columns([2, 1])
+                with col_cap_t:
+                    st.markdown(f"#### ⛪ {c}")
+                    st.caption(f"Visitas registradas este mes: **{cant_v}**")
+                with col_cap_e:
+                    st.info(f"Estado: **{data_capilla['estado']}**")
 
-            with col_add_v:
-                nueva_fecha_v = st.text_input(f"➕ Registrar nueva visita ({MESES_NOMBRES.get(mes_seleccionado)}):", placeholder=f"Ej: 02/{mes_seleccionado}", key=f"in_fecha_{c}_{mes_seleccionado}")
-                if st.button(f"📌 Registrar visita en {c}", key=f"btn_add_v_{c}_{mes_seleccionado}", use_container_width=True):
-                    if nueva_fecha_v.strip() and ws_resumen:
-                        ws_resumen.append_row([
-                            zona, 
-                            c, 
-                            nuevo_estado, 
-                            f"{nueva_fecha_v.strip()} (por {st.session_state['usuario_actual']})"
-                        ])
-                        st.success(f"¡Visita {nueva_fecha_v} guardada para {c}!")
-                        st.rerun()
-
-            with st.expander(f"📸 **Cargar / Editar Faltantes de Fotos para {c}**"):
-                st.caption("Escribí los faltantes u observaciones técnicas para que se agreguen automáticamente al informe:")
-                st.text_area(
-                    "Faltantes y Observaciones (Ej: Veredas: perfilado. Cerco olímpico - Drenaje):",
-                    key=f"faltantes_fotos_{c}",
-                    placeholder="Ej: Veredas: No cumple con las condiciones, por favor perfilarlas. Cerco olímpico - Drenaje - Gestión de residuos",
-                    height=80
-                )
-
-            st.markdown(f"📅 **Días visitados en {MESES_NOMBRES.get(mes_seleccionado)}:**")
-            if not data_capilla["visitas"]:
-                st.caption(f"Aún no hay visitas registradas en {MESES_NOMBRES.get(mes_seleccionado)}.")
-            else:
-                for v_info in data_capilla["visitas"]:
-                    c_badge, c_del = st.columns([4, 1])
-                    with c_badge:
-                        st.markdown(f'<span class="badge-visita">✔ {v_info["texto"]}</span>', unsafe_allow_html=True)
-                    with c_del:
-                        if st.button("🗑️ Borrar", key=f"del_v_{c}_{v_info['row_index']}_{mes_seleccionado}"):
-                            if ws_resumen:
-                                ws_resumen.delete_rows(v_info["row_index"])
-                                st.success("Visita eliminada con éxito.")
-                                st.rerun()
-
-            st.markdown("<hr style='margin: 15px 0; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-        st.divider()
+                if data_capilla["visitas"]:
+                    st.write("**Historial de Visitas:**")
+                    for v in data_capilla["visitas"]:
+                        st.text(f"• {v['texto']}")
+                else:
+                    st.caption("Sin visitas registradas para este mes.")
 
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
@@ -837,7 +736,6 @@ with tab_notes:
                 return 2
             return 3
 
-        # Ordenamos automáticamente por urgencia y fecha
         recs_ordenados = sorted(
             recs_gsheets, 
             key=lambda x: (peso_prioridad(str(x.get('prioridad') or x.get('Prioridad', ''))), str(x.get('fecha') or x.get('Fecha', ''))), 
@@ -853,7 +751,6 @@ with tab_notes:
             fecha_val = str(r.get('fecha') or r.get('Fecha') or (vals[4] if len(vals) > 4 else ''))
             autor_val = str(vals[5] if len(vals) > 5 else '')
 
-            # Contenedor nativo limpio (sin HTML que falle)
             with st.container(border=True):
                 st.subheader(f"📌 {titulo_rec}")
                 if nota_rec:
@@ -892,19 +789,83 @@ with tab_notes:
                         if cell:
                             ws_recordatorios.delete_rows(cell.row)
                         st.rerun()
-                        
+
 # ==========================================
-# 5. GMAIL / OT TRACKING
+# 5. GMAIL / SEGUIMIENTO DE CORREOS
 # ==========================================
 with tab_gmail:
-    st.header("✉️ Seguimiento de Correos y OTs")
-    
-    try:
-        mails_gsheets = ws_gmail.get_all_records() if ws_gmail else []
-    except Exception:
-        mails_gsheets = []
+    st.header("✉️ Seguimiento de Correos y OT")
+    st.caption("Módulo de registro y control de órdenes de trabajo recibidas por correo electrónico.")
 
-    if not mails_gsheets:
-        st.info("No hay correos registrados en la base de datos.")
+    registros_gmail = []
+    if ws_gmail:
+        try:
+            registros_gmail = ws_gmail.get_all_records()
+        except Exception:
+            registros_gmail = []
+
+    with st.form("form_add_gmail", clear_on_submit=True):
+        st.markdown("**Registrar Nuevo Correo / OT**")
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            capilla_gmail = st.selectbox("Capilla:", todas_las_capillas, key="g_cap_sel")
+            asunto_gmail = st.text_input("Asunto / Ref:", placeholder="Ej: OT 1234 - Arreglo de Techo")
+        with col_g2:
+            remitente_gmail = st.text_input("Remitente / Envió:", placeholder="Ej: mantenimiento@parroquia.org")
+            estado_gmail = st.selectbox("Estado:", ["📥 Pendiente", "⚙️ En Proceso", "✅ Resuelto", "🛑 Pausado"])
+
+        obs_gmail = st.text_area("Observaciones del Correo:", placeholder="Detalles de la solicitud...")
+
+        if st.form_submit_button("💾 Registrar Correo", type="primary", use_container_width=True):
+            if ws_gmail:
+                ws_gmail.append_row([
+                    str(uuid.uuid4()),
+                    capilla_gmail,
+                    asunto_gmail.strip(),
+                    remitente_gmail.strip(),
+                    estado_gmail,
+                    obs_gmail.strip(),
+                    datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    st.session_state["usuario_actual"]
+                ])
+                st.success("¡Correo registrado correctamente!")
+                st.rerun()
+            else:
+                st.error("⚠️ La hoja 'gmail_tracking' no existe en tu Google Sheets.")
+
+    st.divider()
+
+    if not registros_gmail:
+        st.info("No hay correos u órdenes de trabajo registradas.")
     else:
-        st.dataframe(pd.DataFrame(mails_gsheets), use_container_width=True)
+        st.markdown("#### 📋 Correos Registrados")
+        for g_rec in registros_gmail:
+            vals_g = list(g_rec.values()) if isinstance(g_rec, dict) else []
+            id_g = str(g_rec.get('id') or g_rec.get('ID') or (vals_g[0] if len(vals_g) > 0 else ''))
+            cap_g = str(g_rec.get('capilla') or (vals_g[1] if len(vals_g) > 1 else 'General'))
+            asunto_g = str(g_rec.get('asunto') or (vals_g[2] if len(vals_g) > 2 else 'Sin asunto'))
+            remit_g = str(g_rec.get('remitente') or (vals_g[3] if len(vals_g) > 3 else ''))
+            est_g = str(g_rec.get('estado') or (vals_g[4] if len(vals_g) > 4 else '📥 Pendiente'))
+            obs_g = str(g_rec.get('observaciones') or (vals_g[5] if len(vals_g) > 5 else ''))
+            fecha_g = str(g_rec.get('fecha') or (vals_g[6] if len(vals_g) > 6 else ''))
+
+            with st.container(border=True):
+                st.subheader(f"✉️ {cap_g} — {asunto_g}")
+                if obs_g:
+                    st.write(f"**Detalles:** {obs_g}")
+                
+                caption_txt = f"Estado: **{est_g}**"
+                if remit_g:
+                    caption_txt += f" | 👤 Remitente: {remit_g}"
+                if fecha_g:
+                    caption_txt += f" | 📅 {fecha_g}"
+                st.caption(caption_txt)
+
+                col_g_del, col_g_space = st.columns([1, 3])
+                with col_g_del:
+                    if st.button("🗑️ Eliminar Registro", key=f"del_gmail_{id_g}", use_container_width=True):
+                        if ws_gmail:
+                            cell = ws_gmail.find(id_g)
+                            if cell:
+                                ws_gmail.delete_rows(cell.row)
+                            st.rerun()
