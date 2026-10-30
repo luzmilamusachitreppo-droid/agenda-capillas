@@ -116,6 +116,8 @@ todas_las_capillas = []
 for z, caps in ZONAS_CAPILLAS.items():
     todas_las_capillas.extend(caps)
 
+OPCIONES_CAPILLA_FORM = ["(Ninguna / Tarea General)"] + todas_las_capillas
+
 PDF_CHECKLIST_ITEMS = {
     "🚶 Pasillos, Naves y Salón": [
         "1. Limpieza y barrido de pisos generales.",
@@ -159,6 +161,12 @@ PALETA_COLORES = {
     "🩷 Rosa - Alerta": {"bg": "#f8d7da", "border": "#842029", "text": "#842029"}
 }
 
+COLORES_URGENCIA = {
+    "💓 Urgente / Importante": {"bg": "#f8d7da", "border": "#ef4444", "text": "#991b1b"},
+    "💛 Normal": {"bg": "#fef9c3", "border": "#eab308", "text": "#854d0e"},
+    "💚 Poco Urgente / Rutinario": {"bg": "#d1e7dd", "border": "#10b981", "text": "#065f46"}
+}
+
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
@@ -172,7 +180,7 @@ tab_cal, tab_check, tab_capillas, tab_notes, tab_gmail = st.tabs([
 ])
 
 # ==========================================
-# 1. AGENDA PRINCIPAL
+# 1. AGENDA PRINCIPAL (CON CAPILLA OPCIONAL)
 # ==========================================
 with tab_cal:
     f_sel = st.session_state["fecha_seleccionada"]
@@ -308,8 +316,18 @@ with tab_cal:
                     st.markdown("**Editar Tarea**")
                     with st.form(key=f"form_edit_ev_{id_ev}"):
                         tit_actual = str(ev.get("title", ""))
+                        cap_def = "(Ninguna / Tarea General)"
+                        t_puro = tit_actual
+                        if " - " in tit_actual:
+                            partes = tit_actual.split(" - ", 1)
+                            if partes[0] in todas_las_capillas:
+                                cap_def = partes[0]
+                                t_puro = partes[1]
+
                         new_f_tarea = st.date_input("Fecha:", value=f_sel, key=f"f_ed_{id_ev}")
-                        new_tit_input = st.text_input("Título / Tarea libre:", value=tit_actual, key=f"tit_ed_{id_ev}")
+                        idx_cap_def = OPCIONES_CAPILLA_FORM.index(cap_def) if cap_def in OPCIONES_CAPILLA_FORM else 0
+                        new_cap_opc = st.selectbox("Capilla (Opcional):", options=OPCIONES_CAPILLA_FORM, index=idx_cap_def, key=f"cap_ed_{id_ev}")
+                        new_tit_input = st.text_input("Título / Tarea:", value=t_puro, key=f"tit_ed_{id_ev}")
                         
                         idx_cat_def = list(PALETA_COLORES.keys()).index(cat_ev) if cat_ev in PALETA_COLORES else 0
                         new_cat_t = st.selectbox("Situación / Color:", options=list(PALETA_COLORES.keys()), index=idx_cat_def, key=f"cat_ed_{id_ev}")
@@ -321,18 +339,22 @@ with tab_cal:
 
                         if st.form_submit_button("💾 Guardar", type="primary", use_container_width=True):
                             if new_tit_input.strip():
-                                cell = ws_eventos.find(id_ev)
-                                if cell:
-                                    row_n = cell.row
-                                    ws_eventos.update_cell(row_n, 2, new_tit_input.strip())
-                                    ws_eventos.update_cell(row_n, 3, new_f_tarea.strftime("%Y-%m-%d"))
-                                    ws_eventos.update_cell(row_n, 4, int(new_h_i))
-                                    ws_eventos.update_cell(row_n, 5, int(new_h_f))
-                                    ws_eventos.update_cell(row_n, 6, new_nota_t.strip())
-                                    ws_eventos.update_cell(row_n, 7, new_cat_t)
-                                    st.session_state["fecha_seleccionada"] = new_f_tarea
-                                    st.success("¡Tarea actualizada!")
-                                    st.rerun()
+                                titulo_final = f"{new_cap_opc} - {new_tit_input.strip()}" if new_cap_opc != "(Ninguna / Tarea General)" else new_tit_input.strip()
+                            else:
+                                titulo_final = new_cap_opc if new_cap_opc != "(Ninguna / Tarea General)" else "Tarea General"
+
+                            cell = ws_eventos.find(id_ev)
+                            if cell:
+                                row_n = cell.row
+                                ws_eventos.update_cell(row_n, 2, titulo_final)
+                                ws_eventos.update_cell(row_n, 3, new_f_tarea.strftime("%Y-%m-%d"))
+                                ws_eventos.update_cell(row_n, 4, int(new_h_i))
+                                ws_eventos.update_cell(row_n, 5, int(new_h_f))
+                                ws_eventos.update_cell(row_n, 6, new_nota_t.strip())
+                                ws_eventos.update_cell(row_n, 7, new_cat_t)
+                                st.session_state["fecha_seleccionada"] = new_f_tarea
+                                st.success("¡Tarea actualizada!")
+                                st.rerun()
 
             with col_ev_del:
                 if st.button("🗑️ Borrar", key=f"del_ev_{id_ev}", use_container_width=True):
@@ -343,10 +365,11 @@ with tab_cal:
 
     st.divider()
 
-    st.markdown("#### ➕ Agregar Nueva Tarea (Título Libre)")
+    st.markdown("#### ➕ Agregar Nueva Tarea")
     with st.form("form_add_evento_col", clear_on_submit=True):
         f_tarea = st.date_input("Fecha:", value=f_sel)
-        tit_tarea_input = st.text_input("Título / Tarea:", placeholder="Ej: Compra de materiales, Reunión general...")
+        cap_opcional = st.selectbox("Capilla (Opcional):", options=OPCIONES_CAPILLA_FORM)
+        tit_tarea_input = st.text_input("Título / Tarea:", placeholder="Ej: Limpieza profunda")
         cat_t = st.selectbox("Situación / Color:", options=list(PALETA_COLORES.keys()))
         nota_t = st.text_area("Detalle adicional", placeholder="Notas u observaciones...", height=68)
         
@@ -356,20 +379,22 @@ with tab_cal:
         
         if st.form_submit_button("Guardar en Agenda", type="primary", use_container_width=True):
             if tit_tarea_input.strip():
-                ws_eventos.append_row([
-                    str(uuid.uuid4()),
-                    tit_tarea_input.strip(),
-                    f_tarea.strftime("%Y-%m-%d"),
-                    int(h_i),
-                    int(h_f),
-                    nota_t.strip(),
-                    cat_t
-                ])
-                st.session_state["fecha_seleccionada"] = f_tarea
-                st.success("¡Tarea guardada con éxito!")
-                st.rerun()
+                titulo_completo = f"{cap_opcional} - {tit_tarea_input.strip()}" if cap_opcional != "(Ninguna / Tarea General)" else tit_tarea_input.strip()
             else:
-                st.error("Por favor, ingresá un título para la tarea.")
+                titulo_completo = cap_opcional if cap_opcional != "(Ninguna / Tarea General)" else "Tarea General"
+
+            ws_eventos.append_row([
+                str(uuid.uuid4()),
+                titulo_completo,
+                f_tarea.strftime("%Y-%m-%d"),
+                int(h_i),
+                int(h_f),
+                nota_t.strip(),
+                cat_t
+            ])
+            st.session_state["fecha_seleccionada"] = f_tarea
+            st.success("¡Tarea guardada con éxito!")
+            st.rerun()
 
 # ==========================================
 # 2. CHECKLIST DIGITAL Y DESCARGA DE PLANILLA WORD
@@ -647,7 +672,7 @@ with tab_capillas:
                     st.caption("Sin visitas registradas para este mes.")
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS (100% TÍTULO LIBRE)
+# 4. RECORDATORIOS RÁPIDOS (CON COLORES DE URGENCIA Y TÍTULO LIBRE)
 # ==========================================
 with tab_notes:
     st.header("📌 Recordatorios Rápidos")
@@ -657,17 +682,11 @@ with tab_notes:
     except Exception:
         recs_gsheets = []
 
-    COLORES_URGENCIA = [
-        "💓 Urgente / Importante",
-        "💛 Normal",
-        "💚 Poco Urgente / Rutinario"
-    ]
-
     with st.form("form_add_rec", clear_on_submit=True):
         st.markdown("**Nuevo Recordatorio**")
-        titulo_rec_input = st.text_input("Título principal (Libre):", placeholder="Ej: Comprar insumos de limpieza...")
+        titulo_rec_input = st.text_input("Título principal:", placeholder="Ej: Compra de materiales, Tarea general...")
         nota_rec_input = st.text_area("Nota / Detalle adicional:", placeholder="Escribí los detalles acá...", height=70)
-        prio_rec = st.selectbox("Nivel de Urgencia:", options=COLORES_URGENCIA)
+        prio_rec = st.selectbox("Nivel de Urgencia / Color:", options=list(COLORES_URGENCIA.keys()))
         
         if st.form_submit_button("📌 Guardar Recordatorio", type="primary", use_container_width=True):
             if titulo_rec_input.strip():
@@ -710,44 +729,46 @@ with tab_notes:
             fecha_val = str(r.get('fecha') or r.get('Fecha') or (vals[4] if len(vals) > 4 else ''))
             autor_val = str(vals[5] if len(vals) > 5 else '')
 
-            with st.container(border=True):
-                st.subheader(f"📌 {titulo_rec}")
-                if nota_rec:
-                    st.write(nota_rec)
-                
-                info_pie = f"Prioridad: **{prio_val}**"
-                if fecha_val:
-                    info_pie += f" | 📅 {fecha_val}"
-                if autor_val:
-                    info_pie += f" | 👤 {autor_val}"
-                st.caption(info_pie)
+            estilo = COLORES_URGENCIA.get(prio_val, COLORES_URGENCIA["💛 Normal"])
 
-                col_ed_rec, col_del_rec = st.columns([1, 1])
-                with col_ed_rec:
-                    with st.popover("✏️ Editar", use_container_width=True):
-                        st.markdown("**Editar Recordatorio**")
-                        with st.form(key=f"form_edit_rec_{id_rec}"):
-                            new_tit = st.text_input("Título:", value=titulo_rec, key=f"t_ed_{id_rec}")
-                            new_nota = st.text_area("Nota:", value=nota_rec, key=f"n_ed_{id_rec}")
-                            idx_p = COLORES_URGENCIA.index(prio_val) if prio_val in COLORES_URGENCIA else 1
-                            new_prio = st.selectbox("Urgencia:", options=COLORES_URGENCIA, index=idx_p, key=f"p_ed_{id_rec}")
+            # Tarjeta con fondo de color, título arriba y nota abajo (sin HTML roto)
+            html_card = f"""
+            <div style="background-color: {estilo['bg']}; border-left: 6px solid {estilo['border']}; color: {estilo['text']}; padding: 14px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div style="font-size: 1.05rem; font-weight: bold; margin-bottom: 4px;">📌 {titulo_rec}</div>
+                {f'<div style="font-size: 0.95rem; margin-bottom: 8px;">{nota_rec}</div>' if nota_rec else ''}
+                <div style="font-size: 0.8rem; opacity: 0.85; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 6px; margin-top: 6px;">
+                    Prioridad: <strong>{prio_val}</strong> | 📅 {fecha_val} {f'| 👤 {autor_val}' if autor_val else ''}
+                </div>
+            </div>
+            """
+            st.markdown(html_card, unsafe_allow_html=True)
 
-                            if st.form_submit_button("💾 Guardar", type="primary", use_container_width=True):
-                                cell = ws_recordatorios.find(id_rec)
-                                if cell:
-                                    row_n = cell.row
-                                    ws_recordatorios.update_cell(row_n, 2, new_tit.strip())
-                                    ws_recordatorios.update_cell(row_n, 3, new_nota.strip())
-                                    ws_recordatorios.update_cell(row_n, 4, new_prio)
-                                    st.success("¡Actualizado!")
-                                    st.rerun()
+            col_ed_rec, col_del_rec = st.columns([1, 1])
+            with col_ed_rec:
+                with st.popover("✏️ Editar", use_container_width=True):
+                    st.markdown("**Editar Recordatorio**")
+                    with st.form(key=f"form_edit_rec_{id_rec}"):
+                        new_tit = st.text_input("Título:", value=titulo_rec, key=f"t_ed_{id_rec}")
+                        new_nota = st.text_area("Nota:", value=nota_rec, key=f"n_ed_{id_rec}")
+                        idx_p = list(COLORES_URGENCIA.keys()).index(prio_val) if prio_val in COLORES_URGENCIA else 1
+                        new_prio = st.selectbox("Urgencia:", options=list(COLORES_URGENCIA.keys()), index=idx_p, key=f"p_ed_{id_rec}")
 
-                with col_del_rec:
-                    if st.button("🗑️ Eliminar", key=f"del_rec_{id_rec}", use_container_width=True):
-                        cell = ws_recordatorios.find(id_rec)
-                        if cell:
-                            ws_recordatorios.delete_rows(cell.row)
-                        st.rerun()
+                        if st.form_submit_button("💾 Guardar", type="primary", use_container_width=True):
+                            cell = ws_recordatorios.find(id_rec)
+                            if cell:
+                                row_n = cell.row
+                                ws_recordatorios.update_cell(row_n, 2, new_tit.strip())
+                                ws_recordatorios.update_cell(row_n, 3, new_nota.strip())
+                                ws_recordatorios.update_cell(row_n, 4, new_prio)
+                                st.success("¡Actualizado!")
+                                st.rerun()
+
+            with col_del_rec:
+                if st.button("🗑️ Eliminar", key=f"del_rec_{id_rec}", use_container_width=True):
+                    cell = ws_recordatorios.find(id_rec)
+                    if cell:
+                        ws_recordatorios.delete_rows(cell.row)
+                    st.rerun()
 
 # ==========================================
 # 5. GMAIL / SEGUIMIENTO DE CORREOS
