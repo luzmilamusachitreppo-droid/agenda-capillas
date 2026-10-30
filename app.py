@@ -100,38 +100,21 @@ with c_out:
 
 st.divider()
 
-# Listado ordenado por zonas de capillas
 ZONAS_CAPILLAS = {
     "CAPILLAS CORRIENTES": [
-        "Capilla Laguna seca",
-        "Armenia",
-        "Costanera",
-        "Bella Vista",
-        "Mendoza al sur",
-        "Goya"
+        "Capilla Laguna seca", "Armenia", "Costanera", "Bella Vista", "Mendoza al sur", "Goya"
     ],
     "CAPILLA RESISTENCIA NORTE": [
-        "Barrio 1",
-        "Barrio 2",
-        "Barrio 3",
-        "El Colorado",
-        "La Leonesa",
-        "San Martin"
+        "Barrio 1", "Barrio 2", "Barrio 3", "El Colorado", "La Leonesa", "San Martin"
     ],
     "CAPILLA RESISTENCIA SUR": [
-        "Alberdi",
-        "Barrio 4",
-        "Guiraldes",
-        "Barranqueras",
-        "Puerto Tirol"
+        "Alberdi", "Barrio 4", "Guiraldes", "Barranqueras", "Puerto Tirol"
     ]
 }
 
 todas_las_capillas = []
 for z, caps in ZONAS_CAPILLAS.items():
     todas_las_capillas.extend(caps)
-
-OPCIONES_CAPILLA_FORM = ["(Ninguna / Tarea General)"] + todas_las_capillas
 
 PDF_CHECKLIST_ITEMS = {
     "🚶 Pasillos, Naves y Salón": [
@@ -175,12 +158,6 @@ PALETA_COLORES = {
     "💛 Amarillo - Pendiente": {"bg": "#fff3cd", "border": "#664d03", "text": "#664d03"},
     "🩷 Rosa - Alerta": {"bg": "#f8d7da", "border": "#842029", "text": "#842029"}
 }
-
-OPCIONES_PRIORIDAD_RECORDATORIO = [
-    "💓 Urgente / Importante",
-    "💛 Normal",
-    "💚 Poco Urgente / Rutinario"
-]
 
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
@@ -331,18 +308,8 @@ with tab_cal:
                     st.markdown("**Editar Tarea**")
                     with st.form(key=f"form_edit_ev_{id_ev}"):
                         tit_actual = str(ev.get("title", ""))
-                        cap_def = "(Ninguna / Tarea General)"
-                        t_puro = tit_actual
-                        if " - " in tit_actual:
-                            partes = tit_actual.split(" - ", 1)
-                            if partes[0] in todas_las_capillas:
-                                cap_def = partes[0]
-                                t_puro = partes[1]
-
                         new_f_tarea = st.date_input("Fecha:", value=f_sel, key=f"f_ed_{id_ev}")
-                        idx_cap_def = OPCIONES_CAPILLA_FORM.index(cap_def) if cap_def in OPCIONES_CAPILLA_FORM else 0
-                        new_cap_opc = st.selectbox("Capilla (Opcional):", options=OPCIONES_CAPILLA_FORM, index=idx_cap_def, key=f"cap_ed_{id_ev}")
-                        new_tit_input = st.text_input("Título / Tarea:", value=t_puro, key=f"tit_ed_{id_ev}")
+                        new_tit_input = st.text_input("Título / Tarea libre:", value=tit_actual, key=f"tit_ed_{id_ev}")
                         
                         idx_cat_def = list(PALETA_COLORES.keys()).index(cat_ev) if cat_ev in PALETA_COLORES else 0
                         new_cat_t = st.selectbox("Situación / Color:", options=list(PALETA_COLORES.keys()), index=idx_cat_def, key=f"cat_ed_{id_ev}")
@@ -354,22 +321,18 @@ with tab_cal:
 
                         if st.form_submit_button("💾 Guardar", type="primary", use_container_width=True):
                             if new_tit_input.strip():
-                                titulo_final = f"{new_cap_opc} - {new_tit_input.strip()}" if new_cap_opc != "(Ninguna / Tarea General)" else new_tit_input.strip()
-                            else:
-                                titulo_final = new_cap_opc if new_cap_opc != "(Ninguna / Tarea General)" else "Tarea General"
-
-                            cell = ws_eventos.find(id_ev)
-                            if cell:
-                                row_n = cell.row
-                                ws_eventos.update_cell(row_n, 2, titulo_final)
-                                ws_eventos.update_cell(row_n, 3, new_f_tarea.strftime("%Y-%m-%d"))
-                                ws_eventos.update_cell(row_n, 4, int(new_h_i))
-                                ws_eventos.update_cell(row_n, 5, int(new_h_f))
-                                ws_eventos.update_cell(row_n, 6, new_nota_t.strip())
-                                ws_eventos.update_cell(row_n, 7, new_cat_t)
-                                st.session_state["fecha_seleccionada"] = new_f_tarea
-                                st.success("¡Tarea actualizada!")
-                                st.rerun()
+                                cell = ws_eventos.find(id_ev)
+                                if cell:
+                                    row_n = cell.row
+                                    ws_eventos.update_cell(row_n, 2, new_tit_input.strip())
+                                    ws_eventos.update_cell(row_n, 3, new_f_tarea.strftime("%Y-%m-%d"))
+                                    ws_eventos.update_cell(row_n, 4, int(new_h_i))
+                                    ws_eventos.update_cell(row_n, 5, int(new_h_f))
+                                    ws_eventos.update_cell(row_n, 6, new_nota_t.strip())
+                                    ws_eventos.update_cell(row_n, 7, new_cat_t)
+                                    st.session_state["fecha_seleccionada"] = new_f_tarea
+                                    st.success("¡Tarea actualizada!")
+                                    st.rerun()
 
             with col_ev_del:
                 if st.button("🗑️ Borrar", key=f"del_ev_{id_ev}", use_container_width=True):
@@ -380,11 +343,10 @@ with tab_cal:
 
     st.divider()
 
-    st.markdown("#### ➕ Agregar Nueva Tarea")
+    st.markdown("#### ➕ Agregar Nueva Tarea (Título Libre)")
     with st.form("form_add_evento_col", clear_on_submit=True):
         f_tarea = st.date_input("Fecha:", value=f_sel)
-        cap_opcional = st.selectbox("Capilla (Opcional):", options=OPCIONES_CAPILLA_FORM)
-        tit_tarea_input = st.text_input("Título / Tarea:", placeholder="Ej: Limpieza profunda")
+        tit_tarea_input = st.text_input("Título / Tarea:", placeholder="Ej: Compra de materiales, Reunión general...")
         cat_t = st.selectbox("Situación / Color:", options=list(PALETA_COLORES.keys()))
         nota_t = st.text_area("Detalle adicional", placeholder="Notas u observaciones...", height=68)
         
@@ -394,22 +356,20 @@ with tab_cal:
         
         if st.form_submit_button("Guardar en Agenda", type="primary", use_container_width=True):
             if tit_tarea_input.strip():
-                titulo_completo = f"{cap_opcional} - {tit_tarea_input.strip()}" if cap_opcional != "(Ninguna / Tarea General)" else tit_tarea_input.strip()
+                ws_eventos.append_row([
+                    str(uuid.uuid4()),
+                    tit_tarea_input.strip(),
+                    f_tarea.strftime("%Y-%m-%d"),
+                    int(h_i),
+                    int(h_f),
+                    nota_t.strip(),
+                    cat_t
+                ])
+                st.session_state["fecha_seleccionada"] = f_tarea
+                st.success("¡Tarea guardada con éxito!")
+                st.rerun()
             else:
-                titulo_completo = cap_opcional if cap_opcional != "(Ninguna / Tarea General)" else "Tarea General"
-
-            ws_eventos.append_row([
-                str(uuid.uuid4()),
-                titulo_completo,
-                f_tarea.strftime("%Y-%m-%d"),
-                int(h_i),
-                int(h_f),
-                nota_t.strip(),
-                cat_t
-            ])
-            st.session_state["fecha_seleccionada"] = f_tarea
-            st.success("¡Tarea guardada con éxito!")
-            st.rerun()
+                st.error("Por favor, ingresá un título para la tarea.")
 
 # ==========================================
 # 2. CHECKLIST DIGITAL Y DESCARGA DE PLANILLA WORD
@@ -665,7 +625,6 @@ with tab_capillas:
 
     st.divider()
 
-    # DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA
     for zona, capillas in ZONAS_CAPILLAS.items():
         st.markdown(f"### 📍 {zona}")
         for c in capillas:
@@ -688,7 +647,7 @@ with tab_capillas:
                     st.caption("Sin visitas registradas para este mes.")
 
 # ==========================================
-# 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
+# 4. RECORDATORIOS RÁPIDOS (100% TÍTULO LIBRE)
 # ==========================================
 with tab_notes:
     st.header("📌 Recordatorios Rápidos")
@@ -706,7 +665,7 @@ with tab_notes:
 
     with st.form("form_add_rec", clear_on_submit=True):
         st.markdown("**Nuevo Recordatorio**")
-        titulo_rec_input = st.text_input("Título principal:")
+        titulo_rec_input = st.text_input("Título principal (Libre):", placeholder="Ej: Comprar insumos de limpieza...")
         nota_rec_input = st.text_area("Nota / Detalle adicional:", placeholder="Escribí los detalles acá...", height=70)
         prio_rec = st.selectbox("Nivel de Urgencia:", options=COLORES_URGENCIA)
         
