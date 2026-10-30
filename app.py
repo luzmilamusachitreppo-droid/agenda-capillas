@@ -792,7 +792,7 @@ with tab_gmail:
         st.markdown("**Registrar Nuevo Correo / OT**")
         col_g1, col_g2 = st.columns(2)
         with col_g1:
-            capilla_gmail = st.selectbox("Capilla:", todas_las_capillas, key="g_cap_sel")
+            titulo_gmail = st.text_input("Título:", placeholder="Ej: Arreglo de techo, Compra de insumos...")
             asunto_gmail = st.text_input("Asunto / Ref:", placeholder="Ej: OT 1234 - Arreglo de Techo")
         with col_g2:
             remitente_gmail = st.text_input("Remitente / Envió:", placeholder="Ej: mantenimiento@parroquia.org")
@@ -804,7 +804,7 @@ with tab_gmail:
             if ws_gmail:
                 ws_gmail.append_row([
                     str(uuid.uuid4()),
-                    capilla_gmail,
+                    titulo_gmail.strip(),
                     asunto_gmail.strip(),
                     remitente_gmail.strip(),
                     estado_gmail,
@@ -826,7 +826,7 @@ with tab_gmail:
         for g_rec in registros_gmail:
             vals_g = list(g_rec.values()) if isinstance(g_rec, dict) else []
             id_g = str(g_rec.get('id') or g_rec.get('ID') or (vals_g[0] if len(vals_g) > 0 else ''))
-            cap_g = str(g_rec.get('capilla') or (vals_g[1] if len(vals_g) > 1 else 'General'))
+            tit_g = str(g_rec.get('titulo') or (vals_g[1] if len(vals_g) > 1 else 'Sin título'))
             asunto_g = str(g_rec.get('asunto') or (vals_g[2] if len(vals_g) > 2 else 'Sin asunto'))
             remit_g = str(g_rec.get('remitente') or (vals_g[3] if len(vals_g) > 3 else ''))
             est_g = str(g_rec.get('estado') or (vals_g[4] if len(vals_g) > 4 else '📥 Pendiente'))
@@ -834,7 +834,7 @@ with tab_gmail:
             fecha_g = str(g_rec.get('fecha') or (vals_g[6] if len(vals_g) > 6 else ''))
 
             with st.container(border=True):
-                st.subheader(f"✉️ {cap_g} — {asunto_g}")
+                st.subheader(f"✉️ {tit_g} — {asunto_g}")
                 if obs_g:
                     st.write(f"**Detalles:** {obs_g}")
                 
