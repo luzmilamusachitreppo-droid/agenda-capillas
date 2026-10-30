@@ -788,6 +788,8 @@ with tab_gmail:
         except Exception:
             registros_gmail = []
 
+    ESTADOS_GMAIL = ["📥 Pendiente", "⚙️ En Proceso", "✅ Resuelto", "🛑 Pausado", "📄 Facturado"]
+
     with st.form("form_add_gmail", clear_on_submit=True):
         st.markdown("**Registrar Nuevo Correo / OT**")
         col_g1, col_g2 = st.columns(2)
@@ -796,7 +798,7 @@ with tab_gmail:
             asunto_gmail = st.text_input("Asunto / Ref:", placeholder="Ej: OT 1234 - Arreglo de Techo")
         with col_g2:
             remitente_gmail = st.text_input("Remitente / Envió:", placeholder="Ej: mantenimiento@parroquia.org")
-            estado_gmail = st.selectbox("Estado:", ["📥 Pendiente", "⚙️ En Proceso", "✅ Resuelto", "🛑 Pausado"])
+            estado_gmail = st.selectbox("Estado:", options=ESTADOS_GMAIL)
 
         obs_gmail = st.text_area("Observaciones del Correo:", placeholder="Detalles de la solicitud...")
 
@@ -845,9 +847,33 @@ with tab_gmail:
                     caption_txt += f" | 📅 {fecha_g}"
                 st.caption(caption_txt)
 
-                col_g_del, col_g_space = st.columns([1, 3])
+                col_g_ed, col_g_del = st.columns([1, 1])
+                
+                with col_g_ed:
+                    with st.popover("✏️ Editar", use_container_width=True):
+                        st.markdown("**Editar Registro / Facturación**")
+                        with st.form(key=f"form_edit_gmail_{id_g}"):
+                            new_tit = st.text_input("Título:", value=tit_g, key=f"t_ed_g_{id_g}")
+                            new_asunto = st.text_input("Asunto / Ref:", value=asunto_g, key=f"as_ed_g_{id_g}")
+                            new_remit = st.text_input("Remitente:", value=remit_g, key=f"rem_ed_g_{id_g}")
+                            idx_est = ESTADOS_GMAIL.index(est_g) if est_g in ESTADOS_GMAIL else 0
+                            new_est = st.selectbox("Estado:", options=ESTADOS_GMAIL, index=idx_est, key=f"est_ed_g_{id_g}")
+                            new_obs = st.text_area("Observaciones:", value=obs_g, key=f"obs_ed_g_{id_g}")
+
+                            if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                                cell = ws_gmail.find(id_g)
+                                if cell:
+                                    row_n = cell.row
+                                    ws_gmail.update_cell(row_n, 2, new_tit.strip())
+                                    ws_gmail.update_cell(row_n, 3, new_asunto.strip())
+                                    ws_gmail.update_cell(row_n, 4, new_remit.strip())
+                                    ws_gmail.update_cell(row_n, 5, new_est)
+                                    ws_gmail.update_cell(row_n, 6, new_obs.strip())
+                                    st.success("¡Actualizado con éxito!")
+                                    st.rerun()
+
                 with col_g_del:
-                    if st.button("🗑️ Eliminar Registro", key=f"del_gmail_{id_g}", use_container_width=True):
+                    if st.button("🗑️ Eliminar", key=f"del_gmail_{id_g}", use_container_width=True):
                         if ws_gmail:
                             cell = ws_gmail.find(id_g)
                             if cell:
