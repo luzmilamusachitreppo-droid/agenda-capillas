@@ -649,7 +649,7 @@ with tab_capillas:
 
     st.divider()
 
-# DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA
+    # DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA (LECTURA DIRECTA DE FILAS)
     ESTADOS_PLANILLA = ["Pendiente", "Completado", "En Proceso", "Revisión"]
 
     for zona, capillas in ZONAS_CAPILLAS.items():
@@ -674,44 +674,33 @@ with tab_capillas:
                     st.markdown("<br>", unsafe_allow_html=True)
                     with st.popover("✏️ Editar Estado", use_container_width=True):
                         st.markdown(f"**Modificar {c}**")
-                        with st.form(key=f"form_edit_cap_{c}_{mes_seleccionado}"):
-                            idx_est = ESTADOS_PLANILLA.index(data_capilla['estado']) if data_capilla['estado'] in ESTADOS_PLANILLA else 0
-                            nuevo_estado = st.selectbox("Estado de Planilla:", options=ESTADOS_PLANILLA, index=idx_est, key=f"est_c_{c}")
-                            nueva_visita = st.text_input("Agregar visita (ej: 02/11/2026):", placeholder="DD/MM/YYYY", key=f"vis_c_{c}")
-                            
-                            btn_guardar = st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True)
-                            
-                            if btn_guardar:
-                                if ws_resumen:
-                                    try:
-                                        # Buscamos en todas las filas si ya existe la capilla
-                                        cell_list = ws_resumen.findall(c)
-                                        encontrado = False
-                                        
-                                        for cell in cell_list:
-                                            # Verificamos si está en la primera columna (columna 1) donde se guardan los nombres de capillas
-                                            if cell.col == 1:
-                                                encontrado = True
-                                                row_num = cell.row
-                                                # Actualizamos la celda de estado (Columna 2)
-                                                ws_resumen.update_cell(row_num, 2, nuevo_estado)
-                                                
-                                                # Si puso una nueva visita, agregamos una fila nueva con la fecha y el estado
-                                                if nueva_visita.strip():
-                                                    visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})"
-                                                    ws_resumen.append_row([c, nuevo_estado, visita_formateada])
-                                                break
-                                        
-                                        if not encontrado:
-                                            # Si no estaba en la columna 1, agregamos una fila nueva completa
-                                            visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})" if nueva_visita.strip() else ""
-                                            ws_resumen.append_row([c, nuevo_estado, visita_formateada])
+                        
+                        nuevo_estado = st.selectbox("Estado de Planilla:", options=ESTADOS_PLANILLA, index=ESTADOS_PLANILLA.index(data_capilla['estado']) if data_capilla['estado'] in ESTADOS_PLANILLA else 0, key=f"est_c_{c}")
+                        nueva_visita = st.text_input("Agregar visita (ej: 02/11/2026):", placeholder="DD/MM/YYYY", key=f"vis_c_{c}")
+                        
+                        if st.button("💾 Guardar Cambios", key=f"btn_save_cap_{c}", type="primary", use_container_width=True):
+                            if ws_resumen:
+                                try:
+                                    rows = ws_resumen.get_all_values()
+                                    actualizado = False
+                                    
+                                    # Recorremos todas las filas a partir de la fila 2 (saltando la cabecera)
+                                    for i, row in enumerate(rows[1:], start=2):
+                                        if len(row) > 0 and row[0].strip() == c:
+                                            ws_resumen.update_cell(i, 2, nuevo_estado)
+                                            actualizado = True
                                             
-                                        st.success("¡Guardado con éxito en Google Sheets!")
-                                        time.sleep(1)
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Error al guardar: {e}")
+                                    if nueva_visita.strip():
+                                        visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})"
+                                        ws_resumen.append_row([c, nuevo_estado, visita_formateada])
+                                    elif not actualizado:
+                                        ws_resumen.append_row([c, nuevo_estado, ""])
+                                        
+                                    st.success(f"¡Guardado correctamente para {c}!")
+                                    time.sleep(1)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error al guardar: {e}")
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
 # ==========================================
