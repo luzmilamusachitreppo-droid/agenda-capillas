@@ -679,37 +679,39 @@ with tab_capillas:
                             nuevo_estado = st.selectbox("Estado de Planilla:", options=ESTADOS_PLANILLA, index=idx_est, key=f"est_c_{c}")
                             nueva_visita = st.text_input("Agregar visita (ej: 02/11/2026):", placeholder="DD/MM/YYYY", key=f"vis_c_{c}")
                             
-                            if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                            btn_guardar = st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True)
+                            
+                            if btn_guardar:
                                 if ws_resumen:
                                     try:
-                                        # Obtenemos todos los registros actuales para buscar por nombre de capilla
-                                        all_rows = ws_resumen.get_all_records()
-                                        fila_encontrada = False
+                                        # Buscamos en todas las filas si ya existe la capilla
+                                        cell_list = ws_resumen.findall(c)
+                                        encontrado = False
                                         
-                                        for idx, row in enumerate(all_rows):
-                                            if str(row.get("capilla", "")).strip() == c:
-                                                fila_encontrada = True
-                                                row_num = idx + 2  # Fila real en Google Sheets (considerando cabecera)
-                                                
-                                                # Actualizamos el estado (columna 2)
+                                        for cell in cell_list:
+                                            # Verificamos si está en la primera columna (columna 1) donde se guardan los nombres de capillas
+                                            if cell.col == 1:
+                                                encontrado = True
+                                                row_num = cell.row
+                                                # Actualizamos la celda de estado (Columna 2)
                                                 ws_resumen.update_cell(row_num, 2, nuevo_estado)
                                                 
-                                                # Si agregó una visita, la anexamos o actualizamos
+                                                # Si puso una nueva visita, agregamos una fila nueva con la fecha y el estado
                                                 if nueva_visita.strip():
                                                     visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})"
                                                     ws_resumen.append_row([c, nuevo_estado, visita_formateada])
                                                 break
                                         
-                                        if not fila_encontrada:
-                                            # Si no existía la capilla en la hoja, creamos la fila desde cero
+                                        if not encontrado:
+                                            # Si no estaba en la columna 1, agregamos una fila nueva completa
                                             visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})" if nueva_visita.strip() else ""
                                             ws_resumen.append_row([c, nuevo_estado, visita_formateada])
                                             
-                                        st.success("¡Guardado correctamente en Google Sheets!")
+                                        st.success("¡Guardado con éxito en Google Sheets!")
+                                        time.sleep(1)
                                         st.rerun()
-                                    except Exception as ex:
-                                        st.error(f"Error al guardar: {ex}")
-                                        
+                                    except Exception as e:
+                                        st.error(f"Error al guardar: {e}")
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
 # ==========================================
