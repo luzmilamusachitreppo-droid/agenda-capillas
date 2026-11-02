@@ -649,7 +649,7 @@ with tab_capillas:
 
     st.divider()
 
-    # DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA (LECTURA DIRECTA DE FILAS)
+    # DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA
     ESTADOS_PLANILLA = ["Pendiente", "Completado", "En Proceso", "Revisión"]
 
     for zona, capillas in ZONAS_CAPILLAS.items():
@@ -679,12 +679,13 @@ with tab_capillas:
                         nueva_visita = st.text_input("Agregar visita (ej: 02/11/2026):", placeholder="DD/MM/YYYY", key=f"vis_c_{c}")
                         
                         if st.button("💾 Guardar Cambios", key=f"btn_save_cap_{c}", type="primary", use_container_width=True):
-                            if ws_resumen:
+                            if ws_resumen is None:
+                                st.error("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
+                            else:
                                 try:
                                     rows = ws_resumen.get_all_values()
                                     actualizado = False
                                     
-                                    # Recorremos todas las filas a partir de la fila 2 (saltando la cabecera)
                                     for i, row in enumerate(rows[1:], start=2):
                                         if len(row) > 0 and row[0].strip() == c:
                                             ws_resumen.update_cell(i, 2, nuevo_estado)
@@ -700,7 +701,7 @@ with tab_capillas:
                                     time.sleep(1)
                                     st.rerun()
                                 except Exception as e:
-                                    st.error(f"Error al guardar: {e}")
+                                    st.error(f"Error detallado al guardar: {e}")
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
 # ==========================================
