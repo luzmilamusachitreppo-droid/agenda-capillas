@@ -649,7 +649,7 @@ with tab_capillas:
 
     st.divider()
 
-    # DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA
+# DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA
     ESTADOS_PLANILLA = ["Pendiente", "Completado", "En Proceso", "Revisión"]
 
     for zona, capillas in ZONAS_CAPILLAS.items():
@@ -681,20 +681,35 @@ with tab_capillas:
                             
                             if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
                                 if ws_resumen:
-                                    celda_cap = ws_resumen.find(c)
-                                    if celda_cap:
-                                        row_num = celda_cap.row
-                                        ws_resumen.update_cell(row_num, 2, nuevo_estado)
-                                        if nueva_visita.strip():
-                                            visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})"
+                                    try:
+                                        # Obtenemos todos los registros actuales para buscar por nombre de capilla
+                                        all_rows = ws_resumen.get_all_records()
+                                        fila_encontrada = False
+                                        
+                                        for idx, row in enumerate(all_rows):
+                                            if str(row.get("capilla", "")).strip() == c:
+                                                fila_encontrada = True
+                                                row_num = idx + 2  # Fila real en Google Sheets (considerando cabecera)
+                                                
+                                                # Actualizamos el estado (columna 2)
+                                                ws_resumen.update_cell(row_num, 2, nuevo_estado)
+                                                
+                                                # Si agregó una visita, la anexamos o actualizamos
+                                                if nueva_visita.strip():
+                                                    visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})"
+                                                    ws_resumen.append_row([c, nuevo_estado, visita_formateada])
+                                                break
+                                        
+                                        if not fila_encontrada:
+                                            # Si no existía la capilla en la hoja, creamos la fila desde cero
+                                            visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})" if nueva_visita.strip() else ""
                                             ws_resumen.append_row([c, nuevo_estado, visita_formateada])
-                                        st.success("¡Actualizado con éxito!")
+                                            
+                                        st.success("¡Guardado correctamente en Google Sheets!")
                                         st.rerun()
-                                    else:
-                                        visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})" if nueva_visita.strip() else ""
-                                        ws_resumen.append_row([c, nuevo_estado, visita_formateada])
-                                        st.success("¡Registrado con éxito!")
-                                        st.rerun()
+                                    except Exception as ex:
+                                        st.error(f"Error al guardar: {ex}")
+                                        
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
 # ==========================================
