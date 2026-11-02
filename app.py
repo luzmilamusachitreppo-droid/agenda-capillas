@@ -460,7 +460,6 @@ with tab_capillas:
     col_mes_sel, col_mes_info = st.columns([1.5, 2])
     with col_mes_sel:
         mes_actual_num = datetime.now().strftime("%m") # "11" para noviembre
-        # Ordenamos los meses para que noviembre ("11") aparezca primero por defecto
         meses_opciones = [mes_actual_num] + [m for m in ["10", "12", "09", "08", "01", "02", "03", "04", "05", "06", "07"] if m != mes_actual_num]
         
         mes_seleccionado = st.selectbox(
@@ -650,7 +649,7 @@ with tab_capillas:
 
     st.divider()
 
-    # DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA CON OPCIÓN DE EDITAR ESTADO
+    # DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA
     ESTADOS_PLANILLA = ["Pendiente", "Completado", "En Proceso", "Revisión"]
 
     for zona, capillas in ZONAS_CAPILLAS.items():
@@ -660,47 +659,42 @@ with tab_capillas:
             cant_v = len(data_capilla["visitas"])
             
             with st.container(border=True):
-                col_cap_t, col_cap_e, col_cap_btn = st.columns([2, 1, 1])
-                with col_cap_t:
+                col_cap_info, col_cap_btn = st.columns([3, 1])
+                
+                with col_cap_info:
                     st.markdown(f"#### ⛪ {c}")
-                    st.caption(f"Visitas registradas en {MESES_NOMBRES.get(mes_seleccionado)}: **{cant_v}**")
-                with col_cap_e:
-                    st.info(f"Estado: **{data_capilla['estado']}**")
+                    st.caption(f"Visitas registradas en {MESES_NOMBRES.get(mes_seleccionado)}: **{cant_v}** | Estado actual: **{data_capilla['estado']}**")
+                    if data_capilla["visitas"]:
+                        visitas_txt = " | ".join([v['texto'] for v in data_capilla["visitas"]])
+                        st.write(f"**Historial de Visitas:** {visitas_txt}")
+                    else:
+                        st.caption("Sin visitas registradas para este mes.")
+
                 with col_cap_btn:
+                    st.markdown("<br>", unsafe_allow_html=True)
                     with st.popover("✏️ Editar Estado", use_container_width=True):
                         st.markdown(f"**Modificar {c}**")
                         with st.form(key=f"form_edit_cap_{c}_{mes_seleccionado}"):
                             idx_est = ESTADOS_PLANILLA.index(data_capilla['estado']) if data_capilla['estado'] in ESTADOS_PLANILLA else 0
                             nuevo_estado = st.selectbox("Estado de Planilla:", options=ESTADOS_PLANILLA, index=idx_est, key=f"est_c_{c}")
-                            
                             nueva_visita = st.text_input("Agregar visita (ej: 02/11/2026):", placeholder="DD/MM/YYYY", key=f"vis_c_{c}")
                             
                             if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
                                 if ws_resumen:
-                                    # Buscamos si ya existe la fila para esta capilla en Google Sheets
                                     celda_cap = ws_resumen.find(c)
                                     if celda_cap:
                                         row_num = celda_cap.row
-                                        ws_resumen.update_cell(row_num, 2, nuevo_estado) # Asumiendo columna 2 es estado
+                                        ws_resumen.update_cell(row_num, 2, nuevo_estado)
                                         if nueva_visita.strip():
-                                            # Añadimos la visita al registro
                                             visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})"
                                             ws_resumen.append_row([c, nuevo_estado, visita_formateada])
                                         st.success("¡Actualizado con éxito!")
                                         st.rerun()
                                     else:
-                                        # Si no existe, creamos la fila nueva
-                                        visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual'])" if nueva_visita.strip() else ""
+                                        visita_formateada = f"{nueva_visita.strip()} (por {st.session_state['usuario_actual']})" if nueva_visita.strip() else ""
                                         ws_resumen.append_row([c, nuevo_estado, visita_formateada])
                                         st.success("¡Registrado con éxito!")
                                         st.rerun()
-
-                if data_capilla["visitas"]:
-                    st.write("**Historial de Visitas:**")
-                    for v in data_capilla["visitas"]:
-                        st.text(f"• {v['texto']}")
-                else:
-                    st.caption("Sin visitas registradas para este mes.")
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
 # ==========================================
