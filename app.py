@@ -443,9 +443,100 @@ with tab_check:
 # ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas y Control de Inspección Fotográfica")
-    
+
+    MESES_NOMBRES = {
+        "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", "05": "Mayo", "06": "Junio",
+        "07": "Julio", "08": "Agosto", "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+    }
+    # Estados posibles de una capilla (editá esta lista a tu gusto)
+    ESTADOS_CAPILLA = ["📥 Pendiente", "⚙️ En Proceso", "📸 Inspeccionada", "✅ Finalizada"]
+
+    # Aviso del guardado anterior (se muestra una sola vez)
+    if "aviso_guardado" in st.session_state:
+        st.success(st.session_state.pop("aviso_guardado"))
+
     registros_capillas = []
     if ws_resumen:
+        try:
+            registros_capillas = ws_resumen.get_all_values()[1:]
+        except Exception:
+            registros_capillas = []
+    else:
+        st.warning("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
+
+    estado_por_capilla = {}
+    visitas_por_capilla = {}
+    for fila in registros_capillas:
+        if not fila or not fila[0].strip():
+            continue
+        nombre_cap = fila[0].strip()
+        if len(fila) > 1 and fila[1].strip():
+            estado_por_capilla[nombre_cap] = fila[1].strip()
+        if len(fila) > 2 and fila[2].strip():
+            visitas_por_capilla.setdefault(nombre_cap, []).append(fila[2].strip())
+
+    for zona, caps_zona in ZONAS_CAPILLAS.items():
+        st.subheader(f"📍 {zona}")
+        for c in caps_zona:
+            estado_actual = estado_por_capilla.get(c, ESTADOS_CAPILLA[0])
+            visitas = visitas_por_capilla.get(c, [])
+
+            with st.expander(f"⛪ {c} — {estado_actual} ({len(visitas)} visita/s)", expanded=False):
+                if visitas:
+                    st.markdown("**Visitas registradas:**")
+                    for v in visitas:
+                        st.write(f"• {v}")
+                else:
+                    st.caption("Sin visitas registradas.")
+
+                opciones_estado = ESTADOS_CAPILLA + ([estado_actual] if estado_actual not in ESTADOS_CAPILLA else [])
+                col_est, col_vis = st.columns(2)
+                nuevo_estado = col_est.selectbox(
+                    "Estado:", options=opciones_estado, index=opciones_estado.index(estado_actual),
+                    key=f"est_cap_{zona}_{c}"
+                )
+                nueva_visita = col_vis.text_input(
+                    "Nueva visita (DD/MM/AAAA):", key=f"vis_cap_{zona}_{c}", placeholder="Ej: 02/11/2026"
+                )
+
+                # La clave incluye la zona Y la capilla: así nunca se repite (error StreamlitDuplicateElementKey)
+                if st.button("💾 Guardar Cambios", key=f"btn_save_cap_{zona}_{c}", type="primary", use_container_width=True):
+                    if ws_resumen is None:
+                        st.error("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
+                    else:
+                        visita_txt = nueva_visita.strip()
+                        fecha_ok = None
+                        if visita_txt:
+                            try:
+                                fecha_ok = datetime.strptime(visita_txt, "%d/%m/%Y")
+                            except ValueError:
+                                fecha_ok = False
+
+                        if fecha_ok is False:
+                            st.error("❌ Escribí la fecha así: DD/MM/AAAA (ejemplo: 02/11/2026).")
+                        else:
+                            try:
+                                rows = ws_resumen.get_all_values()
+                                cambios = []
+                                for i, row in enumerate(rows[1:], start=2):
+                                    if len(row) > 0 and row[0].strip() == c:
+                                        cambios.append({"range": f"B{i}", "values": [[nuevo_estado]]})
+                                if cambios:
+                                    ws_resumen.batch_update(cambios)
+
+                                if fecha_ok:
+                                    fecha_txt = fecha_ok.strftime("%d/%m/%Y")
+                                    ws_resumen.append_row([c, nuevo_estado, f"{fecha_txt} (por {st.session_state['usuario_actual']})"])
+                                    mes_txt = MESES_NOMBRES[fecha_ok.strftime("%m")]
+                                    st.session_state["aviso_guardado"] = f"✅ Visita del {fecha_txt} guardada en {c} (mes de {mes_txt})."
+                                else:
+                                    if not cambios:
+                                        ws_resumen.append_row([c, nuevo_estado, ""])
+                                    st.session_state["aviso_guardado"] = f"✅ Estado de {c} actualizado a {nuevo_estado}."
+                            except Exception as e:
+                                st.error(f"Error detallado al guardar: {e}")
+                            else:
+                                st.rerun()
 
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
@@ -636,40 +727,29 @@ with tab_gmail:
                             new_est = st.selectbox("Estado:", options=ESTADOS_GMAIL, index=idx_est, key=f"est_ed_g_{id_g}")
                             new_obs = st.text_area("Observaciones:", value=obs_g, key=f"obs_ed_g_{id_g}")
 
-                        if st.button("💾 Guardar Cambios", key=f"btn_save_cap_{c}", type="primary", use_container_width=True):
-                            if ws_resumen is None:
-                                st.error("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
-                            else:
-                                visita_txt = nueva_visita.strip()
-                                fecha_ok = None
-                                if visita_txt:
-                                    try:
-                                        fecha_ok = datetime.strptime(visita_txt, "%d/%m/%Y")
-                                    except ValueError:
-                                        fecha_ok = False
-
-                                if fecha_ok is False:
-                                    st.error("❌ Escribí la fecha así: DD/MM/AAAA (ejemplo: 02/11/2026).")
+                            if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                                if ws_gmail is None:
+                                    st.error("⚠️ La hoja 'gmail_tracking' no existe en tu Google Sheets.")
                                 else:
                                     try:
-                                        rows = ws_resumen.get_all_values()
-                                        cambios = []
-                                        for i, row in enumerate(rows[1:], start=2):
-                                            if len(row) > 0 and row[0].strip() == c:
-                                                cambios.append({"range": f"B{i}", "values": [[nuevo_estado]]})
-                                        if cambios:
-                                            ws_resumen.batch_update(cambios)
-
-                                        if fecha_ok:
-                                            fecha_txt = fecha_ok.strftime("%d/%m/%Y")
-                                            ws_resumen.append_row([c, nuevo_estado, f"{fecha_txt} (por {st.session_state['usuario_actual']})"])
-                                            mes_txt = MESES_NOMBRES[fecha_ok.strftime("%m")]
-                                            st.session_state["aviso_guardado"] = f"✅ Visita del {fecha_txt} guardada en {c} (mes de {mes_txt})."
-                                        else:
-                                            if not cambios:
-                                                ws_resumen.append_row([c, nuevo_estado, ""])
-                                            st.session_state["aviso_guardado"] = f"✅ Estado de {c} actualizado a {nuevo_estado}."
+                                        cell = ws_gmail.find(id_g)
+                                        if cell:
+                                            row_n = cell.row
+                                            ws_gmail.update_cell(row_n, 2, new_tit.strip())
+                                            ws_gmail.update_cell(row_n, 3, new_asunto.strip())
+                                            ws_gmail.update_cell(row_n, 4, new_remit.strip())
+                                            ws_gmail.update_cell(row_n, 5, new_est)
+                                            ws_gmail.update_cell(row_n, 6, new_obs.strip())
                                     except Exception as e:
-                                        st.error(f"Error detallado al guardar: {e}")
+                                        st.error(f"Error al guardar: {e}")
                                     else:
+                                        st.success("¡Registro actualizado!")
                                         st.rerun()
+
+                with col_g_del:
+                    if st.button("🗑️ Eliminar", key=f"del_gmail_{id_g}", use_container_width=True):
+                        if ws_gmail is not None:
+                            cell = ws_gmail.find(id_g)
+                            if cell:
+                                ws_gmail.delete_rows(cell.row)
+                        st.rerun()
