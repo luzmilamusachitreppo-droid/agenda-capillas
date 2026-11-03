@@ -891,22 +891,40 @@ with tab_gmail:
                             new_est = st.selectbox("Estado:", options=ESTADOS_GMAIL, index=idx_est, key=f"est_ed_g_{id_g}")
                             new_obs = st.text_area("Observaciones:", value=obs_g, key=f"obs_ed_g_{id_g}")
 
-                            if st.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
-                                cell = ws_gmail.find(id_g)
-                                if cell:
-                                    row_n = cell.row
-                                    ws_gmail.update_cell(row_n, 2, new_tit.strip())
-                                    ws_gmail.update_cell(row_n, 3, new_asunto.strip())
-                                    ws_gmail.update_cell(row_n, 4, new_remit.strip())
-                                    ws_gmail.update_cell(row_n, 5, new_est)
-                                    ws_gmail.update_cell(row_n, 6, new_obs.strip())
-                                    st.success("¡Actualizado con éxito!")
-                                    st.rerun()
+                        if st.button("💾 Guardar Cambios", key=f"btn_save_cap_{c}", type="primary", use_container_width=True):
+                            if ws_resumen is None:
+                                st.error("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
+                            else:
+                                visita_txt = nueva_visita.strip()
+                                fecha_ok = None
+                                if visita_txt:
+                                    try:
+                                        fecha_ok = datetime.strptime(visita_txt, "%d/%m/%Y")
+                                    except ValueError:
+                                        fecha_ok = False
 
-                with col_g_del:
-                    if st.button("🗑️ Eliminar", key=f"del_gmail_{id_g}", use_container_width=True):
-                        if ws_gmail:
-                            cell = ws_gmail.find(id_g)
-                            if cell:
-                                ws_gmail.delete_rows(cell.row)
-                            st.rerun()
+                                if fecha_ok is False:
+                                    st.error("❌ Escribí la fecha así: DD/MM/AAAA (ejemplo: 02/11/2026).")
+                                else:
+                                    try:
+                                        rows = ws_resumen.get_all_values()
+                                        cambios = []
+                                        for i, row in enumerate(rows[1:], start=2):
+                                            if len(row) > 0 and row[0].strip() == c:
+                                                cambios.append({"range": f"B{i}", "values": [[nuevo_estado]]})
+                                        if cambios:
+                                            ws_resumen.batch_update(cambios)
+
+                                        if fecha_ok:
+                                            fecha_txt = fecha_ok.strftime("%d/%m/%Y")
+                                            ws_resumen.append_row([c, nuevo_estado, f"{fecha_txt} (por {st.session_state['usuario_actual']})"])
+                                            mes_txt = MESES_NOMBRES[fecha_ok.strftime("%m")]
+                                            st.session_state["aviso_guardado"] = f"✅ Visita del {fecha_txt} guardada en {c} (mes de {mes_txt})."
+                                        else:
+                                            if not cambios:
+                                                ws_resumen.append_row([c, nuevo_estado, ""])
+                                            st.session_state["aviso_guardado"] = f"✅ Estado de {c} actualizado a {nuevo_estado}."
+                                    except Exception as e:
+                                        st.error(f"Error detallado al guardar: {e}")
+                                    else:
+                                        st.rerun()
