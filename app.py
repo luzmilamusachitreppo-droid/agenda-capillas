@@ -441,305 +441,103 @@ with tab_check:
 # ==========================================
 # 3. RESUMEN DE CAPILLAS Y CONTROL DE INSPECCIÓN FOTOGRÁFICA
 # ==========================================
-# ==========================================
-# 3. RESUMEN DE CAPILLAS Y CONTROL DE INSPECCIÓN FOTOGRÁFICA
-# ==========================================
 with tab_capillas:
     st.header("⛪ Resumen de Capillas y Control de Inspección Fotográfica")
-    
+
+    MESES_NOMBRES = {
+        "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", "05": "Mayo", "06": "Junio",
+        "07": "Julio", "08": "Agosto", "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+    }
+    # Estados posibles de una capilla (editá esta lista a tu gusto)
+    ESTADOS_CAPILLA = ["📥 Pendiente", "⚙️ En Proceso", "📸 Inspeccionada", "✅ Finalizada"]
+
+    # Aviso del guardado anterior (se muestra una sola vez)
+    if "aviso_guardado" in st.session_state:
+        st.success(st.session_state.pop("aviso_guardado"))
+
     registros_capillas = []
     if ws_resumen:
         try:
-            registros_capillas = ws_resumen.get_all_records()
+            registros_capillas = ws_resumen.get_all_values()[1:]
         except Exception:
             registros_capillas = []
+    else:
+        st.warning("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
 
-    MESES_NOMBRES = {
-        "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", 
-        "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto", 
-        "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
-    }
-    
-    col_mes_sel, col_mes_info = st.columns([1.5, 2])
-    with col_mes_sel:
-        mes_actual_num = datetime.now().strftime("%m")
-        meses_opciones = [mes_actual_num] + [m for m in ["10", "12", "09", "08", "01", "02", "03", "04", "05", "06", "07"] if m != mes_actual_num]
-        
-        mes_seleccionado = st.selectbox(
-            "📅 Seleccionar mes a consultar/registrar:",
-            options=meses_opciones,
-            format_func=lambda x: f"{MESES_NOMBRES.get(x, x)} (Mes {x})",
-            index=0
-        )
-    
-    with col_mes_info:
-        st.info(f"💡 Mostrando registros e informes del mes de **{MESES_NOMBRES.get(mes_seleccionado)}**.")
-
-    st.divider()
-
-    mapa_resumen = {}
-    total_visitas_global = 0
-
-    def obtener_clave_fecha(v_obj):
-        txt = v_obj.get("texto", "") if isinstance(v_obj, dict) else str(v_obj)
-        if " (" in txt:
-            txt = txt.split(" (")[0]
-        partes = txt.strip().split("/")
-        if len(partes) >= 2 and partes[0].isdigit() and partes[1].isdigit():
-            return (int(partes[1]), int(partes[0]))
-        return (99, 99)
-
-    for idx_r, r in enumerate(registros_capillas):
-        cap = str(r.get("capilla", "")).strip()
-        if cap:
-            if cap not in mapa_resumen:
-                mapa_resumen[cap] = {"estado": r.get("estado_planilla", "Pendiente"), "visitas": []}
-            
-            dias_str = str(r.get("dias_visitados", "")).strip()
-            if dias_str:
-                txt_fecha = dias_str.split(" (")[0].strip()
-                partes_f = txt_fecha.split("/")
-                mes_registro = partes_f[1].zfill(2) if len(partes_f) >= 2 and partes_f[1].isdigit() else mes_actual_num
-                
-                if mes_registro == mes_seleccionado:
-                    mapa_resumen[cap]["visitas"].append({
-                        "row_index": idx_r + 2,  # Fila real en Google Sheets (encabezado en fila 1)
-                        "texto": dias_str
-                    })
-                    total_visitas_global += 1
-            
-            if r.get("estado_planilla"):
-                mapa_resumen[cap]["estado"] = r.get("estado_planilla")
-
-    for cap_nombre in mapa_resumen:
-        mapa_resumen[cap_nombre]["visitas"].sort(key=obtener_clave_fecha)
-
-    # EXPORTACIÓN
-    st.markdown("#### 📥 Exportar Reporte para Auditoría")
-    filas_exportar = []
-    for zona, capillas in ZONAS_CAPILLAS.items():
-        for c in capillas:
-            v_list = mapa_resumen.get(c, {}).get("visitas", [])
-            fechas_str = ", ".join([v["texto"].split(" (por ")[0] for v in v_list]) if v_list else "Sin visitas"
-            filas_exportar.append({
-                "Zona": zona,
-                "Capilla": c,
-                "Estado Planilla": mapa_resumen.get(c, {}).get("estado", "Pendiente"),
-                "Total Visitas": len(v_list),
-                "Fechas de Visita": fechas_str
-            })
-
-    df_export = pd.DataFrame(filas_exportar)
-    col_exp_excel, col_exp_pdf = st.columns(2)
-    
-    with col_exp_excel:
-        buffer_excel = io.BytesIO()
-        with pd.ExcelWriter(buffer_excel) as writer:
-            df_export.to_excel(writer, sheet_name=f"Visitas_{MESES_NOMBRES.get(mes_seleccionado)}", index=False)
-        
-        st.download_button(
-            label="📊 Descargar Informe en Excel (.xlsx)",
-            data=buffer_excel.getvalue(),
-            file_name=f"Reporte_Capillas_{MESES_NOMBRES.get(mes_seleccionado)}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-
-    with col_exp_pdf:
-        with st.popover("🖨️ Vista Imprimible / Guardar PDF", use_container_width=True):
-            st.markdown(f"### 📋 Auditoría de Visitas - {MESES_NOMBRES.get(mes_seleccionado)}")
-            st.caption("Usa la opción de imprimir del navegador (Ctrl + P) y selecciona 'Guardar como PDF'.")
-            st.dataframe(df_export, use_container_width=True, hide_index=True)
-
-    sin_visitas = []
-    pocas_visitas = []
-    for c in todas_las_capillas:
-        cant_v = len(mapa_resumen.get(c, {}).get("visitas", []))
-        if cant_v == 0:
-            sin_visitas.append(c)
-        elif cant_v <= 2:
-            pocas_visitas.append((c, cant_v))
-
-    col_rep1, col_rep2 = st.columns(2)
-    with col_rep1:
-        st.markdown(f"#### 🔴 Capillas SIN visitas en {MESES_NOMBRES.get(mes_seleccionado)}")
-        if not sin_visitas:
-            st.success("¡Excelente! Todas las capillas recibieron al menos una visita este mes.")
-        else:
-            for c in sin_visitas:
-                st.error(f"⛪ {c}")
-
-    with col_rep2:
-        st.markdown(f"#### 💛 Capillas visitadas de 1 a 2 veces")
-        if not pocas_visitas:
-            st.info("No hay capillas en el rango de 1 a 2 visitas.")
-        else:
-            for c, cant in pocas_visitas:
-                st.warning(f"⛪ {c} ({cant} visita{'s' if cant > 1 else ''})")
-
-    st.divider()
-
-    # GENERADOR DE MENSAJE SEMANAL DE PRIORIDADES
-    st.markdown("### 📩 Mensaje semanal de prioridades")
-    col_saludo, col_vac = st.columns([1, 1])
-    with col_saludo:
-        saludo_tipo = st.selectbox("Saludo inicial:", ["Buenos días", "Buenas tardes", "Buenas noches"], key="saludo_rep_cap")
-    
-    CAPILLAS_INDIVIDUALES = ["Bella Vista", "Goya", "El Colorado", "La Leonesa", "San Martin"]
-
-    lineas_zonas = [f"{saludo_tipo}, comparto el informe semanal de las capillas visitadas:\n"]
-    
-    for zona, capillas in ZONAS_CAPILLAS.items():
-        capillas_grupales = [c for c in capillas if c not in CAPILLAS_INDIVIDUALES]
-        if not capillas_grupales:
+    estado_por_capilla = {}
+    visitas_por_capilla = {}
+    for fila in registros_capillas:
+        if not fila or not fila[0].strip():
             continue
+        nombre_cap = fila[0].strip()
+        if len(fila) > 1 and fila[1].strip():
+            estado_por_capilla[nombre_cap] = fila[1].strip()
+        if len(fila) > 2 and fila[2].strip():
+            visitas_por_capilla.setdefault(nombre_cap, []).append(fila[2].strip())
 
-        lineas_zonas.append(f"📍 *{zona}*")
-        capillas_no_visitadas_esta_semana = []
-        
-        for c in capillas_grupales:
-            visitas = mapa_resumen.get(c, {}).get("visitas", [])
-            if visitas:
-                fechas_limpias = [v["texto"].split(" (por ")[0] for v in visitas]
-                fechas_txt = ", ".join(fechas_limpias)
-                lineas_zonas.append(f"• {c}: Visitada ({fechas_txt})")
-                
-                obs_fotos = st.session_state.get(f"faltantes_fotos_{c}", "").strip()
-                if obs_fotos:
-                    lineas_zonas.append(f"**FALTAN FOTOS:** {obs_fotos}")
-            else:
-                lineas_zonas.append(f"• {c}: Sin visitas registradas")
-                capillas_no_visitadas_esta_semana.append(c)
+    for zona, caps_zona in ZONAS_CAPILLAS.items():
+        st.subheader(f"📍 {zona}")
+        for c in caps_zona:
+            estado_actual = estado_por_capilla.get(c, ESTADOS_CAPILLA[0])
+            visitas = visitas_por_capilla.get(c, [])
 
-        if capillas_no_visitadas_esta_semana:
-            prioridad_rotacion = capillas_no_visitadas_esta_semana
-        else:
-            prioridad_rotacion = sorted(capillas_grupales, key=lambda x: len(mapa_resumen.get(x, {}).get("visitas", [])))[:2]
-        
-        if prioridad_rotacion:
-            lineas_zonas.append(f"⚠️ *Prioridad para la próxima semana:* {', '.join(prioridad_rotacion)}")
-        
-        lineas_zonas.append("")
+            with st.expander(f"⛪ {c} — {estado_actual} ({len(visitas)} visita/s)", expanded=False):
+                if visitas:
+                    st.markdown("**Visitas registradas:**")
+                    for v in visitas:
+                        st.write(f"• {v}")
+                else:
+                    st.caption("Sin visitas registradas.")
 
-    lineas_zonas.append("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*")
-    txt_zonas_completo = "\n".join(lineas_zonas)
+                opciones_estado = ESTADOS_CAPILLA + ([estado_actual] if estado_actual not in ESTADOS_CAPILLA else [])
+                col_est, col_vis = st.columns(2)
+                nuevo_estado = col_est.selectbox(
+                    "Estado:", options=opciones_estado, index=opciones_estado.index(estado_actual),
+                    key=f"est_cap_{zona}_{c}"
+                )
+                nueva_visita = col_vis.text_input(
+                    "Nueva visita (DD/MM/AAAA):", key=f"vis_cap_{zona}_{c}", placeholder="Ej: 02/11/2026"
+                )
 
-    lineas_ind = [f"{saludo_tipo}, comparto el comunicado de seguimiento individual:\n"]
-    for c_ind in CAPILLAS_INDIVIDUALES:
-        visitas_ind = mapa_resumen.get(c_ind, {}).get("visitas", [])
-        if visitas_ind:
-            fechas_limpias_ind = [v["texto"].split(" (por ")[0] for v in visitas_ind]
-            fechas_txt_ind = ", ".join(fechas_limpias_ind)
-            lineas_ind.append(f"• {c_ind}: Visitada ({fechas_txt_ind})")
-            
-            obs_fotos_ind = st.session_state.get(f"faltantes_fotos_{c_ind}", "").strip()
-            if obs_fotos_ind:
-                lineas_ind.append(f"**FALTAN FOTOS:** {obs_fotos_ind}")
-        else:
-            lineas_ind.append(f"• {c_ind}: Sin visitas registradas")
-
-    txt_ind_completo = "\n".join(lineas_ind)
-    txt_unificado_completo = txt_zonas_completo.replace("📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*", "").strip() + "\n\n" + "👤 *COMUNICADOS DE SEGUIMIENTO INDIVIDUAL*\n" + "\n".join(lineas_ind[1:]) + "\n\n📌 *Recordatorio: Se requiere un mínimo de 4 visitas mensuales por capilla.*"
-
-    with st.expander("📄 **1. Copiar Informe por Zonas (Grupales)**", expanded=False):
-        st.text_area("Texto listo para copiar (Zonas):", value=txt_zonas_completo, height=280, key="txt_area_zonas")
-
-    with st.expander("👤 **2. Copiar Comunicados de Seguimiento Individual**", expanded=False):
-        st.text_area("Texto listo para copiar (Seguimiento Individual):", value=txt_ind_completo, height=180, key="txt_area_ind")
-
-    with st.expander("📋 **3. Copiar Informe Completo (Unificado)**", expanded=False):
-        st.text_area("Texto listo para copiar (Completo):", value=txt_unificado_completo, height=340, key="txt_area_unificado")
-
-    st.divider()
-
-    # DETALLE Y CONTROL DE INSPECCIÓN POR CAPILLA
-    ESTADOS_PLANILLA = ["Pendiente", "Completado", "En Proceso", "Revisión"]
-
-    if "limpiar_visita" in st.session_state:
-        st.session_state[st.session_state.pop("limpiar_visita")] = ""
-
-    for zona, capillas in ZONAS_CAPILLAS.items():
-        st.markdown(f"### 📍 {zona}")
-        for c in capillas:
-            data_capilla = mapa_resumen.get(c, {"estado": "Pendiente", "visitas": []})
-            cant_v = len(data_capilla["visitas"])
-            
-            safe_key = f"{zona}_{c}".replace(" ", "_").replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u").replace("Ñ", "N").replace("ñ", "n")
-            
-            with st.container(border=True):
-                col_cap_info, col_cap_btn = st.columns([3, 1])
-                
-                with col_cap_info:
-                    st.markdown(f"#### ⛪ {c}")
-                    st.caption(f"Visitas registradas en {MESES_NOMBRES.get(mes_seleccionado)}: **{cant_v}** | Estado actual: **{data_capilla['estado']}**")
-                    if data_capilla["visitas"]:
-                        visitas_txt = " | ".join([v['texto'] for v in data_capilla["visitas"]])
-                        st.write(f"**Historial de Visitas:** {visitas_txt}")
+                # La clave incluye la zona Y la capilla: así nunca se repite (error StreamlitDuplicateElementKey)
+                if st.button("💾 Guardar Cambios", key=f"btn_save_cap_{zona}_{c}", type="primary", use_container_width=True):
+                    if ws_resumen is None:
+                        st.error("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
                     else:
-                        st.caption("Sin visitas registradas para este mes.")
+                        visita_txt = nueva_visita.strip()
+                        fecha_ok = None
+                        if visita_txt:
+                            try:
+                                fecha_ok = datetime.strptime(visita_txt, "%d/%m/%Y")
+                            except ValueError:
+                                fecha_ok = False
 
-                with col_cap_btn:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    with st.popover("✏️ Editar Estado", use_container_width=True):
-                        st.markdown(f"**Modificar {c}**")
-                        
-                        idx_est = ESTADOS_PLANILLA.index(data_capilla['estado']) if data_capilla['estado'] in ESTADOS_PLANILLA else 0
-                        nuevo_estado = st.selectbox("Estado de Planilla:", options=ESTADOS_PLANILLA, index=idx_est, key=f"est_c_{safe_key}")
-                        nueva_visita = st.text_input("Agregar visita (ej: 02/11/2026):", placeholder="DD/MM/YYYY", key=f"vis_c_{safe_key}")
-                        
-                        if st.button("💾 Guardar Cambios", key=f"btn_save_cap_{safe_key}", type="primary", use_container_width=True):
-                            if ws_resumen is None:
-                                st.error("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
-                            else:
-                                try:
-                                    rows = ws_resumen.get_all_values()
-                                    actualizado = False
-                                    
-                                    for i, row in enumerate(rows[1:], start=2):
-                                        if len(row) > 0 and row[0].strip() == c:
-                                            ws_resumen.update_cell(i, 2, nuevo_estado)
-                                            actualizado = True
-                                            break
-                                    
-                                    if nueva_visita.strip():
-                                        usr_str = st.session_state.get("usuario_actual", "Sistema")
-                                        visita_formateada = f"{nueva_visita.strip()} (por {usr_str})"
-                                        ws_resumen.append_row([c, nuevo_estado, visita_formateada])
-                                        st.session_state["limpiar_visita"] = f"vis_c_{safe_key}"
-                                    elif not actualizado:
-                                        ws_resumen.append_row([c, nuevo_estado, ""])
-                                        
-                                    st.success(f"¡Cambios guardados para {c}!")
-                                    st.rerun()
-                                except Exception as err:
-                                    st.error(f"Error al actualizar en Google Sheets: {err}")
+                        if fecha_ok is False:
+                            st.error("❌ Escribí la fecha así: DD/MM/AAAA (ejemplo: 02/11/2026).")
+                        else:
+                            try:
+                                rows = ws_resumen.get_all_values()
+                                cambios = []
+                                for i, row in enumerate(rows[1:], start=2):
+                                    if len(row) > 0 and row[0].strip() == c:
+                                        cambios.append({"range": f"B{i}", "values": [[nuevo_estado]]})
+                                if cambios:
+                                    ws_resumen.batch_update(cambios)
 
-                        # --- LISTA Y BOTÓN PARA BORRAR VISITAS REGISTRADAS ---
-                        if data_capilla["visitas"]:
-                            st.divider()
-                            st.markdown("**🗑️ Borrar visitas registradas:**")
-                            for idx_v, item_v in enumerate(data_capilla["visitas"]):
-                                if isinstance(item_v, dict):
-                                    n_fila_v = item_v.get("row_index")
-                                    texto_v = item_v.get("texto")
+                                if fecha_ok:
+                                    fecha_txt = fecha_ok.strftime("%d/%m/%Y")
+                                    ws_resumen.append_row([c, nuevo_estado, f"{fecha_txt} (por {st.session_state['usuario_actual']})"])
+                                    mes_txt = MESES_NOMBRES[fecha_ok.strftime("%m")]
+                                    st.session_state["aviso_guardado"] = f"✅ Visita del {fecha_txt} guardada en {c} (mes de {mes_txt})."
                                 else:
-                                    n_fila_v = None
-                                    texto_v = str(item_v)
+                                    if not cambios:
+                                        ws_resumen.append_row([c, nuevo_estado, ""])
+                                    st.session_state["aviso_guardado"] = f"✅ Estado de {c} actualizado a {nuevo_estado}."
+                            except Exception as e:
+                                st.error(f"Error detallado al guardar: {e}")
+                            else:
+                                st.rerun()
 
-                                col_v_txt, col_v_del = st.columns([3, 1])
-                                with col_v_txt:
-                                    st.caption(f"• {texto_v}")
-                                with col_v_del:
-                                    if st.button("🗑️", key=f"btn_del_vis_{safe_key}_{idx_v}", use_container_width=True):
-                                        if ws_resumen and n_fila_v:
-                                            try:
-                                                ws_resumen.delete_rows(n_fila_v)
-                                                st.success(f"Visita borrada de {c}.")
-                                                st.rerun()
-                                            except Exception as e_del:
-                                                st.error(f"Error al borrar visita: {e_del}")
-                                        else:
-                                            st.warning("No se pudo identificar la fila exacta en Google Sheets.")
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
 # ==========================================
