@@ -464,16 +464,20 @@ with tab_capillas:
     else:
         st.warning("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
 
+    # Vacía el campo de fecha de la capilla que se acaba de guardar (así no se vuelve a anotar la misma visita)
+    if "limpiar_visita" in st.session_state:
+        st.session_state[st.session_state.pop("limpiar_visita")] = ""
+
     estado_por_capilla = {}
-    visitas_por_capilla = {}
-    for fila in registros_capillas:
+    visitas_por_capilla = {}   # capilla -> [(número de fila en la hoja, texto de la visita)]
+    for n_fila, fila in enumerate(registros_capillas, start=2):   # la fila 1 de la hoja son los títulos
         if not fila or not fila[0].strip():
             continue
         nombre_cap = fila[0].strip()
         if len(fila) > 1 and fila[1].strip():
             estado_por_capilla[nombre_cap] = fila[1].strip()
         if len(fila) > 2 and fila[2].strip():
-            visitas_por_capilla.setdefault(nombre_cap, []).append(fila[2].strip())
+            visitas_por_capilla.setdefault(nombre_cap, []).append((n_fila, fila[2].strip()))
 
     for zona, caps_zona in ZONAS_CAPILLAS.items():
         st.subheader(f"📍 {zona}")
@@ -484,8 +488,35 @@ with tab_capillas:
             with st.expander(f"⛪ {c} — {estado_actual} ({len(visitas)} visita/s)", expanded=False):
                 if visitas:
                     st.markdown("**Visitas registradas:**")
-                    for v in visitas:
-                        st.write(f"• {v}")
+                    for n_fila, texto_v in visitas:
+                        col_txt, col_borrar = st.columns([6, 1])
+                        col_txt.write(f"• {texto_v}")
+                        if col_borrar.button("🗑️", key=f"del_vis_{zona}_{c}_{n_fila}", help="Borrar esta visita", use_container_width=True):
+                            if ws_resumen is None:
+                                st.error("⚠️ La hoja 'resumen_capillas' no está conectada.")
+                            else:
+                                try:
+                                    rows = ws_resumen.get_all_values()
+                                    fila_actual = rows[n_fila - 1] if n_fila <= len(rows) else []
+                                    sigue_igual = (
+                                        len(fila_actual) > 2
+                                        and fila_actual[0].strip() == c
+                                        and fila_actual[2].strip() == texto_v
+                                    )
+                                    if not sigue_igual:
+                                        st.error("⚠️ La hoja cambió mientras tanto. Recargá la página e intentá de nuevo.")
+                                    else:
+                                        filas_de_la_capilla = [r for r in rows[1:] if r and r[0].strip() == c]
+                                        if len(filas_de_la_capilla) <= 1:
+                                            # Es la única fila de la capilla: se vacía la visita pero se conserva el estado
+                                            ws_resumen.update_cell(n_fila, 3, "")
+                                        else:
+                                            ws_resumen.delete_rows(n_fila)
+                                        st.session_state["aviso_guardado"] = f"🗑️ Visita borrada de {c}: {texto_v}"
+                                except Exception as e:
+                                    st.error(f"Error al borrar: {e}")
+                                else:
+                                    st.rerun()
                 else:
                     st.caption("Sin visitas registradas.")
 
@@ -526,9 +557,14 @@ with tab_capillas:
 
                                 if fecha_ok:
                                     fecha_txt = fecha_ok.strftime("%d/%m/%Y")
-                                    ws_resumen.append_row([c, nuevo_estado, f"{fecha_txt} (por {st.session_state['usuario_actual']})"])
-                                    mes_txt = MESES_NOMBRES[fecha_ok.strftime("%m")]
-                                    st.session_state["aviso_guardado"] = f"✅ Visita del {fecha_txt} guardada en {c} (mes de {mes_txt})."
+                                    visita_final = f"{fecha_txt} (por {st.session_state['usuario_actual']})"
+                                    if visita_final in [t for _, t in visitas]:
+                                        st.session_state["aviso_guardado"] = f"ℹ️ La visita {visita_final} ya estaba registrada en {c}; no se duplicó."
+                                    else:
+                                        ws_resumen.append_row([c, nuevo_estado, visita_final])
+                                        mes_txt = MESES_NOMBRES[fecha_ok.strftime("%m")]
+                                        st.session_state["aviso_guardado"] = f"✅ Visita del {fecha_txt} guardada en {c} (mes de {mes_txt})."
+                                    st.session_state["limpiar_visita"] = f"vis_cap_{zona}_{c}"
                                 else:
                                     if not cambios:
                                         ws_resumen.append_row([c, nuevo_estado, ""])
