@@ -479,6 +479,108 @@ with tab_capillas:
         if len(fila) > 2 and fila[2].strip():
             visitas_por_capilla.setdefault(nombre_cap, []).append((n_fila, fila[2].strip()))
 
+    # ==================================================================
+    # RESUMEN DEL MES + MENSAJE PARA WHATSAPP
+    # ==================================================================
+    import re
+    META_VISITAS_MES = 4    # visitas mínimas por capilla en el mes
+    MAX_PRIORIDAD = 3       # máximo de capillas que figuran en la línea de "Prioridad"
+
+    try:
+        from zoneinfo import ZoneInfo
+        hoy_ar = datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).date()
+    except Exception:
+        hoy_ar = date.today()
+
+    st.markdown("### 📊 Visitas del mes")
+    col_mes, col_anio = st.columns(2)
+    mes_sel = col_mes.selectbox(
+        "Mes:", options=list(range(1, 13)), index=hoy_ar.month - 1,
+        format_func=lambda n: MESES_NOMBRES[f"{n:02d}"], key="res_mes"
+    )
+    anio_sel = int(col_anio.number_input("Año:", min_value=2024, max_value=2100, value=hoy_ar.year, step=1, key="res_anio"))
+    nombre_mes = MESES_NOMBRES[f"{mes_sel:02d}"]
+
+    # Fechas (sin repetir) en que se visitó cada capilla en el mes elegido
+    fechas_mes = {}
+    for cap in todas_las_capillas:
+        fechas_set = set()
+        for _, texto_v in visitas_por_capilla.get(cap, []):
+            coincide = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", texto_v)
+            if not coincide:
+                continue
+            try:
+                fecha_v = date(int(coincide.group(3)), int(coincide.group(2)), int(coincide.group(1)))
+            except ValueError:
+                continue
+            if fecha_v.month == mes_sel and fecha_v.year == anio_sel:
+                fechas_set.add(fecha_v)
+        fechas_mes[cap] = sorted(fechas_set)
+
+    total_visitas = sum(len(v) for v in fechas_mes.values())
+    cant_completas = sum(1 for v in fechas_mes.values() if len(v) >= META_VISITAS_MES)
+    cant_sin_visitas = sum(1 for v in fechas_mes.values() if len(v) == 0)
+    met1, met2, met3 = st.columns(3)
+    met1.metric(f"Visitas en {nombre_mes}", total_visitas)
+    met2.metric(f"Capillas con {META_VISITAS_MES}+ visitas", f"{cant_completas} de {len(todas_las_capillas)}")
+    met3.metric("Capillas sin ninguna visita", cant_sin_visitas)
+
+    for zona_r, caps_r in ZONAS_CAPILLAS.items():
+        filas_tabla = []
+        for cap in caps_r:
+            n_vis = len(fechas_mes[cap])
+            filas_tabla.append({
+                "Capilla": cap,
+                "Visitas": n_vis,
+                "Estado": "✅ Completa" if n_vis >= META_VISITAS_MES else f"⚠️ Faltan {META_VISITAS_MES - n_vis}",
+                "Fechas": ", ".join(fv.strftime("%d/%m") for fv in fechas_mes[cap]) or "—",
+            })
+        st.markdown(f"**📍 {zona_r}**")
+        st.dataframe(pd.DataFrame(filas_tabla), hide_index=True, use_container_width=True)
+
+    with st.expander("📲 Mensaje para WhatsApp", expanded=True):
+        zonas_msg = st.multiselect(
+            "Zonas a incluir:", options=list(ZONAS_CAPILLAS.keys()),
+            default=list(ZONAS_CAPILLAS.keys()), key="msg_zonas"
+        )
+        incluir_sin_visitas = st.checkbox("Incluir las capillas que no tuvieron visitas", value=True, key="msg_sin_visitas")
+
+        lineas_msg = [f"Buenas tardes, comparto el informe semanal de las capillas visitadas ({nombre_mes}):", ""]
+        for zona_m, caps_m in ZONAS_CAPILLAS.items():
+            if zona_m not in zonas_msg:
+                continue
+            caps_msg = [cap for cap in caps_m if incluir_sin_visitas or fechas_mes[cap]]
+            if not caps_msg:
+                continue
+            lineas_msg.append(f"📍 {zona_m}")
+            for cap in caps_msg:
+                if fechas_mes[cap]:
+                    fechas_txt = ", ".join(fv.strftime("%d/%m") for fv in fechas_mes[cap])
+                    lineas_msg.append(f"* {cap}: Visitada ({fechas_txt})")
+                else:
+                    lineas_msg.append(f"* {cap}: Sin visitas")
+            # Prioridad: las capillas que no llegaron a la meta, empezando por las que tienen menos visitas
+            pendientes = sorted(
+                [cap for cap in caps_msg if len(fechas_mes[cap]) < META_VISITAS_MES],
+                key=lambda cap: len(fechas_mes[cap])
+            )[:MAX_PRIORIDAD]
+            if pendientes:
+                lineas_msg.append("⚠️ Prioridad para la próxima semana: " + ", ".join(pendientes))
+            else:
+                lineas_msg.append("✅ Todas las capillas alcanzaron el mínimo de visitas")
+            lineas_msg.append("")
+        lineas_msg.append(
+            f"📌 Recordatorio: Se requiere un mínimo de {META_VISITAS_MES} visitas mensuales por capilla. "
+            "(este mensaje es automático, cualquier duda o consulta no dude en enviarnos un mensaje)"
+        )
+        mensaje_whatsapp = "\n".join(lineas_msg)
+
+        st.code(mensaje_whatsapp, language=None)
+        st.caption("Tocá el ícono de copiar (arriba a la derecha del recuadro) y pegalo en WhatsApp.")
+
+    st.divider()
+    st.markdown("### 🗂️ Detalle por capilla")
+
     for zona, caps_zona in ZONAS_CAPILLAS.items():
         st.subheader(f"📍 {zona}")
         for c in caps_zona:
