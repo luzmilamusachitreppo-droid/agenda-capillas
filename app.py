@@ -780,12 +780,11 @@ with tab_notes:
                             ws_recordatorios.delete_rows(cell.row)
                         st.rerun()
 # ==========================================
-# 5. GMAIL TRACKING
+# 5. GMAIL
 # ==========================================
 with tab_gmail:
     st.header("✉️ Seguimiento de Correos y Gestiones (Gmail)")
-    st.caption("Control y registro de correos vinculados a órdenes de trabajo y gestiones de capillas.")
-
+    
     registros_gmail = []
     if ws_gmail:
         try:
@@ -793,11 +792,10 @@ with tab_gmail:
         except Exception:
             registros_gmail = []
 
-    # Mostrar la tabla de registros si existen
     if registros_gmail:
         df_gmail = pd.DataFrame(registros_gmail)
         
-        # Ocultar o quitar la columna 'id' si existe en el DataFrame
+        # Ocultar o quitar la columna 'id' para la visualización y exportación
         if "id" in df_gmail.columns:
             df_mostrar = df_gmail.drop(columns=["id"])
         else:
@@ -806,7 +804,7 @@ with tab_gmail:
         st.markdown("#### 📋 Registros Actuales")
         st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
 
-        # --- GENERADOR DE EXCEL DESCARGABLE (SIN ID) ---
+        # --- EXCEL DESCARGABLE DE GMAIL (SIN ID) ---
         buffer_excel_gmail = io.BytesIO()
         with pd.ExcelWriter(buffer_excel_gmail, engine="openpyxl") as writer:
             df_mostrar.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
@@ -820,34 +818,69 @@ with tab_gmail:
             use_container_width=True,
             type="primary"
         )
+        
+        st.divider()
+
+        # Gestión interactiva de filas existentes (como lo tenías antes)
+        st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail")
+        for idx, row_g in enumerate(registros_gmail):
+            id_g = str(row_g.get("id", idx))
+            asunto_v = str(row_g.get("asunto", ""))
+            
+            with st.expander(f"✉️ {asunto_v or 'Sin Asunto'} (Remitente: {row_g.get('estado_gmail', 'N/A')})", expanded=False):
+                with st.form(key=f"form_edit_gmail_{id_g}"):
+                    e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}")
+                    e_remitente = st.text_input("Remitente / Estado:", value=str(row_g.get("estado_gmail", "")), key=f"rem_g_{id_g}")
+                    e_etapa = st.text_input("Etapa proceso:", value=str(row_g.get("etapa_proceso", "")), key=f"etapa_g_{id_g}")
+                    e_ot = st.text_input("Nro OT / Detalle:", value=str(row_g.get("nro_ot", "")), key=f"ot_g_{id_g}")
+                    e_financiero = st.text_input("Estado Financiero:", value=str(row_g.get("estado_financiero", "")), key=f"fin_g_{id_g}")
+
+                    col_ge1, col_ge2 = st.columns(2)
+                    if col_ge1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                        if ws_gmail:
+                            cell_g = ws_gmail.find(id_g)
+                            if cell_g:
+                                r_n = cell_g.row
+                                ws_gmail.update_cell(r_n, 2, e_asunto.strip())
+                                ws_gmail.update_cell(r_n, 3, e_remitente.strip())
+                                ws_gmail.update_cell(r_n, 4, e_etapa.strip())
+                                ws_gmail.update_cell(r_n, 5, e_ot.strip())
+                                ws_gmail.update_cell(r_n, 6, e_financiero.strip())
+                                st.success("¡Registro de Gmail actualizado!")
+                                st.rerun()
+                    
+                    if col_ge2.form_submit_button("🗑️ Borrar Registro", use_container_width=True):
+                        if ws_gmail:
+                            cell_g = ws_gmail.find(id_g)
+                            if cell_g:
+                                ws_gmail.delete_rows(cell_g.row)
+                                st.success("¡Registro borrado!")
+                                st.rerun()
     else:
-        st.info("ℹ️ No hay registros cargados en el seguimiento de Gmail actualmente.")
+        st.info("No hay registros en el seguimiento de Gmail.")
 
     st.divider()
 
-    # Formulario para agregar o gestionar nuevos registros de Gmail
-    st.markdown("#### ➕ Agregar Registro de Gmail")
-    with st.form("form_add_gmail", clear_on_submit=True):
-        col_g1, col_g2 = st.columns(2)
-        asunto_g = col_g1.text_input("Asunto / Referencia:")
-        remitente_g = col_g2.text_input("Remitente / Destinatario:")
-        detalle_g = st.text_area("Detalle de la gestión:", height=80)
-        
-        if st.form_submit_button("Guardar en Gmail Tracking", use_container_width=True):
+    st.markdown("#### ➕ Agregar Nuevo Registro de Gmail")
+    with st.form("form_add_gmail_completo", clear_on_submit=True):
+        cg1, cg2 = st.columns(2)
+        nuevo_asunto = cg1.text_input("Asunto:")
+        nuevo_remitente = cg2.text_input("Remitente / Estado:")
+        nuevo_etapa = st.text_input("Etapa proceso:", value="Pendiente")
+        nuevo_ot = st.text_area("Nro OT / Detalle:")
+        nuevo_financiero = st.text_input("Estado Financiero:")
+
+        if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
-                try:
-                    # Si tu Google Sheet sigue requiriendo un UUID o id en la primera columna, 
-                    # lo seguimos generando por detrás, pero ya no se mostrará al usuario ni saldrá en el Excel.
-                    ws_gmail.append_row([
-                        str(uuid.uuid4()), # Se mantiene en Google Sheets por orden interno
-                        asunto_g.strip(),
-                        remitente_g.strip(),
-                        detalle_g.strip(),
-                        datetime.now().strftime("%Y-%m-%d %H:%M")
-                    ])
-                    st.success("¡Registro de Gmail guardado con éxito!")
-                    st.rerun()
-                except Exception as e_g:
-                    st.error(f"Error al guardar en Google Sheets: {e_g}")
-            else:
-                st.error("⚠️ La hoja 'gmail_tracking' no está conectada o disponible.")
+                ws_gmail.append_row([
+                    str(uuid.uuid4()),
+                    nuevo_asunto.strip(),
+                    nuevo_remitente.strip(),
+                    nuevo_etapa.strip(),
+                    nuevo_ot.strip(),
+                    nuevo_financiero.strip(),
+                    st.session_state.get("usuario_actual", "Sistema"),
+                    datetime.now().strftime("%d/%m/%Y %H:%M")
+                ])
+                st.success("¡Guardado con éxito!")
+                st.rerun()
