@@ -797,13 +797,19 @@ with tab_gmail:
     if registros_gmail:
         df_gmail = pd.DataFrame(registros_gmail)
         
-        st.markdown("#### 📋 Registros Actuales")
-        st.dataframe(df_gmail, use_container_width=True, hide_index=True)
+        # Ocultar o quitar la columna 'id' si existe en el DataFrame
+        if "id" in df_gmail.columns:
+            df_mostrar = df_gmail.drop(columns=["id"])
+        else:
+            df_mostrar = df_gmail
 
-        # --- GENERADOR DE EXCEL DESCARGABLE ---
+        st.markdown("#### 📋 Registros Actuales")
+        st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+
+        # --- GENERADOR DE EXCEL DESCARGABLE (SIN ID) ---
         buffer_excel_gmail = io.BytesIO()
         with pd.ExcelWriter(buffer_excel_gmail, engine="openpyxl") as writer:
-            df_gmail.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
+            df_mostrar.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
         
         st.markdown("<br>", unsafe_allow_html=True)
         st.download_button(
@@ -830,8 +836,10 @@ with tab_gmail:
         if st.form_submit_button("Guardar en Gmail Tracking", use_container_width=True):
             if ws_gmail:
                 try:
-                    # Asumiendo que la estructura de la hoja guarda columnas como Asunto, Remitente, Detalle, Fecha
+                    # Si tu Google Sheet sigue requiriendo un UUID o id en la primera columna, 
+                    # lo seguimos generando por detrás, pero ya no se mostrará al usuario ni saldrá en el Excel.
                     ws_gmail.append_row([
+                        str(uuid.uuid4()), # Se mantiene en Google Sheets por orden interno
                         asunto_g.strip(),
                         remitente_g.strip(),
                         detalle_g.strip(),
