@@ -788,6 +788,7 @@ with tab_gmail:
     registros_gmail = []
     if ws_gmail:
         try:
+            # Traemos los registros como lista de diccionarios
             registros_gmail = ws_gmail.get_all_records()
         except Exception:
             registros_gmail = []
@@ -795,7 +796,7 @@ with tab_gmail:
     if registros_gmail:
         df_gmail = pd.DataFrame(registros_gmail)
         
-        # Intentamos ordenar por fecha de creación o fecha de envío si existen en las columnas
+        # Intentamos ordenar por fecha de creación o fecha de envío si existen
         col_fecha_orden = None
         for col_posible in ["fecha_creacion", "fecha_envio"]:
             if col_posible in df_gmail.columns:
@@ -806,20 +807,18 @@ with tab_gmail:
             df_gmail["_temp_dt"] = pd.to_datetime(df_gmail[col_fecha_orden], format="%d/%m/%Y %H:%M", errors="coerce")
             if df_gmail["_temp_dt"].isna().all():
                 df_gmail["_temp_dt"] = pd.to_datetime(df_gmail[col_fecha_orden], errors="coerce")
-            
             df_gmail = df_gmail.sort_values(by="_temp_dt", ascending=False).drop(columns=["_temp_dt"])
         
-        # Ocultar o quitar la columna 'id' para la visualización y exportación
+        # Limpiamos por si quedó alguna columna 'id' vieja en el DataFrame
         if "id" in df_gmail.columns:
             df_mostrar = df_gmail.drop(columns=["id"])
         else:
             df_mostrar = df_gmail
 
         st.markdown("#### 📋 Registros Actuales (Vista General Completa)")
-        # use_container_width=True hace que ocupe todo el ancho de la pantalla en formato de cuadro completo
         st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
 
-        # --- EXCEL DESCARGABLE DE GMAIL (SIN ID Y ORDENADO) ---
+        # --- EXCEL DESCARGABLE DE GMAIL (ORDENADO Y COMPLETO) ---
         buffer_excel_gmail = io.BytesIO()
         with pd.ExcelWriter(buffer_excel_gmail, engine="openpyxl") as writer:
             df_mostrar.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
@@ -848,8 +847,27 @@ with tab_gmail:
         from collections import defaultdict
         registros_por_mes = defaultdict(list)
 
-        for row_g in registros_gmail:
-            f_val = str(row_g.get("fecha_creacion", "") or row_g.get("fecha_envio", "")).strip()
+        # Recorremos asignando el número de fila real en Google Sheets (start=2 porque la fila 1 son los títulos)
+        rows_sheet = ws_gmail.get_all_values()
+        
+        for idx_h, row_vals in enumerate(rows_sheet[1:], start=2):
+            if not row_vals or not any(row_vals):
+                continue
+            
+            # Mapeamos según las columnas actuales de tu imagen (Asunto=Col A, Fecha_env=Col B, etc.)
+            row_dict = {
+                "fila_sheet": idx_h,
+                "asunto": row_vals[0] if len(row_vals) > 0 else "",
+                "fecha_envio": row_vals[1] if len(row_vals) > 1 else "",
+                "estado_gmail": row_vals[2] if len(row_vals) > 2 else "",
+                "etapa_proceso": row_vals[3] if len(row_vals) > 3 else "",
+                "nro_ot": row_vals[4] if len(row_vals) > 4 else "",
+                "estado_financiero": row_vals[5] if len(row_vals) > 5 else "",
+                "creado_por": row_vals[6] if len(row_vals) > 6 else "",
+                "fecha_creacion": row_vals[7] if len(row_vals) > 7 else ""
+            }
+
+            f_val = str(row_dict["fecha_creacion"] or row_dict["fecha_envio"]).strip()
             mes_key = "Sin Fecha / Otros"
             
             if "/" in f_val and len(f_val) >= 10:
@@ -865,55 +883,55 @@ with tab_gmail:
                     anio = partes_f[0]
                     mes_key = f"{nombres_meses_txt.get(m_num, m_num)} {anio}"
             
-            registros_por_mes[mes_key].append(row_g)
+            registros_por_mes[mes_key].append(row_dict)
 
-        # Renderizamos por cada sección de mes con su propia mini-tabla resumen en cuadro
+        # Renderizamos por cada sección de mes
         for mes_seccion, regs_en_mes in registros_por_mes.items():
             with st.expander(f"📅 Mes: **{mes_seccion}** ({len(regs_en_mes)} registros)", expanded=(mes_seccion == list(registros_por_mes.keys())[0])):
                 
-                # Mostramos un cuadro resumen exclusivo de este mes para verlo completo de un vistazo
-                df_mes = pd.DataFrame(regs_en_mes)
-                if "id" in df_mes.columns:
-                    df_mes = df_mes.drop(columns=["id"])
+                # Cuadro resumen completo de este mes
+                df_mes = pd.DataFrame(regs_en_mes).drop(columns=["fila_sheet"], errors="ignore")
                 st.dataframe(df_mes, use_container_width=True, hide_index=True)
                 
                 st.markdown("---")
                 st.markdown(f"**Editar registros de {mes_seccion}:**")
 
                 for idx, row_g in enumerate(regs_en_mes):
-                    id_g = str(row_g.get("id", idx))
+                    fila_n = row_g["fila_sheet"]
                     asunto_v = str(row_g.get("asunto", ""))
                     fecha_etiq = str(row_g.get("fecha_creacion", "") or row_g.get("fecha_envio", ""))
                     
                     with st.expander(f"✉️ [{fecha_etiq}] {asunto_v or 'Sin Asunto'} (Remitente: {row_g.get('estado_gmail', 'N/A')})", expanded=False):
-                        with st.form(key=f"form_edit_gmail_{id_g}_{mes_seccion}"):
-                            e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}")
-                            e_remitente = st.text_input("Remitente / Estado:", value=str(row_g.get("estado_gmail", "")), key=f"rem_g_{id_g}")
-                            e_etapa = st.text_input("Etapa proceso:", value=str(row_g.get("etapa_proceso", "")), key=f"etapa_g_{id_g}")
-                            e_ot = st.text_input("Nro OT / Detalle:", value=str(row_g.get("nro_ot", "")), key=f"ot_g_{id_g}")
-                            e_financiero = st.text_input("Estado Financiero:", value=str(row_g.get("estado_financiero", "")), key=f"fin_g_{id_g}")
+                        with st.form(key=f"form_edit_gmail_fila_{fila_n}"):
+                            e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_f_{fila_n}")
+                            e_remitente = st.text_input("Remitente / Estado:", value=str(row_g.get("estado_gmail", "")), key=f"rem_f_{fila_n}")
+                            e_etapa = st.text_input("Etapa proceso:", value=str(row_g.get("etapa_proceso", "")), key=f"etapa_f_{fila_n}")
+                            e_ot = st.text_input("Nro OT / Detalle:", value=str(row_g.get("nro_ot", "")), key=f"ot_f_{fila_n}")
+                            e_financiero = st.text_input("Estado Financiero:", value=str(row_g.get("estado_financiero", "")), key=f"fin_f_{fila_n}")
 
                             col_ge1, col_ge2 = st.columns(2)
                             if col_ge1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
                                 if ws_gmail:
-                                    cell_g = ws_gmail.find(id_g)
-                                    if cell_g:
-                                        r_n = cell_g.row
-                                        ws_gmail.update_cell(r_n, 2, e_asunto.strip())
-                                        ws_gmail.update_cell(r_n, 3, e_remitente.strip())
-                                        ws_gmail.update_cell(r_n, 4, e_etapa.strip())
-                                        ws_gmail.update_cell(r_n, 5, e_ot.strip())
-                                        ws_gmail.update_cell(r_n, 6, e_financiero.strip())
+                                    try:
+                                        # Actualizamos directamente por el número de fila exacto en la hoja
+                                        ws_gmail.update_cell(fila_n, 1, e_asunto.strip())
+                                        ws_gmail.update_cell(fila_n, 3, e_remitente.strip())
+                                        ws_gmail.update_cell(fila_n, 4, e_etapa.strip())
+                                        ws_gmail.update_cell(fila_n, 5, e_ot.strip())
+                                        ws_gmail.update_cell(fila_n, 6, e_financiero.strip())
                                         st.success("¡Registro de Gmail actualizado!")
                                         st.rerun()
+                                    except Exception as err_upd:
+                                        st.error(f"Error al actualizar: {err_upd}")
                             
                             if col_ge2.form_submit_button("🗑️ Borrar Registro", use_container_width=True):
                                 if ws_gmail:
-                                    cell_g = ws_gmail.find(id_g)
-                                    if cell_g:
-                                        ws_gmail.delete_rows(cell_g.row)
+                                    try:
+                                        ws_gmail.delete_rows(fila_n)
                                         st.success("¡Registro borrado!")
                                         st.rerun()
+                                    except Exception as err_del:
+                                        st.error(f"Error al borrar: {err_del}")
     else:
         st.info("No hay registros en el seguimiento de Gmail.")
 
@@ -930,14 +948,15 @@ with tab_gmail:
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
+                # Agregamos respetando exactamente las columnas actuales sin requerir el ID
                 ws_gmail.append_row([
-                    str(uuid.uuid4()),
                     nuevo_asunto.strip(),
+                    "",  # fecha_envio vacía por defecto al crear
                     nuevo_remitente.strip(),
                     nuevo_etapa.strip(),
                     nuevo_ot.strip(),
                     nuevo_financiero.strip(),
-                    st.session_state.get("usuario_actual", "Sistema"),
+                    st.session_state.get("usuario_actual", "Silvia"),
                     datetime.now().strftime("%d/%m/%Y %H:%M")
                 ])
                 st.success("¡Guardado con éxito!")
