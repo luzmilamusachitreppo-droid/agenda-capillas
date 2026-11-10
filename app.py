@@ -795,16 +795,32 @@ with tab_gmail:
     if registros_gmail:
         df_gmail = pd.DataFrame(registros_gmail)
         
+        # Intentamos ordenar por fecha de creación o fecha de envío si existen en las columnas
+        col_fecha_orden = None
+        for col_posible in ["fecha_creacion", "fecha_envio"]:
+            if col_posible in df_gmail.columns:
+                col_fecha_orden = col_posible
+                break
+        
+        if col_fecha_orden:
+            # Convertimos a datetime para ordenar correctamente (manejando errores si hay celdas vacías)
+            df_gmail["_temp_dt"] = pd.to_datetime(df_gmail[col_fecha_orden], format="%d/%m/%Y %H:%M", errors="coerce")
+            if df_gmail["_temp_dt"].isna().all():
+                df_gmail["_temp_dt"] = pd.to_datetime(df_gmail[col_fecha_orden], errors="coerce")
+            
+            # Ordenar de más reciente a más antiguo (cambiar a True si preferís del más antiguo al más nuevo)
+            df_gmail = df_gmail.sort_values(by="_temp_dt", ascending=False).drop(columns=["_temp_dt"])
+        
         # Ocultar o quitar la columna 'id' para la visualización y exportación
         if "id" in df_gmail.columns:
             df_mostrar = df_gmail.drop(columns=["id"])
         else:
             df_mostrar = df_gmail
 
-        st.markdown("#### 📋 Registros Actuales")
+        st.markdown("#### 📋 Registros Actuales (Ordenados por Fecha)")
         st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
 
-        # --- EXCEL DESCARGABLE DE GMAIL (SIN ID) ---
+        # --- EXCEL DESCARGABLE DE GMAIL (SIN ID Y ORDENADO) ---
         buffer_excel_gmail = io.BytesIO()
         with pd.ExcelWriter(buffer_excel_gmail, engine="openpyxl") as writer:
             df_mostrar.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
@@ -821,41 +837,77 @@ with tab_gmail:
         
         st.divider()
 
-        # Gestión interactiva de filas existentes (como lo tenías antes)
-        st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail")
-        for idx, row_g in enumerate(registros_gmail):
-            id_g = str(row_g.get("id", idx))
-            asunto_v = str(row_g.get("asunto", ""))
-            
-            with st.expander(f"✉️ {asunto_v or 'Sin Asunto'} (Remitente: {row_g.get('estado_gmail', 'N/A')})", expanded=False):
-                with st.form(key=f"form_edit_gmail_{id_g}"):
-                    e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}")
-                    e_remitente = st.text_input("Remitente / Estado:", value=str(row_g.get("estado_gmail", "")), key=f"rem_g_{id_g}")
-                    e_etapa = st.text_input("Etapa proceso:", value=str(row_g.get("etapa_proceso", "")), key=f"etapa_g_{id_g}")
-                    e_ot = st.text_input("Nro OT / Detalle:", value=str(row_g.get("nro_ot", "")), key=f"ot_g_{id_g}")
-                    e_financiero = st.text_input("Estado Financiero:", value=str(row_g.get("estado_financiero", "")), key=f"fin_g_{id_g}")
+        # --- GESTIÓN SEPARADA POR SECCIONES DE MESES ---
+        st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail (Por Meses)")
+        
+        # Diccionario de meses en español para los títulos de las secciones
+        nombres_meses_txt = {
+            "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+            "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+            "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+        }
 
-                    col_ge1, col_ge2 = st.columns(2)
-                    if col_ge1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
-                        if ws_gmail:
-                            cell_g = ws_gmail.find(id_g)
-                            if cell_g:
-                                r_n = cell_g.row
-                                ws_gmail.update_cell(r_n, 2, e_asunto.strip())
-                                ws_gmail.update_cell(r_n, 3, e_remitente.strip())
-                                ws_gmail.update_cell(r_n, 4, e_etapa.strip())
-                                ws_gmail.update_cell(r_n, 5, e_ot.strip())
-                                ws_gmail.update_cell(r_n, 6, e_financiero.strip())
-                                st.success("¡Registro de Gmail actualizado!")
-                                st.rerun()
+        # Agrupamos los registros por mes extraído de su fecha
+        from collections import defaultdict
+        registros_por_mes = defaultdict(list)
+
+        for row_g in registros_gmail:
+            f_val = str(row_g.get("fecha_creacion", "") or row_g.get("fecha_envio", "")).strip()
+            mes_key = "Sin Fecha / Otros"
+            
+            # Intentamos extraer el mes (asumiendo formatos tipo DD/MM/YYYY o YYYY-MM-DD)
+            if "/" in f_val and len(f_val) >= 10:
+                partes_f = f_val.split()[0].split("/")
+                if len(partes_f) == 3 and partes_f[1].isdigit():
+                    m_num = partes_f[1].zfill(2)
+                    anio = partes_f[2]
+                    mes_key = f"{nombres_meses_txt.get(m_num, m_num)} {anio}"
+            elif "-" in f_val and len(f_val) >= 7:
+                partes_f = f_val.split()[0].split("-")
+                if len(partes_f) == 3 and partes_f[1].isdigit():
+                    m_num = partes_f[1].zfill(2)
+                    anio = partes_f[0]
+                    mes_key = f"{nombres_meses_txt.get(m_num, m_num)} {anio}"
+            
+            registros_por_mes[mes_key].append(row_g)
+
+        # Renderizamos por cada sección de mes
+        for mes_seccion, regs_en_mes in registros_por_mes.items():
+            with st.expander(f"📅 Mes: **{mes_seccion}** ({len(regs_en_mes)} registros)", expanded=(mes_seccion == list(registros_por_mes.keys())[0])):
+                for idx, row_g in enumerate(regs_en_mes):
+                    id_g = str(row_g.get("id", idx))
+                    asunto_v = str(row_g.get("asunto", ""))
+                    fecha_etiq = str(row_g.get("fecha_creacion", "") or row_g.get("fecha_envio", ""))
                     
-                    if col_ge2.form_submit_button("🗑️ Borrar Registro", use_container_width=True):
-                        if ws_gmail:
-                            cell_g = ws_gmail.find(id_g)
-                            if cell_g:
-                                ws_gmail.delete_rows(cell_g.row)
-                                st.success("¡Registro borrado!")
-                                st.rerun()
+                    with st.expander(f"✉️ [{fecha_etiq}] {asunto_v or 'Sin Asunto'} (Remitente: {row_g.get('estado_gmail', 'N/A')})", expanded=False):
+                        with st.form(key=f"form_edit_gmail_{id_g}_{mes_seccion}"):
+                            e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}")
+                            e_remitente = st.text_input("Remitente / Estado:", value=str(row_g.get("estado_gmail", "")), key=f"rem_g_{id_g}")
+                            e_etapa = st.text_input("Etapa proceso:", value=str(row_g.get("etapa_proceso", "")), key=f"etapa_g_{id_g}")
+                            e_ot = st.text_input("Nro OT / Detalle:", value=str(row_g.get("nro_ot", "")), key=f"ot_g_{id_g}")
+                            e_financiero = st.text_input("Estado Financiero:", value=str(row_g.get("estado_financiero", "")), key=f"fin_g_{id_g}")
+
+                            col_ge1, col_ge2 = st.columns(2)
+                            if col_ge1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                                if ws_gmail:
+                                    cell_g = ws_gmail.find(id_g)
+                                    if cell_g:
+                                        r_n = cell_g.row
+                                        ws_gmail.update_cell(r_n, 2, e_asunto.strip())
+                                        ws_gmail.update_cell(r_n, 3, e_remitente.strip())
+                                        ws_gmail.update_cell(r_n, 4, e_etapa.strip())
+                                        ws_gmail.update_cell(r_n, 5, e_ot.strip())
+                                        ws_gmail.update_cell(r_n, 6, e_financiero.strip())
+                                        st.success("¡Registro de Gmail actualizado!")
+                                        st.rerun()
+                            
+                            if col_ge2.form_submit_button("🗑️ Borrar Registro", use_container_width=True):
+                                if ws_gmail:
+                                    cell_g = ws_gmail.find(id_g)
+                                    if cell_g:
+                                        ws_gmail.delete_rows(cell_g.row)
+                                        st.success("¡Registro borrado!")
+                                        st.rerun()
     else:
         st.info("No hay registros en el seguimiento de Gmail.")
 
