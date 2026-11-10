@@ -788,7 +788,6 @@ with tab_gmail:
     registros_gmail = []
     if ws_gmail:
         try:
-            # Traemos los registros como lista de diccionarios
             registros_gmail = ws_gmail.get_all_records()
         except Exception:
             registros_gmail = []
@@ -796,32 +795,32 @@ with tab_gmail:
     if registros_gmail:
         df_gmail = pd.DataFrame(registros_gmail)
         
-        # Intentamos ordenar por fecha de creación o fecha de envío si existen
-        col_fecha_orden = None
-        for col_posible in ["fecha_creacion", "fecha_envio"]:
-            if col_posible in df_gmail.columns:
-                col_fecha_orden = col_posible
-                break
-        
-        if col_fecha_orden:
-            df_gmail["_temp_dt"] = pd.to_datetime(df_gmail[col_fecha_orden], format="%d/%m/%Y %H:%M", errors="coerce")
-            if df_gmail["_temp_dt"].isna().all():
-                df_gmail["_temp_dt"] = pd.to_datetime(df_gmail[col_fecha_orden], errors="coerce")
-            df_gmail = df_gmail.sort_values(by="_temp_dt", ascending=False).drop(columns=["_temp_dt"])
-        
-        # Limpiamos por si quedó alguna columna 'id' vieja en el DataFrame
+        # Ocultar o quitar la columna 'id' si todavía existe en la lectura
         if "id" in df_gmail.columns:
             df_mostrar = df_gmail.drop(columns=["id"])
         else:
             df_mostrar = df_gmail
 
-        st.markdown("#### 📋 Registros Actuales (Vista General Completa)")
-        st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+        # Ordenar el DataFrame general por fecha de creación o envío de más reciente a más antiguo
+        if "fecha_creacion" in df_gmail.columns:
+            df_gmail["_dt_sort"] = pd.to_datetime(df_gmail["fecha_creacion"], errors="coerce")
+            df_gmail = df_gmail.sort_values(by="_dt_sort", ascending=False).drop(columns=["_dt_sort"])
+        elif "fecha_envio" in df_gmail.columns:
+            df_gmail["_dt_sort"] = pd.to_datetime(df_gmail["fecha_envio"], errors="coerce")
+            df_gmail = df_gmail.sort_values(by="_dt_sort", ascending=False).drop(columns=["_dt_sort"])
 
-        # --- EXCEL DESCARGABLE DE GMAIL (ORDENADO Y COMPLETO) ---
+        if "id" in df_gmail.columns:
+            df_mostrar_ordenado = df_gmail.drop(columns=["id", "_dt_sort"], errors="ignore")
+        else:
+            df_mostrar_ordenado = df_gmail.drop(columns=["_dt_sort"], errors="ignore")
+
+        st.markdown("#### 📋 Registros Actuales")
+        st.dataframe(df_mostrar_ordenado, use_container_width=True, hide_index=True)
+
+        # --- EXCEL DESCARGABLE DE GMAIL (SIN ID Y ORDENADO) ---
         buffer_excel_gmail = io.BytesIO()
         with pd.ExcelWriter(buffer_excel_gmail, engine="openpyxl") as writer:
-            df_mostrar.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
+            df_mostrar_ordenado.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
         
         st.markdown("<br>", unsafe_allow_html=True)
         st.download_button(
@@ -835,7 +834,7 @@ with tab_gmail:
         
         st.divider()
 
-        # --- GESTIÓN SEPARADA POR SECCIONES DE MESES EN FORMATO DE CUADRO ---
+        # --- GESTIÓN ORDENADA Y SEPARADA POR MESES ---
         st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail (Por Meses)")
         
         nombres_meses_txt = {
@@ -847,14 +846,14 @@ with tab_gmail:
         from collections import defaultdict
         registros_por_mes = defaultdict(list)
 
-        # Recorremos asignando el número de fila real en Google Sheets (start=2 porque la fila 1 son los títulos)
         rows_sheet = ws_gmail.get_all_values()
         
+        # Mapeamos las filas reales de la hoja (fila 1 son los encabezados)
         for idx_h, row_vals in enumerate(rows_sheet[1:], start=2):
             if not row_vals or not any(row_vals):
                 continue
             
-            # Mapeamos según las columnas actuales de tu imagen (Asunto=Col A, Fecha_env=Col B, etc.)
+            # Detectamos las columnas según tu estructura actual
             row_dict = {
                 "fila_sheet": idx_h,
                 "asunto": row_vals[0] if len(row_vals) > 0 else "",
@@ -867,29 +866,31 @@ with tab_gmail:
                 "fecha_creacion": row_vals[7] if len(row_vals) > 7 else ""
             }
 
+            # Extracción correcta del mes desde fecha_creacion o fecha_envio
             f_val = str(row_dict["fecha_creacion"] or row_dict["fecha_envio"]).strip()
             mes_key = "Sin Fecha / Otros"
             
-            if "/" in f_val and len(f_val) >= 10:
-                partes_f = f_val.split()[0].split("/")
-                if len(partes_f) == 3 and partes_f[1].isdigit():
-                    m_num = partes_f[1].zfill(2)
-                    anio = partes_f[2]
+            # Soporta formatos "DD/MM/YYYY" o "YYYY-MM-DD"
+            if "/" in f_val:
+                partes = f_val.split()[0].split("/")
+                if len(partes) == 3 and partes[1].isdigit():
+                    m_num = partes[1].zfill(2)
+                    anio = partes[2]
                     mes_key = f"{nombres_meses_txt.get(m_num, m_num)} {anio}"
-            elif "-" in f_val and len(f_val) >= 7:
-                partes_f = f_val.split()[0].split("-")
-                if len(partes_f) == 3 and partes_f[1].isdigit():
-                    m_num = partes_f[1].zfill(2)
-                    anio = partes_f[0]
+            elif "-" in f_val:
+                partes = f_val.split()[0].split("-")
+                if len(partes) == 3 and partes[1].isdigit():
+                    anio = partes[0]
+                    m_num = partes[1].zfill(2)
                     mes_key = f"{nombres_meses_txt.get(m_num, m_num)} {anio}"
             
             registros_por_mes[mes_key].append(row_dict)
 
-        # Renderizamos por cada sección de mes
+        # Renderizamos por secciones de meses
         for mes_seccion, regs_en_mes in registros_por_mes.items():
             with st.expander(f"📅 Mes: **{mes_seccion}** ({len(regs_en_mes)} registros)", expanded=(mes_seccion == list(registros_por_mes.keys())[0])):
                 
-                # Cuadro resumen completo de este mes
+                # Cuadro resumen completo de este mes específico
                 df_mes = pd.DataFrame(regs_en_mes).drop(columns=["fila_sheet"], errors="ignore")
                 st.dataframe(df_mes, use_container_width=True, hide_index=True)
                 
@@ -913,7 +914,6 @@ with tab_gmail:
                             if col_ge1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
                                 if ws_gmail:
                                     try:
-                                        # Actualizamos directamente por el número de fila exacto en la hoja
                                         ws_gmail.update_cell(fila_n, 1, e_asunto.strip())
                                         ws_gmail.update_cell(fila_n, 3, e_remitente.strip())
                                         ws_gmail.update_cell(fila_n, 4, e_etapa.strip())
@@ -948,10 +948,9 @@ with tab_gmail:
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
-                # Agregamos respetando exactamente las columnas actuales sin requerir el ID
                 ws_gmail.append_row([
                     nuevo_asunto.strip(),
-                    "",  # fecha_envio vacía por defecto al crear
+                    "",  # fecha_envio
                     nuevo_remitente.strip(),
                     nuevo_etapa.strip(),
                     nuevo_ot.strip(),
