@@ -803,12 +803,10 @@ with tab_gmail:
                 break
         
         if col_fecha_orden:
-            # Convertimos a datetime para ordenar correctamente (manejando errores si hay celdas vacías)
             df_gmail["_temp_dt"] = pd.to_datetime(df_gmail[col_fecha_orden], format="%d/%m/%Y %H:%M", errors="coerce")
             if df_gmail["_temp_dt"].isna().all():
                 df_gmail["_temp_dt"] = pd.to_datetime(df_gmail[col_fecha_orden], errors="coerce")
             
-            # Ordenar de más reciente a más antiguo (cambiar a True si preferís del más antiguo al más nuevo)
             df_gmail = df_gmail.sort_values(by="_temp_dt", ascending=False).drop(columns=["_temp_dt"])
         
         # Ocultar o quitar la columna 'id' para la visualización y exportación
@@ -817,7 +815,8 @@ with tab_gmail:
         else:
             df_mostrar = df_gmail
 
-        st.markdown("#### 📋 Registros Actuales (Ordenados por Fecha)")
+        st.markdown("#### 📋 Registros Actuales (Vista General Completa)")
+        # use_container_width=True hace que ocupe todo el ancho de la pantalla en formato de cuadro completo
         st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
 
         # --- EXCEL DESCARGABLE DE GMAIL (SIN ID Y ORDENADO) ---
@@ -837,17 +836,15 @@ with tab_gmail:
         
         st.divider()
 
-        # --- GESTIÓN SEPARADA POR SECCIONES DE MESES ---
+        # --- GESTIÓN SEPARADA POR SECCIONES DE MESES EN FORMATO DE CUADRO ---
         st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail (Por Meses)")
         
-        # Diccionario de meses en español para los títulos de las secciones
         nombres_meses_txt = {
             "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
             "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
             "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
         }
 
-        # Agrupamos los registros por mes extraído de su fecha
         from collections import defaultdict
         registros_por_mes = defaultdict(list)
 
@@ -855,7 +852,6 @@ with tab_gmail:
             f_val = str(row_g.get("fecha_creacion", "") or row_g.get("fecha_envio", "")).strip()
             mes_key = "Sin Fecha / Otros"
             
-            # Intentamos extraer el mes (asumiendo formatos tipo DD/MM/YYYY o YYYY-MM-DD)
             if "/" in f_val and len(f_val) >= 10:
                 partes_f = f_val.split()[0].split("/")
                 if len(partes_f) == 3 and partes_f[1].isdigit():
@@ -871,9 +867,19 @@ with tab_gmail:
             
             registros_por_mes[mes_key].append(row_g)
 
-        # Renderizamos por cada sección de mes
+        # Renderizamos por cada sección de mes con su propia mini-tabla resumen en cuadro
         for mes_seccion, regs_en_mes in registros_por_mes.items():
             with st.expander(f"📅 Mes: **{mes_seccion}** ({len(regs_en_mes)} registros)", expanded=(mes_seccion == list(registros_por_mes.keys())[0])):
+                
+                # Mostramos un cuadro resumen exclusivo de este mes para verlo completo de un vistazo
+                df_mes = pd.DataFrame(regs_en_mes)
+                if "id" in df_mes.columns:
+                    df_mes = df_mes.drop(columns=["id"])
+                st.dataframe(df_mes, use_container_width=True, hide_index=True)
+                
+                st.markdown("---")
+                st.markdown(f"**Editar registros de {mes_seccion}:**")
+
                 for idx, row_g in enumerate(regs_en_mes):
                     id_g = str(row_g.get("id", idx))
                     asunto_v = str(row_g.get("asunto", ""))
