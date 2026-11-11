@@ -795,19 +795,18 @@ with tab_gmail:
     if registros_gmail:
         df_gmail = pd.DataFrame(registros_gmail)
         
-        # Ocultar la columna 'id' si existiera
-        if "id" in df_gmail.columns:
-            df_mostrar = df_gmail.drop(columns=["id"])
-        else:
-            df_mostrar = df_gmail
-
+        # ELIMINAR COLUMNAS QUE NO QUEREMOS MOSTRAR (id y estado_financiero)
+        columnas_a_borrar = [c for c in ["id", "estado_financiero"] if c in df_gmail.columns]
+        if columnas_a_borrar:
+            df_gmail = df_gmail.drop(columns=columnas_a_borrar)
+            
         st.markdown("#### 📋 Registros Actuales")
-        st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+        st.dataframe(df_gmail, use_container_width=True, hide_index=True)
 
-        # --- EXCEL DESCARGABLE DE GMAIL ---
+        # --- EXCEL DESCARGABLE DE GMAIL (SIN ESTADO FINANCIERO NI ID) ---
         buffer_excel_gmail = io.BytesIO()
         with pd.ExcelWriter(buffer_excel_gmail, engine="openpyxl") as writer:
-            df_mostrar.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
+            df_gmail.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
         
         st.markdown("<br>", unsafe_allow_html=True)
         st.download_button(
@@ -823,57 +822,54 @@ with tab_gmail:
 
         st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail")
         for idx, row_g in enumerate(registros_gmail):
+            # Identificador seguro por índice o ID si existiera
             id_g = str(row_g.get("id", idx))
             asunto_v = str(row_g.get("asunto", ""))
             
             with st.expander(f"✉️ {asunto_v or 'Sin Asunto'} (Estado: {row_g.get('estado_gmail', 'N/A')})", expanded=False):
-                with st.form(key=f"form_edit_gmail_{id_g}"):
-                    e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}")
-                    e_envio = st.text_input("Fecha Envío:", value=str(row_g.get("fecha_envio", "")), key=f"envio_g_{id_g}")
-                    e_remitente = st.text_input("Remitente / Estado Gmail:", value=str(row_g.get("estado_gmail", "")), key=f"rem_g_{id_g}")
-                    e_etapa = st.text_input("Etapa Proceso:", value=str(row_g.get("etapa_proceso", "")), key=f"etapa_g_{id_g}")
-                    e_ot = st.text_input("Nro OT / Detalle:", value=str(row_g.get("nro_ot", "")), key=f"ot_g_{id_g}")
+                with st.form(key=f"form_edit_gmail_{id_g}_{idx}"):
+                    e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}_{idx}")
+                    e_envio = st.text_input("Fecha Envío:", value=str(row_g.get("fecha_envio", "")), key=f"envio_g_{id_g}_{idx}")
+                    e_remitente = st.text_input("Remitente / Estado Gmail:", value=str(row_g.get("estado_gmail", "")), key=f"rem_g_{id_g}_{idx}")
+                    e_etapa = st.text_input("Etapa Proceso:", value=str(row_g.get("etapa_proceso", "")), key=f"etapa_g_{id_g}_{idx}")
+                    e_ot = st.text_input("Nro OT / Detalle:", value=str(row_g.get("nro_ot", "")), key=f"ot_g_{id_g}_{idx}")
 
                     col_ge1, col_ge2 = st.columns(2)
                     if col_ge1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
                         if ws_gmail:
-                            cell_g = ws_gmail.find(id_g) if "id" in df_gmail.columns else None
-                            if cell_g:
-                                r_n = cell_g.row
-                                ws_gmail.update_cell(r_n, 1, e_asunto.strip())
-                                ws_gmail.update_cell(r_n, 2, e_envio.strip())
-                                ws_gmail.update_cell(r_n, 3, e_remitente.strip())
-                                ws_gmail.update_cell(r_n, 4, e_etapa.strip())
-                                ws_gmail.update_cell(r_n, 5, e_ot.strip())
-                                st.success("¡Registro de Gmail actualizado!")
-                                st.rerun()
-                            else:
-                                # Búsqueda alternativa si no usa ID
+                            try:
                                 rows_all = ws_gmail.get_all_values()
+                                # Buscamos la fila exacta basándonos en el asunto original o la posición
+                                fila_encontrada = False
                                 for i_r, rw in enumerate(rows_all[1:], start=2):
-                                    if rw and rw[0] == asunto_v:
+                                    if rw and len(rw) > 0 and rw[0] == asunto_v:
                                         ws_gmail.update_cell(i_r, 1, e_asunto.strip())
                                         ws_gmail.update_cell(i_r, 2, e_envio.strip())
                                         ws_gmail.update_cell(i_r, 3, e_remitente.strip())
                                         ws_gmail.update_cell(i_r, 4, e_etapa.strip())
                                         ws_gmail.update_cell(i_r, 5, e_ot.strip())
-                                        st.success("¡Actualizado correctamente!")
-                                        st.rerun()
+                                        fila_encontrada = True
+                                        break
+                                
+                                if fila_encontrada:
+                                    st.success("¡Registro de Gmail actualizado!")
+                                    st.rerun()
+                                else:
+                                    st.error("No se pudo ubicar la fila exacta en Google Sheets.")
+                            except Exception as err_upd:
+                                st.error(f"Error al actualizar: {err_upd}")
                     
                     if col_ge2.form_submit_button("🗑️ Borrar Registro", use_container_width=True):
                         if ws_gmail:
-                            cell_g = ws_gmail.find(id_g) if "id" in df_gmail.columns else None
-                            if cell_g:
-                                ws_gmail.delete_rows(cell_g.row)
-                                st.success("¡Registro borrado!")
-                                st.rerun()
-                            else:
+                            try:
                                 rows_all = ws_gmail.get_all_values()
                                 for i_r, rw in enumerate(rows_all[1:], start=2):
-                                    if rw and rw[0] == asunto_v:
+                                    if rw and len(rw) > 0 and rw[0] == asunto_v:
                                         ws_gmail.delete_rows(i_r)
-                                        st.success("¡Borrado correctamente!")
+                                        st.success("¡Registro borrado!")
                                         st.rerun()
+                            except Exception as err_del:
+                                st.error(f"Error al borrar: {err_del}")
     else:
         st.info("No hay registros en el seguimiento de Gmail.")
 
@@ -884,16 +880,15 @@ with tab_gmail:
         cg1, cg2 = st.columns(2)
         nuevo_asunto = cg1.text_input("Asunto:")
         nuevo_remitente = cg2.text_input("Remitente / Estado Gmail:")
-        nuevo_etapa = cg_etapa = st.text_input("Etapa Proceso:", value="Pendiente")
+        nuevo_etapa = st.text_input("Etapa Proceso:", value="Pendiente")
         nuevo_ot = st.text_area("Nro OT / Detalle:")
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
-                # Estructura exacta sin estado financiero y con casillas coincidentes:
-                # [asunto, fecha_envio, estado_gmail, etapa_proceso, nro_ot, creado_por, fecha_creacion]
+                # Estructura limpia sin estado financiero
                 ws_gmail.append_row([
                     nuevo_asunto.strip(),
-                    "",  # fecha_envio vacía al crear
+                    "",  # fecha_envio
                     nuevo_remitente.strip(),
                     nuevo_etapa.strip(),
                     nuevo_ot.strip(),
