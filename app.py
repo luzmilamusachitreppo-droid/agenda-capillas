@@ -795,7 +795,7 @@ with tab_gmail:
     if registros_gmail:
         df_gmail = pd.DataFrame(registros_gmail)
         
-        # ELIMINAR COLUMNAS QUE NO QUEREMOS MOSTRAR (id y estado_financiero)
+        # Ocultar columnas que no van
         columnas_a_borrar = [c for c in ["id", "estado_financiero"] if c in df_gmail.columns]
         if columnas_a_borrar:
             df_gmail = df_gmail.drop(columns=columnas_a_borrar)
@@ -803,7 +803,7 @@ with tab_gmail:
         st.markdown("#### 📋 Registros Actuales")
         st.dataframe(df_gmail, use_container_width=True, hide_index=True)
 
-        # --- EXCEL DESCARGABLE DE GMAIL (SIN ESTADO FINANCIERO NI ID) ---
+        # --- EXCEL DESCARGABLE DE GMAIL ---
         buffer_excel_gmail = io.BytesIO()
         with pd.ExcelWriter(buffer_excel_gmail, engine="openpyxl") as writer:
             df_gmail.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
@@ -822,7 +822,6 @@ with tab_gmail:
 
         st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail")
         for idx, row_g in enumerate(registros_gmail):
-            # Identificador seguro por índice o ID si existiera
             id_g = str(row_g.get("id", idx))
             asunto_v = str(row_g.get("asunto", ""))
             
@@ -839,7 +838,6 @@ with tab_gmail:
                         if ws_gmail:
                             try:
                                 rows_all = ws_gmail.get_all_values()
-                                # Buscamos la fila exacta basándonos en el asunto original o la posición
                                 fila_encontrada = False
                                 for i_r, rw in enumerate(rows_all[1:], start=2):
                                     if rw and len(rw) > 0 and rw[0] == asunto_v:
@@ -875,20 +873,24 @@ with tab_gmail:
 
     st.divider()
 
+    # --- FORMULARIO NUEVO CON LAS 5 CASILLAS EXACTAS ---
     st.markdown("#### ➕ Agregar Nuevo Registro de Gmail")
     with st.form("form_add_gmail_completo", clear_on_submit=True):
         cg1, cg2 = st.columns(2)
         nuevo_asunto = cg1.text_input("Asunto:")
-        nuevo_remitente = cg2.text_input("Remitente / Estado Gmail:")
+        nuevo_envio = cg2.text_input("Fecha Envío (ej: 19/10/2026 o vacío):")
+        
+        nuevo_remitente = st.text_input("Remitente / Estado Gmail:")
         nuevo_etapa = st.text_input("Etapa Proceso:", value="Pendiente")
         nuevo_ot = st.text_area("Nro OT / Detalle:")
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
-                # Estructura limpia sin estado financiero
+                # Orden estricto que coincide columna por columna con la tabla:
+                # 1. asunto | 2. fecha_envio | 3. estado_gmail | 4. etapa_proceso | 5. nro_ot | 6. creado_por | 7. fecha_creacion
                 ws_gmail.append_row([
                     nuevo_asunto.strip(),
-                    "",  # fecha_envio
+                    nuevo_envio.strip(),
                     nuevo_remitente.strip(),
                     nuevo_etapa.strip(),
                     nuevo_ot.strip(),
