@@ -821,6 +821,8 @@ with tab_gmail:
         st.divider()
 
         st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail")
+        ETAPAS_OPCIONES = ["Pendiente", "Facturado", "No facturado"]
+
         for idx, row_g in enumerate(registros_gmail):
             id_g = str(row_g.get("id", idx))
             asunto_v = str(row_g.get("asunto", ""))
@@ -830,7 +832,11 @@ with tab_gmail:
                     e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}_{idx}")
                     e_envio = st.text_input("Fecha Envío:", value=str(row_g.get("fecha_envio", "")), key=f"envio_g_{id_g}_{idx}")
                     e_remitente = st.text_input("Remitente / Estado Gmail:", value=str(row_g.get("estado_gmail", "")), key=f"rem_g_{id_g}_{idx}")
-                    e_etapa = st.text_input("Etapa Proceso:", value=str(row_g.get("etapa_proceso", "")), key=f"etapa_g_{id_g}_{idx}")
+                    
+                    val_etapa_actual = str(row_g.get("etapa_proceso", "Pendiente"))
+                    idx_etapa = ETAPAS_OPCIONES.index(val_etapa_actual) if val_etapa_actual in ETAPAS_OPCIONES else 0
+                    e_etapa = st.selectbox("Etapa Proceso:", options=ETAPAS_OPCIONES, index=idx_etapa, key=f"etapa_g_{id_g}_{idx}")
+                    
                     e_ot = st.text_input("Nro OT / Detalle:", value=str(row_g.get("nro_ot", "")), key=f"ot_g_{id_g}_{idx}")
 
                     col_ge1, col_ge2 = st.columns(2)
@@ -873,7 +879,7 @@ with tab_gmail:
 
     st.divider()
 
-    # --- FORMULARIO NUEVO CON LAS 5 CASILLAS EXACTAS ---
+    # --- FORMULARIO NUEVO CON SELECTOR DE ETAPA ---
     st.markdown("#### ➕ Agregar Nuevo Registro de Gmail")
     with st.form("form_add_gmail_completo", clear_on_submit=True):
         cg1, cg2 = st.columns(2)
@@ -881,13 +887,15 @@ with tab_gmail:
         nuevo_envio = cg2.text_input("Fecha Envío (ej: 19/10/2026 o vacío):")
         
         nuevo_remitente = st.text_input("Remitente / Estado Gmail:")
-        nuevo_etapa = st.text_input("Etapa Proceso:", value="Pendiente")
+        
+        # Selector desplegable con las opciones solicitadas
+        ETAPAS_OPCIONES = ["Pendiente", "Facturado", "No facturado"]
+        nuevo_etapa = st.selectbox("Etapa Proceso:", options=ETAPAS_OPCIONES, index=0)
+        
         nuevo_ot = st.text_area("Nro OT / Detalle:")
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
-                # Orden estricto que coincide columna por columna con la tabla:
-                # 1. asunto | 2. fecha_envio | 3. estado_gmail | 4. etapa_proceso | 5. nro_ot | 6. creado_por | 7. fecha_creacion
                 ws_gmail.append_row([
                     nuevo_asunto.strip(),
                     nuevo_envio.strip(),
