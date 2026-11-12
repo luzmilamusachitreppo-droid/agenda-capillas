@@ -881,7 +881,6 @@ with tab_gmail:
     if registros_gmail:
         df_gmail = pd.DataFrame(registros_gmail)
         
-        # Ocultar columnas internas si existieran
         columnas_a_borrar = [c for c in ["id", "estado_financiero"] if c in df_gmail.columns]
         if columnas_a_borrar:
             df_gmail = df_gmail.drop(columns=columnas_a_borrar)
@@ -961,11 +960,11 @@ with tab_gmail:
                             )
                             
                             col_e2, col_e3 = st.columns(2)
-                            val_trab_actual = str(row_g.get("Trabajo realizado", row_g.get("Trabajo realizado / No", ""))).strip().upper()
+                            val_trab_actual = str(row_g.get("TRABAJOS REALIZADOS", row_g.get("Trabajo realizado", row_g.get("Trabajo realizado / No", "")))).strip().upper()
                             opciones_trab_edit = TRABAJO_OPCIONES + ([val_trab_actual] if val_trab_actual and val_trab_actual not in TRABAJO_OPCIONES else [])
                             idx_trab = opciones_trab_edit.index(val_trab_actual) if val_trab_actual in opciones_trab_edit else 0
                             e_trabajo = col_e2.selectbox(
-                                "Trabajo realizado:",
+                                "TRABAJOS REALIZADOS",
                                 options=opciones_trab_edit,
                                 index=idx_trab,
                                 key=f"trab_g_{id_g}_{idx}"
@@ -993,8 +992,8 @@ with tab_gmail:
                             )
 
                             e_observaciones = st.text_area(
-                                "Observaciones:",
-                                value=str(row_g.get("observaciones", "")),
+                                "OBSERVACIONES:",
+                                value=str(row_g.get("OBSERVACIONES", row_g.get("observaciones", ""))),
                                 key=f"obs_g_{id_g}_{idx}"
                             )
 
@@ -1051,7 +1050,7 @@ with tab_gmail:
         nueva_fecha_presup = cg1.text_input("Fecha de Envío de Presupuesto (ej: 12/11/2026):")
         
         cg2, cg3 = st.columns(2)
-        nuevo_trabajo = cg2.selectbox("Trabajo realizado:", options=["", "SI", "NO"], index=0)
+        nuevo_trabajo = cg2.selectbox("TRABAJOS REALIZADOS", options=["", "SI", "NO"], index=0)
         nueva_inversion = cg3.text_input("Inversión:")
         
         cg4, cg5 = st.columns(2)
@@ -1065,12 +1064,10 @@ with tab_gmail:
         ]
         nueva_etapa = cg5.selectbox("Etapa Proceso:", options=ETAPAS_NUEVO, index=0)
 
-        nuevo_observaciones = st.text_area("Observaciones:")
+        nuevo_observaciones = st.text_area("OBSERVACIONES:")
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
-                # Orden de columnas en Sheets:
-                # [asunto, nro_ot, FECHA DE ENVIO DE PRESUPUESTO, Trabajo realizado, INVERSION, VALOR DEL PRESUPUESTO, etapa_proceso, observaciones]
                 ws_gmail.append_row([
                     nuevo_asunto.strip(),
                     nuevo_nro_ot.strip(),
