@@ -795,7 +795,7 @@ with tab_gmail:
     if registros_gmail:
         df_gmail = pd.DataFrame(registros_gmail)
         
-        # Ocultar columnas que no van
+        # Ocultar columnas internas que no se deben mostrar
         columnas_a_borrar = [c for c in ["id", "estado_financiero"] if c in df_gmail.columns]
         if columnas_a_borrar:
             df_gmail = df_gmail.drop(columns=columnas_a_borrar)
@@ -803,41 +803,112 @@ with tab_gmail:
         st.markdown("#### 📋 Registros Actuales")
         st.dataframe(df_gmail, use_container_width=True, hide_index=True)
 
-        # --- EXCEL DESCARGABLE DE GMAIL ---
-        buffer_excel_gmail = io.BytesIO()
-        with pd.ExcelWriter(buffer_excel_gmail, engine="openpyxl") as writer:
-            df_gmail.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.download_button(
-            label="📊 Descargar Planilla de Gmail en Excel (.xlsx)",
-            data=buffer_excel_gmail.getvalue(),
-            file_name=f"Reporte_Gmail_Capillas_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-            type="primary"
-        )
+        # --- GENERADOR DE EXCEL Y PDF ---
+        col_desc_ex, col_desc_pdf = st.columns(2)
+
+        with col_desc_ex:
+            buffer_excel_gmail = io.BytesIO()
+            with pd.ExcelWriter(buffer_excel_gmail, engine="openpyxl") as writer:
+                df_gmail.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
+                
+                worksheet = writer.sheets["Gmail_Tracking"]
+                for col in worksheet.columns:
+                    max_len = max(len(str(cell.value or '')) for cell in col)
+                    col_letter = openpyxl.utils.get_column_letter(col[0].column)
+                    worksheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+            st.download_button(
+                label="📊 Descargar Excel (.xlsx)",
+                data=buffer_excel_gmail.getvalue(),
+                file_name=f"Reporte_Gmail_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                type="primary"
+            )
+
+        with col_desc_pdf:
+            buffer_pdf_gmail = io.BytesIO()
+            doc_pdf = SimpleDocTemplate(
+                buffer_pdf_gmail,
+                pagesize=landscape(letter),
+                rightMargin=20, leftMargin=20, topMargin=30, bottomMargin=30
+            )
+            elements_pdf = []
+            
+            styles_pdf = getSampleStyleSheet()
+            title_style = styles_pdf['Heading2']
+            title_style.alignment = 1
+            
+            elements_pdf.append(Paragraph(f"<b>Seguimiento de Correos y Gestiones (Gmail)</b> - {datetime.now().strftime('%d/%m/%Y')}", title_style))
+            elements_pdf.append(Spacer(1, 15))
+
+            headers_pdf = list(df_gmail.columns)
+            data_pdf = [[Paragraph(f"<b>{h.replace('_', ' ').title()}</b>", styles_pdf['Normal']) for h in headers_pdf]]
+
+            cell_style = ParagraphStyle(
+                'CellText',
+                parent=styles_pdf['Normal'],
+                fontSize=8,
+                leading=10
+            )
+
+            for _, r_row in df_gmail.iterrows():
+                row_cells = []
+                for val in r_row.values:
+                    txt_v = str(val) if val is not None else ""
+                    row_cells.append(Paragraph(txt_v, cell_style))
+                data_pdf.append(row_cells)
+
+            tabla_pdf = Table(data_pdf, repeatRows=1)
+            tabla_pdf.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4A90E2')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F4F6F8')]),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ]))
+
+            elements_pdf.append(tabla_pdf)
+            doc_pdf.build(elements_pdf)
+
+            st.download_button(
+                label="📄 Descargar PDF (.pdf)",
+                data=buffer_pdf_gmail.getvalue(),
+                file_name=f"Reporte_Gmail_{datetime.now().strftime('%Y-%m-%d')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
         
         st.divider()
 
         st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail")
-        ETAPAS_OPCIONES = ["Pendiente", "Facturado", "No facturado"]
+        ETAPAS_OPCIONES = ["Pendiente de aprobación", "Facturado", "No facturado"]
 
         for idx, row_g in enumerate(registros_gmail):
             id_g = str(row_g.get("id", idx))
             asunto_v = str(row_g.get("asunto", ""))
             
-            with st.expander(f"✉️ {asunto_v or 'Sin Asunto'} (Estado: {row_g.get('estado_gmail', 'N/A')})", expanded=False):
+            with st.expander(f"✉️ {asunto_v or 'Sin Asunto'} (Remitente: {row_g.get('remitente', 'N/A')})", expanded=False):
                 with st.form(key=f"form_edit_gmail_{id_g}_{idx}"):
                     e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}_{idx}")
                     e_envio = st.text_input("Fecha Envío:", value=str(row_g.get("fecha_envio", "")), key=f"envio_g_{id_g}_{idx}")
-                    e_remitente = st.text_input("Remitente / Estado Gmail:", value=str(row_g.get("estado_gmail", "")), key=f"rem_g_{id_g}_{idx}")
                     
-                    val_etapa_actual = str(row_g.get("etapa_proceso", "Pendiente"))
+                    # Campos separados para Remitente y Estado de Gmail
+                    col_e1, col_e2 = st.columns(2)
+                    e_remitente = col_e1.text_input("Remitente:", value=str(row_g.get("remitente", "")), key=f"rem_g_{id_g}_{idx}")
+                    e_estado_gmail = col_e2.text_input("Estado de Gmail:", value=str(row_g.get("estado_gmail", "")), key=f"est_g_{id_g}_{idx}")
+                    
+                    val_etapa_actual = str(row_g.get("etapa_proceso", "Pendiente de aprobación"))
                     idx_etapa = ETAPAS_OPCIONES.index(val_etapa_actual) if val_etapa_actual in ETAPAS_OPCIONES else 0
                     e_etapa = st.selectbox("Etapa Proceso:", options=ETAPAS_OPCIONES, index=idx_etapa, key=f"etapa_g_{id_g}_{idx}")
                     
-                    e_ot = st.text_input("Nro OT / Detalle:", value=str(row_g.get("nro_ot", "")), key=f"ot_g_{id_g}_{idx}")
+                    # Campos separados para Nro OT y Detalle
+                    col_e3, col_e4 = st.columns(2)
+                    e_nro_ot = col_e3.text_input("Nro OT:", value=str(row_g.get("nro_ot", "")), key=f"ot_g_{id_g}_{idx}")
+                    e_detalle = col_e4.text_input("Detalle:", value=str(row_g.get("detalle", "")), key=f"det_g_{id_g}_{idx}")
 
                     col_ge1, col_ge2 = st.columns(2)
                     if col_ge1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
@@ -850,8 +921,10 @@ with tab_gmail:
                                         ws_gmail.update_cell(i_r, 1, e_asunto.strip())
                                         ws_gmail.update_cell(i_r, 2, e_envio.strip())
                                         ws_gmail.update_cell(i_r, 3, e_remitente.strip())
-                                        ws_gmail.update_cell(i_r, 4, e_etapa.strip())
-                                        ws_gmail.update_cell(i_r, 5, e_ot.strip())
+                                        ws_gmail.update_cell(i_r, 4, e_estado_gmail.strip())
+                                        ws_gmail.update_cell(i_r, 5, e_etapa.strip())
+                                        ws_gmail.update_cell(i_r, 6, e_nro_ot.strip())
+                                        ws_gmail.update_cell(i_r, 7, e_detalle.strip())
                                         fila_encontrada = True
                                         break
                                 
@@ -879,29 +952,39 @@ with tab_gmail:
 
     st.divider()
 
-    # --- FORMULARIO NUEVO CON SELECTOR DE ETAPA ---
+    # --- FORMULARIO NUEVO REGISTRO CON CAMPOS SEPARADOS ---
     st.markdown("#### ➕ Agregar Nuevo Registro de Gmail")
     with st.form("form_add_gmail_completo", clear_on_submit=True):
         cg1, cg2 = st.columns(2)
         nuevo_asunto = cg1.text_input("Asunto:")
         nuevo_envio = cg2.text_input("Fecha Envío (ej: 19/10/2026 o vacío):")
         
-        nuevo_remitente = st.text_input("Remitente / Estado Gmail:")
+        # Remitente y Estado de Gmail separados
+        cg3, cg4 = st.columns(2)
+        nuevo_remitente = cg3.text_input("Remitente:")
+        nuevo_estado_gmail = cg4.text_input("Estado de Gmail:")
         
-        # Selector desplegable con las opciones solicitadas
-        ETAPAS_OPCIONES = ["Pendiente", "Facturado", "No facturado"]
+        # Etapa Proceso con la nueva opción
+        ETAPAS_OPCIONES = ["Pendiente de aprobación", "Facturado", "No facturado"]
         nuevo_etapa = st.selectbox("Etapa Proceso:", options=ETAPAS_OPCIONES, index=0)
         
-        nuevo_ot = st.text_area("Nro OT / Detalle:")
+        # Nro OT y Detalle separados
+        cg5, cg6 = st.columns(2)
+        nuevo_nro_ot = cg5.text_input("Nro OT:")
+        nuevo_detalle = cg6.text_input("Detalle:")
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
+                # Estructura de columnas:
+                # [asunto, fecha_envio, remitente, estado_gmail, etapa_proceso, nro_ot, detalle, creado_por, fecha_creacion]
                 ws_gmail.append_row([
                     nuevo_asunto.strip(),
                     nuevo_envio.strip(),
                     nuevo_remitente.strip(),
+                    nuevo_estado_gmail.strip(),
                     nuevo_etapa.strip(),
-                    nuevo_ot.strip(),
+                    nuevo_nro_ot.strip(),
+                    nuevo_detalle.strip(),
                     st.session_state.get("usuario_actual", "Silvia"),
                     datetime.now().strftime("%d/%m/%Y %H:%M")
                 ])
