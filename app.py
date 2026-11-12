@@ -806,16 +806,11 @@ with tab_gmail:
         # --- GENERADOR DE EXCEL Y PDF ---
         col_desc_ex, col_desc_pdf = st.columns(2)
 
+        # 1. Excel (.xlsx) simplificado y sin errores
         with col_desc_ex:
             buffer_excel_gmail = io.BytesIO()
-            with pd.ExcelWriter(buffer_excel_gmail, engine="openpyxl") as writer:
+            with pd.ExcelWriter(buffer_excel_gmail, engine="xlsxwriter") as writer:
                 df_gmail.to_excel(writer, sheet_name="Gmail_Tracking", index=False)
-                
-                worksheet = writer.sheets["Gmail_Tracking"]
-                for col in worksheet.columns:
-                    max_len = max(len(str(cell.value or '')) for cell in col)
-                    col_letter = openpyxl.utils.get_column_letter(col[0].column)
-                    worksheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
             st.download_button(
                 label="📊 Descargar Excel (.xlsx)",
@@ -826,6 +821,7 @@ with tab_gmail:
                 type="primary"
             )
 
+        # 2. PDF (.pdf) en formato tabla apaisada (Landscape)
         with col_desc_pdf:
             buffer_pdf_gmail = io.BytesIO()
             doc_pdf = SimpleDocTemplate(
@@ -896,7 +892,6 @@ with tab_gmail:
                     e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}_{idx}")
                     e_envio = st.text_input("Fecha Envío:", value=str(row_g.get("fecha_envio", "")), key=f"envio_g_{id_g}_{idx}")
                     
-                    # Campos separados para Remitente y Estado de Gmail
                     col_e1, col_e2 = st.columns(2)
                     e_remitente = col_e1.text_input("Remitente:", value=str(row_g.get("remitente", "")), key=f"rem_g_{id_g}_{idx}")
                     e_estado_gmail = col_e2.text_input("Estado de Gmail:", value=str(row_g.get("estado_gmail", "")), key=f"est_g_{id_g}_{idx}")
@@ -905,7 +900,6 @@ with tab_gmail:
                     idx_etapa = ETAPAS_OPCIONES.index(val_etapa_actual) if val_etapa_actual in ETAPAS_OPCIONES else 0
                     e_etapa = st.selectbox("Etapa Proceso:", options=ETAPAS_OPCIONES, index=idx_etapa, key=f"etapa_g_{id_g}_{idx}")
                     
-                    # Campos separados para Nro OT y Detalle
                     col_e3, col_e4 = st.columns(2)
                     e_nro_ot = col_e3.text_input("Nro OT:", value=str(row_g.get("nro_ot", "")), key=f"ot_g_{id_g}_{idx}")
                     e_detalle = col_e4.text_input("Detalle:", value=str(row_g.get("detalle", "")), key=f"det_g_{id_g}_{idx}")
@@ -952,31 +946,26 @@ with tab_gmail:
 
     st.divider()
 
-    # --- FORMULARIO NUEVO REGISTRO CON CAMPOS SEPARADOS ---
+    # --- FORMULARIO NUEVO REGISTRO ---
     st.markdown("#### ➕ Agregar Nuevo Registro de Gmail")
     with st.form("form_add_gmail_completo", clear_on_submit=True):
         cg1, cg2 = st.columns(2)
         nuevo_asunto = cg1.text_input("Asunto:")
         nuevo_envio = cg2.text_input("Fecha Envío (ej: 19/10/2026 o vacío):")
         
-        # Remitente y Estado de Gmail separados
         cg3, cg4 = st.columns(2)
         nuevo_remitente = cg3.text_input("Remitente:")
         nuevo_estado_gmail = cg4.text_input("Estado de Gmail:")
         
-        # Etapa Proceso con la nueva opción
         ETAPAS_OPCIONES = ["Pendiente de aprobación", "Facturado", "No facturado"]
         nuevo_etapa = st.selectbox("Etapa Proceso:", options=ETAPAS_OPCIONES, index=0)
         
-        # Nro OT y Detalle separados
         cg5, cg6 = st.columns(2)
         nuevo_nro_ot = cg5.text_input("Nro OT:")
         nuevo_detalle = cg6.text_input("Detalle:")
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
-                # Estructura de columnas:
-                # [asunto, fecha_envio, remitente, estado_gmail, etapa_proceso, nro_ot, detalle, creado_por, fecha_creacion]
                 ws_gmail.append_row([
                     nuevo_asunto.strip(),
                     nuevo_envio.strip(),
