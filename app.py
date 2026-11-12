@@ -905,7 +905,7 @@ with tab_gmail:
         
         st.divider()
 
-        st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail")
+        st.markdown("#### ⚙️ Gestionar / Actualizar Registros de Gmail (Separados por Mes)")
         ETAPAS_OPCIONES = [
             "Pendiente de aprobacion",
             "Pendiente",
@@ -915,90 +915,114 @@ with tab_gmail:
         ]
         TRABAJO_OPCIONES = ["", "SI", "NO"]
 
-        for idx, row_g in enumerate(registros_gmail):
-            id_g = str(row_g.get("id", idx))
-            asunto_v = str(row_g.get("asunto", ""))
-            etapa_preview = str(row_g.get("etapa_proceso", "Sin etapa"))
-            
-            with st.expander(f"✉️ {asunto_v or 'Sin Asunto'} ({etapa_preview})", expanded=False):
-                with st.form(key=f"form_edit_gmail_{id_g}_{idx}"):
-                    e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}_{idx}")
-                    
-                    col_e1, col_e2 = st.columns(2)
-                    e_fecha_presup = col_e1.text_input(
-                        "Fecha de Envío de Presupuesto:",
-                        value=str(row_g.get("FECHA DE ENVIO DE PRESUPUESTO", "")),
-                        key=f"fpres_g_{id_g}_{idx}"
-                    )
-                    
-                    val_trab_actual = str(row_g.get("Trabajo realizado / No", "")).strip().upper()
-                    opciones_trab_edit = TRABAJO_OPCIONES + ([val_trab_actual] if val_trab_actual and val_trab_actual not in TRABAJO_OPCIONES else [])
-                    idx_trab = opciones_trab_edit.index(val_trab_actual) if val_trab_actual in opciones_trab_edit else 0
-                    e_trabajo = col_e2.selectbox(
-                        "Trabajo realizado / No:",
-                        options=opciones_trab_edit,
-                        index=idx_trab,
-                        key=f"trab_g_{id_g}_{idx}"
-                    )
-                    
-                    col_e3, col_e4 = st.columns(2)
-                    e_inversion = col_e3.text_input(
-                        "Inversión:",
-                        value=str(row_g.get("INVERSION", "")),
-                        key=f"inv_g_{id_g}_{idx}"
-                    )
-                    e_valor_presup = col_e4.text_input(
-                        "Valor del Presupuesto:",
-                        value=str(row_g.get("VALOR DEL PRESUPUESTO", "")),
-                        key=f"vpres_g_{id_g}_{idx}"
-                    )
-                    
-                    val_etapa_actual = str(row_g.get("etapa_proceso", "Pendiente de aprobacion")).strip()
-                    opciones_etapa_edit = ETAPAS_OPCIONES + ([val_etapa_actual] if val_etapa_actual and val_etapa_actual not in ETAPAS_OPCIONES else [])
-                    idx_etapa = opciones_etapa_edit.index(val_etapa_actual) if val_etapa_actual in opciones_etapa_edit else 0
-                    e_etapa = st.selectbox(
-                        "Etapa Proceso:",
-                        options=opciones_etapa_edit,
-                        index=idx_etapa,
-                        key=f"etapa_g_{id_g}_{idx}"
-                    )
+        MESES_NOMBRES_DICT = {
+            "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", "05": "Mayo", "06": "Junio",
+            "07": "Julio", "08": "Agosto", "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+        }
 
-                    col_ge1, col_ge2 = st.columns(2)
-                    if col_ge1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
-                        if ws_gmail:
-                            try:
-                                rows_all = ws_gmail.get_all_values()
-                                fila_encontrada = False
-                                for i_r, rw in enumerate(rows_all[1:], start=2):
-                                    if rw and len(rw) > 0 and rw[0].strip() == asunto_v.strip():
-                                        ws_gmail.update_cell(i_r, 1, e_asunto.strip())
-                                        ws_gmail.update_cell(i_r, 2, e_fecha_presup.strip())
-                                        ws_gmail.update_cell(i_r, 3, e_trabajo.strip())
-                                        ws_gmail.update_cell(i_r, 4, e_inversion.strip())
-                                        ws_gmail.update_cell(i_r, 5, e_valor_presup.strip())
-                                        ws_gmail.update_cell(i_r, 6, e_etapa.strip())
-                                        fila_encontrada = True
-                                        break
-                                
-                                if fila_encontrada:
-                                    st.success("¡Registro de Gmail actualizado!")
-                                    st.rerun()
-                                else:
-                                    st.error("No se pudo ubicar la fila exacta en Google Sheets.")
-                            except Exception as err_upd:
-                                st.error(f"Error al actualizar: {err_upd}")
+        # Agrupar registros por mes detectado en "FECHA DE ENVIO DE PRESUPUESTO"
+        registros_por_mes = {}
+        for idx, row_g in enumerate(registros_gmail):
+            fecha_str = str(row_g.get("FECHA DE ENVIO DE PRESUPUESTO", "")).strip()
+            mes_key = "Sin Fecha / Otros"
+            
+            # Intentar extraer el mes con regex (busca formato DD/MM/AAAA o MM/AAAA)
+            import re
+            coincide_mes = re.search(r"^\d{1,2}/(\d{1,2})/\d{2,4}", fecha_str)
+            if coincide_mes:
+                nro_mes = coincide_mes.group(1).zfill(2)
+                if nro_mes in MESES_NOMBRES_DICT:
+                    mes_key = MESES_NOMBRES_DICT[nro_mes]
+            
+            registros_por_mes.setdefault(mes_key, []).append((idx, row_g))
+
+        # Ordenar los meses lógicamente si es posible, o mostrarlos
+        for mes_nombre, lista_regs in sorted(registros_por_mes.items()):
+            with st.expander(f"📅 Mes: {mes_nombre} ({len(lista_regs)} registros)", expanded=False):
+                for idx, row_g in lista_regs:
+                    id_g = str(row_g.get("id", idx))
+                    asunto_v = str(row_g.get("asunto", ""))
+                    etapa_preview = str(row_g.get("etapa_proceso", "Sin etapa"))
                     
-                    if col_ge2.form_submit_button("🗑️ Borrar Registro", use_container_width=True):
-                        if ws_gmail:
-                            try:
-                                rows_all = ws_gmail.get_all_values()
-                                for i_r, rw in enumerate(rows_all[1:], start=2):
-                                    if rw and len(rw) > 0 and rw[0].strip() == asunto_v.strip():
-                                        ws_gmail.delete_rows(i_r)
-                                        st.success("¡Registro borrado!")
-                                        st.rerun()
-                            except Exception as err_del:
-                                st.error(f"Error al borrar: {err_del}")
+                    with st.expander(f"✉️ {asunto_v or 'Sin Asunto'} ({etapa_preview})", expanded=False):
+                        with st.form(key=f"form_edit_gmail_{id_g}_{idx}"):
+                            e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}_{idx}")
+                            
+                            col_e1, col_e2 = st.columns(2)
+                            e_fecha_presup = col_e1.text_input(
+                                "Fecha de Envío de Presupuesto:",
+                                value=str(row_g.get("FECHA DE ENVIO DE PRESUPUESTO", "")),
+                                key=f"fpres_g_{id_g}_{idx}"
+                            )
+                            
+                            val_trab_actual = str(row_g.get("Trabajo realizado / No", "")).strip().upper()
+                            opciones_trab_edit = TRABAJO_OPCIONES + ([val_trab_actual] if val_trab_actual and val_trab_actual not in TRABAJO_OPCIONES else [])
+                            idx_trab = opciones_trab_edit.index(val_trab_actual) if val_trab_actual in opciones_trab_edit else 0
+                            e_trabajo = col_e2.selectbox(
+                                "Trabajo realizado / No:",
+                                options=opciones_trab_edit,
+                                index=idx_trab,
+                                key=f"trab_g_{id_g}_{idx}"
+                            )
+                            
+                            col_e3, col_e4 = st.columns(2)
+                            e_inversion = col_e3.text_input(
+                                "Inversión:",
+                                value=str(row_g.get("INVERSION", "")),
+                                key=f"inv_g_{id_g}_{idx}"
+                            )
+                            e_valor_presup = col_e4.text_input(
+                                "Valor del Presupuesto:",
+                                value=str(row_g.get("VALOR DEL PRESUPUESTO", "")),
+                                key=f"vpres_g_{id_g}_{idx}"
+                            )
+                            
+                            val_etapa_actual = str(row_g.get("etapa_proceso", "Pendiente de aprobacion")).strip()
+                            opciones_etapa_edit = ETAPAS_OPCIONES + ([val_etapa_actual] if val_etapa_actual and val_etapa_actual not in ETAPAS_OPCIONES else [])
+                            idx_etapa = opciones_etapa_edit.index(val_etapa_actual) if val_etapa_actual in opciones_etapa_edit else 0
+                            e_etapa = st.selectbox(
+                                "Etapa Proceso:",
+                                options=opciones_etapa_edit,
+                                index=idx_etapa,
+                                key=f"etapa_g_{id_g}_{idx}"
+                            )
+
+                            col_ge1, col_ge2 = st.columns(2)
+                            if col_ge1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                                if ws_gmail:
+                                    try:
+                                        rows_all = ws_gmail.get_all_values()
+                                        fila_encontrada = False
+                                        for i_r, rw in enumerate(rows_all[1:], start=2):
+                                            if rw and len(rw) > 0 and rw[0].strip() == asunto_v.strip():
+                                                ws_gmail.update_cell(i_r, 1, e_asunto.strip())
+                                                ws_gmail.update_cell(i_r, 2, e_fecha_presup.strip())
+                                                ws_gmail.update_cell(i_r, 3, e_trabajo.strip())
+                                                ws_gmail.update_cell(i_r, 4, e_inversion.strip())
+                                                ws_gmail.update_cell(i_r, 5, e_valor_presup.strip())
+                                                ws_gmail.update_cell(i_r, 6, e_etapa.strip())
+                                                fila_encontrada = True
+                                                break
+                                        
+                                        if fila_encontrada:
+                                            st.success("¡Registro de Gmail actualizado!")
+                                            st.rerun()
+                                        else:
+                                            st.error("No se pudo ubicar la fila exacta en Google Sheets.")
+                                    except Exception as err_upd:
+                                        st.error(f"Error al actualizar: {err_upd}")
+                            
+                            if col_ge2.form_submit_button("🗑️ Borrar Registro", use_container_width=True):
+                                if ws_gmail:
+                                    try:
+                                        rows_all = ws_gmail.get_all_values()
+                                        for i_r, rw in enumerate(rows_all[1:], start=2):
+                                            if rw and len(rw) > 0 and rw[0].strip() == asunto_v.strip():
+                                                ws_gmail.delete_rows(i_r)
+                                                st.success("¡Registro borrado!")
+                                                st.rerun()
+                                    except Exception as err_del:
+                                        st.error(f"Error al borrar: {err_del}")
     else:
         st.info("No hay registros en el seguimiento de Gmail.")
 
@@ -1028,8 +1052,6 @@ with tab_gmail:
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
-                # Orden exacto de tus columnas en Sheets:
-                # [asunto, FECHA DE ENVIO DE PRESUPUESTO, Trabajo realizado / No, INVERSION, VALOR DEL PRESUPUESTO, etapa_proceso]
                 ws_gmail.append_row([
                     nuevo_asunto.strip(),
                     nueva_fecha_presup.strip(),
