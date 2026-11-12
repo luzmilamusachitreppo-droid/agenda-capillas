@@ -577,23 +577,35 @@ with tab_capillas:
                 continue
             lineas_msg.append(f"📍 {zona_m}")
             for cap in caps_msg:
-                # Recopilar zonas faltantes sin los números y con la primera letra en mayúscula
+                # Fotos que faltan (con su observación) y observaciones de las zonas que sí tienen foto
                 chk_info = checklist_por_capilla.get(cap, {})
                 faltantes_cap = []
+                observaciones_cap = []
                 for zf in ZONAS_FOTOS:
-                    if not chk_info.get(zf, {}).get("ok", False):
-                        # Quita el número inicial (ej: "0-FACHADA" -> "FACHADA" -> "Fachada")
-                        nombre_limpio = zf.split("-", 1)[1].title() if "-" in zf else zf.title()
-                        faltantes_cap.append(nombre_limpio)
+                    # Quita el número inicial (ej: "0-FACHADA" -> "FACHADA" -> "Fachada")
+                    nombre_limpio = zf.split("-", 1)[1].title() if "-" in zf else zf.title()
+                    datos_zf = chk_info.get(zf, {})
+                    obs_zf = " ".join(str(datos_zf.get("obs", "")).split())   # una sola línea, sin espacios de más
+                    if not datos_zf.get("ok", False):
+                        faltantes_cap.append(f"{nombre_limpio}: {obs_zf}" if obs_zf else nombre_limpio)
+                    elif obs_zf:
+                        observaciones_cap.append(f"{nombre_limpio}: {obs_zf}")
 
                 if fechas_mes[cap]:
                     fechas_txt = ", ".join(fv.strftime("%d/%m") for fv in fechas_mes[cap])
                     lineas_msg.append(f"- {cap}: Visitada ({fechas_txt})")
                 else:
                     lineas_msg.append(f"- {cap}: Sin visitas")
-                
+
+                # Cada ítem va en su propia línea, uno debajo del otro
                 if faltantes_cap:
-                    lineas_msg.append(f"  FALTAN FOTOS: {', '.join(faltantes_cap)}")
+                    lineas_msg.append("  FALTAN FOTOS:")
+                    for item_falta in faltantes_cap:
+                        lineas_msg.append(f"  • {item_falta}")
+                if observaciones_cap:
+                    lineas_msg.append("  OBSERVACIONES:")
+                    for item_obs in observaciones_cap:
+                        lineas_msg.append(f"  • {item_obs}")
 
             pendientes = sorted(
                 [cap for cap in caps_msg if len(fechas_mes[cap]) < META_VISITAS_MES],
