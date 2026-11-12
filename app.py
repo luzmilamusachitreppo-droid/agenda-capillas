@@ -920,13 +920,11 @@ with tab_gmail:
             "07": "Julio", "08": "Agosto", "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
         }
 
-        # Agrupar registros por mes detectado en "FECHA DE ENVIO DE PRESUPUESTO"
         registros_por_mes = {}
         for idx, row_g in enumerate(registros_gmail):
             fecha_str = str(row_g.get("FECHA DE ENVIO DE PRESUPUESTO", "")).strip()
             mes_key = "Sin Fecha / Otros"
             
-            # Intentar extraer el mes con regex (busca formato DD/MM/AAAA o MM/AAAA)
             import re
             coincide_mes = re.search(r"^\d{1,2}/(\d{1,2})/\d{2,4}", fecha_str)
             if coincide_mes:
@@ -936,25 +934,33 @@ with tab_gmail:
             
             registros_por_mes.setdefault(mes_key, []).append((idx, row_g))
 
-        # Ordenar los meses lógicamente si es posible, o mostrarlos
         for mes_nombre, lista_regs in sorted(registros_por_mes.items()):
             with st.expander(f"📅 Mes: {mes_nombre} ({len(lista_regs)} registros)", expanded=False):
                 for idx, row_g in lista_regs:
                     id_g = str(row_g.get("id", idx))
                     asunto_v = str(row_g.get("asunto", ""))
                     etapa_preview = str(row_g.get("etapa_proceso", "Sin etapa"))
+                    ot_preview = str(row_g.get("nro_ot", ""))
                     
-                    with st.expander(f"✉️ {asunto_v or 'Sin Asunto'} ({etapa_preview})", expanded=False):
+                    titulo_exp = f"✉️ {asunto_v or 'Sin Asunto'} | OT: {ot_preview or 'S/N'} ({etapa_preview})"
+                    
+                    with st.expander(titulo_exp, expanded=False):
                         with st.form(key=f"form_edit_gmail_{id_g}_{idx}"):
                             e_asunto = st.text_input("Asunto:", value=asunto_v, key=f"asunto_g_{id_g}_{idx}")
                             
-                            col_e1, col_e2 = st.columns(2)
+                            col_e0, col_e1 = st.columns(2)
+                            e_nro_ot = col_e0.text_input(
+                                "Nro OT:",
+                                value=ot_preview,
+                                key=f"ot_g_{id_g}_{idx}"
+                            )
                             e_fecha_presup = col_e1.text_input(
                                 "Fecha de Envío de Presupuesto:",
                                 value=str(row_g.get("FECHA DE ENVIO DE PRESUPUESTO", "")),
                                 key=f"fpres_g_{id_g}_{idx}"
                             )
                             
+                            col_e2, col_e3 = st.columns(2)
                             val_trab_actual = str(row_g.get("Trabajo realizado / No", "")).strip().upper()
                             opciones_trab_edit = TRABAJO_OPCIONES + ([val_trab_actual] if val_trab_actual and val_trab_actual not in TRABAJO_OPCIONES else [])
                             idx_trab = opciones_trab_edit.index(val_trab_actual) if val_trab_actual in opciones_trab_edit else 0
@@ -964,23 +970,22 @@ with tab_gmail:
                                 index=idx_trab,
                                 key=f"trab_g_{id_g}_{idx}"
                             )
-                            
-                            col_e3, col_e4 = st.columns(2)
                             e_inversion = col_e3.text_input(
                                 "Inversión:",
                                 value=str(row_g.get("INVERSION", "")),
                                 key=f"inv_g_{id_g}_{idx}"
                             )
+                            
+                            col_e4, col_e5 = st.columns(2)
                             e_valor_presup = col_e4.text_input(
                                 "Valor del Presupuesto:",
                                 value=str(row_g.get("VALOR DEL PRESUPUESTO", "")),
                                 key=f"vpres_g_{id_g}_{idx}"
                             )
-                            
                             val_etapa_actual = str(row_g.get("etapa_proceso", "Pendiente de aprobacion")).strip()
                             opciones_etapa_edit = ETAPAS_OPCIONES + ([val_etapa_actual] if val_etapa_actual and val_etapa_actual not in ETAPAS_OPCIONES else [])
                             idx_etapa = opciones_etapa_edit.index(val_etapa_actual) if val_etapa_actual in opciones_etapa_edit else 0
-                            e_etapa = st.selectbox(
+                            e_etapa = col_e5.selectbox(
                                 "Etapa Proceso:",
                                 options=opciones_etapa_edit,
                                 index=idx_etapa,
@@ -996,11 +1001,12 @@ with tab_gmail:
                                         for i_r, rw in enumerate(rows_all[1:], start=2):
                                             if rw and len(rw) > 0 and rw[0].strip() == asunto_v.strip():
                                                 ws_gmail.update_cell(i_r, 1, e_asunto.strip())
-                                                ws_gmail.update_cell(i_r, 2, e_fecha_presup.strip())
-                                                ws_gmail.update_cell(i_r, 3, e_trabajo.strip())
-                                                ws_gmail.update_cell(i_r, 4, e_inversion.strip())
-                                                ws_gmail.update_cell(i_r, 5, e_valor_presup.strip())
-                                                ws_gmail.update_cell(i_r, 6, e_etapa.strip())
+                                                ws_gmail.update_cell(i_r, 2, e_nro_ot.strip())
+                                                ws_gmail.update_cell(i_r, 3, e_fecha_presup.strip())
+                                                ws_gmail.update_cell(i_r, 4, e_trabajo.strip())
+                                                ws_gmail.update_cell(i_r, 5, e_inversion.strip())
+                                                ws_gmail.update_cell(i_r, 6, e_valor_presup.strip())
+                                                ws_gmail.update_cell(i_r, 7, e_etapa.strip())
                                                 fila_encontrada = True
                                                 break
                                         
@@ -1033,14 +1039,16 @@ with tab_gmail:
     with st.form("form_add_gmail_completo", clear_on_submit=True):
         nuevo_asunto = st.text_input("Asunto:")
         
-        cg1, cg2 = st.columns(2)
+        cg0, cg1 = st.columns(2)
+        nuevo_nro_ot = cg0.text_input("Nro OT:")
         nueva_fecha_presup = cg1.text_input("Fecha de Envío de Presupuesto (ej: 12/11/2026):")
+        
+        cg2, cg3 = st.columns(2)
         nuevo_trabajo = cg2.selectbox("Trabajo realizado / No:", options=["", "SI", "NO"], index=0)
-        
-        cg3, cg4 = st.columns(2)
         nueva_inversion = cg3.text_input("Inversión:")
-        nuevo_valor_presup = cg4.text_input("Valor del Presupuesto:")
         
+        cg4, cg5 = st.columns(2)
+        nuevo_valor_presup = cg4.text_input("Valor del Presupuesto:")
         ETAPAS_NUEVO = [
             "Pendiente de aprobacion",
             "Pendiente",
@@ -1048,12 +1056,15 @@ with tab_gmail:
             "Facturado",
             "No facturado"
         ]
-        nueva_etapa = st.selectbox("Etapa Proceso:", options=ETAPAS_NUEVO, index=0)
+        nueva_etapa = cg5.selectbox("Etapa Proceso:", options=ETAPAS_NUEVO, index=0)
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
+                # Orden de columnas en Sheets:
+                # [asunto, nro_ot, FECHA DE ENVIO DE PRESUPUESTO, Trabajo realizado / No, INVERSION, VALOR DEL PRESUPUESTO, etapa_proceso]
                 ws_gmail.append_row([
                     nuevo_asunto.strip(),
+                    nuevo_nro_ot.strip(),
                     nueva_fecha_presup.strip(),
                     nuevo_trabajo.strip(),
                     nueva_inversion.strip(),
