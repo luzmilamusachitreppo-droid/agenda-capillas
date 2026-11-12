@@ -803,10 +803,10 @@ with tab_gmail:
         st.markdown("#### 📋 Registros Actuales")
         st.dataframe(df_gmail, use_container_width=True, hide_index=True)
 
-        # --- GENERADOR DE EXCEL Y PDF SEGURO ---
+        # --- GENERADOR DE EXCEL Y PDF FUNCIONAL ---
         col_desc_ex, col_desc_pdf = st.columns(2)
 
-        # 1. Excel (.xlsx)
+        # 1. Botón Excel (.xlsx)
         with col_desc_ex:
             buffer_excel_gmail = io.BytesIO()
             with pd.ExcelWriter(buffer_excel_gmail, engine="xlsxwriter") as writer:
@@ -821,74 +821,68 @@ with tab_gmail:
                 type="primary"
             )
 
-        # 2. PDF (.pdf) seguro con importación interna para evitar NameError
+        # 2. Botón PDF (.pdf) optimizado y seguro
         with col_desc_pdf:
+            pdf_bytes = None
             try:
                 from reportlab.lib.pagesizes import letter, landscape
                 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
                 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
                 from reportlab.lib import colors
 
-                buffer_pdf_gmail = io.BytesIO()
-                doc_pdf = SimpleDocTemplate(
-                    buffer_pdf_gmail,
+                buffer_pdf = io.BytesIO()
+                doc = SimpleDocTemplate(
+                    buffer_pdf,
                     pagesize=landscape(letter),
-                    rightMargin=20, leftMargin=20, topMargin=30, bottomMargin=30
+                    rightMargin=15, leftMargin=15, topMargin=20, bottomMargin=20
                 )
-                elements_pdf = []
-                styles_pdf = getSampleStyleSheet()
-                title_style = styles_pdf['Heading2']
-                title_style.alignment = 1
+                story = []
+                styles = getSampleStyleSheet()
                 
-                elements_pdf.append(Paragraph(f"<b>Seguimiento de Correos y Gestiones (Gmail)</b> - {datetime.now().strftime('%d/%m/%Y')}", title_style))
-                elements_pdf.append(Spacer(1, 15))
-
-                headers_pdf = list(df_gmail.columns)
-                data_pdf = [[Paragraph(f"<b>{h.replace('_', ' ').title()}</b>", styles_pdf['Normal']) for h in headers_pdf]]
-
-                cell_style = ParagraphStyle(
-                    'CellText',
-                    parent=styles_pdf['Normal'],
-                    fontSize=8,
-                    leading=10
+                # Título del reporte
+                title_style = ParagraphStyle(
+                    'TitleStyle', parent=styles['Heading2'], alignment=1, fontSize=14, textColor=colors.HexColor('#2C3E50')
                 )
+                story.append(Paragraph(f"<b>Seguimiento de Correos y Gestiones (Gmail)</b>", title_style))
+                story.append(Paragraph(f"Fecha de emisión: {datetime.now().strftime('%d/%m/%Y %H:%M')}", ParagraphStyle('Sub', parent=styles['Normal'], alignment=1, fontSize=9, textColor=colors.gray)))
+                story.append(Spacer(1, 15))
 
-                for _, r_row in df_gmail.iterrows():
-                    row_cells = []
-                    for val in r_row.values:
-                        txt_v = str(val) if val is not None else ""
-                        row_cells.append(Paragraph(txt_v, cell_style))
-                    data_pdf.append(row_cells)
+                # Datos de la tabla
+                headers = list(df_gmail.columns)
+                table_data = [[Paragraph(f"<b>{h.replace('_', ' ').title()}</b>", styles['Normal']) for h in headers]]
 
-                tabla_pdf = Table(data_pdf, repeatRows=1)
-                tabla_pdf.setStyle(TableStyle([
+                cell_style = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=8, leading=10)
+                for _, row in df_gmail.iterrows():
+                    table_data.append([Paragraph(str(val if val is not None else ""), cell_style) for val in row.values])
+
+                t = Table(table_data, repeatRows=1)
+                t.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4A90E2')),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                     ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                     ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
-                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F4F6F8')]),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DDDDDD')),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F9FA')]),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                    ('TOPPADDING', (0, 0), (-1, -1), 5),
                 ]))
 
-                elements_pdf.append(tabla_pdf)
-                doc_pdf.build(elements_pdf)
-                pdf_data = buffer_pdf_gmail.getvalue()
-                pdf_disponible = True
-            except Exception:
-                pdf_disponible = False
+                story.append(t)
+                doc.build(story)
+                pdf_bytes = buffer_pdf.getvalue()
+            except Exception as e:
+                pdf_bytes = None
 
-            if pdf_disponible:
+            if pdf_bytes:
                 st.download_button(
                     label="📄 Descargar PDF (.pdf)",
-                    data=pdf_data,
+                    data=pdf_bytes,
                     file_name=f"Reporte_Gmail_{datetime.now().strftime('%Y-%m-%d')}.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
             else:
-                st.info("ℹ️ Descarga de PDF no disponible temporalmente.")
+                st.error("⚠️ ReportLab no está disponible en este entorno para generar el PDF.")
         
         st.divider()
 
