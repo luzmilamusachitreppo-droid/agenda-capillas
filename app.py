@@ -961,11 +961,11 @@ with tab_gmail:
                             )
                             
                             col_e2, col_e3 = st.columns(2)
-                            val_trab_actual = str(row_g.get("Trabajo realizado / No", "")).strip().upper()
+                            val_trab_actual = str(row_g.get("Trabajo realizado", row_g.get("Trabajo realizado / No", ""))).strip().upper()
                             opciones_trab_edit = TRABAJO_OPCIONES + ([val_trab_actual] if val_trab_actual and val_trab_actual not in TRABAJO_OPCIONES else [])
                             idx_trab = opciones_trab_edit.index(val_trab_actual) if val_trab_actual in opciones_trab_edit else 0
                             e_trabajo = col_e2.selectbox(
-                                "Trabajo realizado / No:",
+                                "Trabajo realizado:",
                                 options=opciones_trab_edit,
                                 index=idx_trab,
                                 key=f"trab_g_{id_g}_{idx}"
@@ -992,6 +992,12 @@ with tab_gmail:
                                 key=f"etapa_g_{id_g}_{idx}"
                             )
 
+                            e_observaciones = st.text_area(
+                                "Observaciones:",
+                                value=str(row_g.get("observaciones", "")),
+                                key=f"obs_g_{id_g}_{idx}"
+                            )
+
                             col_ge1, col_ge2 = st.columns(2)
                             if col_ge1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
                                 if ws_gmail:
@@ -1007,6 +1013,7 @@ with tab_gmail:
                                                 ws_gmail.update_cell(i_r, 5, e_inversion.strip())
                                                 ws_gmail.update_cell(i_r, 6, e_valor_presup.strip())
                                                 ws_gmail.update_cell(i_r, 7, e_etapa.strip())
+                                                ws_gmail.update_cell(i_r, 8, e_observaciones.strip())
                                                 fila_encontrada = True
                                                 break
                                         
@@ -1044,7 +1051,7 @@ with tab_gmail:
         nueva_fecha_presup = cg1.text_input("Fecha de Envío de Presupuesto (ej: 12/11/2026):")
         
         cg2, cg3 = st.columns(2)
-        nuevo_trabajo = cg2.selectbox("Trabajo realizado / No:", options=["", "SI", "NO"], index=0)
+        nuevo_trabajo = cg2.selectbox("Trabajo realizado:", options=["", "SI", "NO"], index=0)
         nueva_inversion = cg3.text_input("Inversión:")
         
         cg4, cg5 = st.columns(2)
@@ -1058,10 +1065,12 @@ with tab_gmail:
         ]
         nueva_etapa = cg5.selectbox("Etapa Proceso:", options=ETAPAS_NUEVO, index=0)
 
+        nuevo_observaciones = st.text_area("Observaciones:")
+
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_gmail:
                 # Orden de columnas en Sheets:
-                # [asunto, nro_ot, FECHA DE ENVIO DE PRESUPUESTO, Trabajo realizado / No, INVERSION, VALOR DEL PRESUPUESTO, etapa_proceso]
+                # [asunto, nro_ot, FECHA DE ENVIO DE PRESUPUESTO, Trabajo realizado, INVERSION, VALOR DEL PRESUPUESTO, etapa_proceso, observaciones]
                 ws_gmail.append_row([
                     nuevo_asunto.strip(),
                     nuevo_nro_ot.strip(),
@@ -1069,7 +1078,8 @@ with tab_gmail:
                     nuevo_trabajo.strip(),
                     nueva_inversion.strip(),
                     nuevo_valor_presup.strip(),
-                    nueva_etapa.strip()
+                    nueva_etapa.strip(),
+                    nuevo_observaciones.strip()
                 ])
                 st.success("¡Guardado con éxito!")
                 st.rerun()
