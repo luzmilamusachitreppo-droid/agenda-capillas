@@ -455,10 +455,17 @@ with tab_capillas:
         "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", "05": "Mayo", "06": "Junio",
         "07": "Julio", "08": "Agosto", "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
     }
-    # Estados posibles de una capilla (editá esta lista a tu gusto)
     ESTADOS_CAPILLA = ["📥 Pendiente", "⚙️ En Proceso", "📸 Inspeccionada", "✅ Finalizada"]
+    ZONAS_FOTOS = [
+        "0-FACHADA",
+        "1-VEREDAS",
+        "2-CANTERO DE PUNTO FOCAL",
+        "3-LATERALES Y FONDO",
+        "4-CERCO OLÍMPICO",
+        "5-DRENAJES",
+        "6-GESTIÓN DE RESIDUOS"
+    ]
 
-    # Aviso del guardado anterior (se muestra una sola vez)
     if "aviso_guardado" in st.session_state:
         st.success(st.session_state.pop("aviso_guardado"))
 
@@ -471,13 +478,13 @@ with tab_capillas:
     else:
         st.warning("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
 
-    # Vacía el campo de fecha de la capilla que se acaba de guardar (así no se vuelve a anotar la misma visita)
     if "limpiar_visita" in st.session_state:
         st.session_state[st.session_state.pop("limpiar_visita")] = ""
 
     estado_por_capilla = {}
-    visitas_por_capilla = {}   # capilla -> [(número de fila en la hoja, texto de la visita)]
-    for n_fila, fila in enumerate(registros_capillas, start=2):   # la fila 1 de la hoja son los títulos
+    visitas_por_capilla = {}
+    checklist_por_capilla = {}  # capilla -> dict con estado y obs de las 7 zonas
+    for n_fila, fila in enumerate(registros_capillas, start=2):
         if not fila or not fila[0].strip():
             continue
         nombre_cap = fila[0].strip()
@@ -485,13 +492,20 @@ with tab_capillas:
             estado_por_capilla[nombre_cap] = fila[1].strip()
         if len(fila) > 2 and fila[2].strip():
             visitas_por_capilla.setdefault(nombre_cap, []).append((n_fila, fila[2].strip()))
+        if len(fila) > 3 and fila[3].strip():
+            try:
+                import json
+                checklist_por_capilla[nombre_cap] = json.loads(fila[3].strip())
+            except Exception:
+                pass
 
     # ==================================================================
     # RESUMEN DEL MES + MENSAJE PARA WHATSAPP
     # ==================================================================
     import re
-    META_VISITAS_MES = 4    # visitas mínimas por capilla en el mes
-    MAX_PRIORIDAD = 3       # máximo de capillas que figuran en la línea de "Prioridad"
+    import json
+    META_VISITAS_MES = 4
+    MAX_PRIORIDAD = 3
 
     try:
         from zoneinfo import ZoneInfo
@@ -508,7 +522,6 @@ with tab_capillas:
     anio_sel = int(col_anio.number_input("Año:", min_value=2024, max_value=2100, value=hoy_ar.year, step=1, key="res_anio"))
     nombre_mes = MESES_NOMBRES[f"{mes_sel:02d}"]
 
-    # Fechas (sin repetir) en que se visitó cada capilla en el mes elegido
     fechas_mes = {}
     for cap in todas_las_capillas:
         fechas_set = set()
@@ -535,7 +548,6 @@ with tab_capillas:
     for zona_r, caps_r in ZONAS_CAPILLAS.items():
         filas_tabla = []
         for cap in caps_r:
-            # Si se está usando la lupita, filtramos opcionalmente la tablita resumen también
             if buscar_capilla and buscar_capilla not in cap.lower():
                 continue
             n_vis = len(fechas_mes[cap])
@@ -592,21 +604,20 @@ with tab_capillas:
     st.markdown("### 🗂️ Detalle por capilla")
 
     for zona, caps_zona in ZONAS_CAPILLAS.items():
-        # Filtramos las capillas de esta zona según lo que escribieron en la lupita
         caps_filtradas = [c for c in caps_zona if not buscar_capilla or buscar_capilla in c.lower()]
-        
         if not caps_filtradas:
-            continue  # Si ninguna capilla de esta zona coincide con la búsqueda, pasamos a la siguiente zona
+            continue
 
         st.subheader(f"📍 {zona}")
         for c in caps_filtradas:
             estado_actual = estado_por_capilla.get(c, ESTADOS_CAPILLA[0])
             visitas = visitas_por_capilla.get(c, [])
+            chk_guardado = checklist_por_capilla.get(c, {})
+            cumplidas_cnt = sum(1 for zf in ZONAS_FOTOS if chk_guardado.get(zf, {}).get("ok", False))
 
-            # Si se usó la lupita, abrimos la tarjeta automáticamente para que cargues la info de una
             esta_expandida = True if buscar_capilla else False
 
-            with st.expander(f"⛪ {c} — {estado_actual} ({len(visitas)} visita/s)", expanded=esta_expandida):
+            with st.expander(f"⛪ {c} — {estado_actual} ({len(visitas)} visita/s | Fotos: {cumplidas_cnt}/{len(ZONAS_FOTOS)})", expanded=esta_expandida):
                 if visitas:
                     st.markdown("**Visitas registradas:**")
                     for n_fila, texto_v in visitas:
@@ -650,6 +661,35 @@ with tab_capillas:
                     "Nueva visita (DD/MM/AAAA):", key=f"vis_cap_{zona}_{c}", placeholder="Ej: 02/11/2026"
                 )
 
+                # --- CONTROL DE FOTOS POR ZONA ---
+                st.markdown("---")
+                st.markdown("**📸 Control de Fotos y Requisitos por Zona:**")
+                nuevo_chk_data = {}
+                faltantes_msg = []
+                for zf in ZONAS_FOTOS:
+                    col_cb, col_obs = st.columns([2, 3])
+                    prev_ok = chk_guardado.get(zf, {}).get("ok", False)
+                    prev_obs = chk_guardado.get(zf, {}).get("obs", "")
+                    es_ok = col_cb.checkbox(zf, value=prev_ok, key=f"chk_{zona}_{c}_{zf}")
+                    obs_txt = col_obs.text_input(
+                        "Motivo / Falta:", value=prev_obs, label_visibility="collapsed",
+                        placeholder="Observación (si falta o no cumple)", key=f"obs_{zona}_{c}_{zf}"
+                    )
+                    nuevo_chk_data[zf] = {"ok": es_ok, "obs": obs_txt.strip()}
+                    if not es_ok:
+                        detalle_falta = f" ({obs_txt.strip()})" if obs_txt.strip() else " (falta foto / revisar)"
+                        faltantes_msg.append(f"• {zf}{detalle_falta}")
+
+                # Armado automático del mensaje para copiar y mandar por WhatsApp si hay faltantes
+                if faltantes_msg:
+                    with st.expander("📋 Mensaje listo para reclamar fotos faltantes", expanded=False):
+                        texto_reclamo = (
+                            f"Hola, de la capilla *{c}* están faltando o hay observaciones en las siguientes fotos:\n"
+                            + "\n".join(faltantes_msg)
+                            + "\nPor favor enviar cuando puedan. ¡Gracias!"
+                        )
+                        st.code(texto_reclamo, language=None)
+
                 if st.button("💾 Guardar Cambios", key=f"btn_save_cap_{zona}_{c}", type="primary", use_container_width=True):
                     if ws_resumen is None:
                         st.error("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
@@ -666,11 +706,13 @@ with tab_capillas:
                             st.error("❌ Escribí la fecha así: DD/MM/AAAA (ejemplo: 02/11/2026).")
                         else:
                             try:
+                                chk_json = json.dumps(nuevo_chk_data, ensure_ascii=False)
                                 rows = ws_resumen.get_all_values()
                                 cambios = []
                                 for i, row in enumerate(rows[1:], start=2):
                                     if len(row) > 0 and row[0].strip() == c:
                                         cambios.append({"range": f"B{i}", "values": [[nuevo_estado]]})
+                                        cambios.append({"range": f"D{i}", "values": [[chk_json]]})
                                 if cambios:
                                     ws_resumen.batch_update(cambios)
 
@@ -680,14 +722,14 @@ with tab_capillas:
                                     if visita_final in [t for _, t in visitas]:
                                         st.session_state["aviso_guardado"] = f"ℹ️ La visita {visita_final} ya estaba registrada en {c}; no se duplicó."
                                     else:
-                                        ws_resumen.append_row([c, nuevo_estado, visita_final])
+                                        ws_resumen.append_row([c, nuevo_estado, visita_final, chk_json])
                                         mes_txt = MESES_NOMBRES[fecha_ok.strftime("%m")]
                                         st.session_state["aviso_guardado"] = f"✅ Visita del {fecha_txt} guardada en {c} (mes de {mes_txt})."
                                     st.session_state["limpiar_visita"] = f"vis_cap_{zona}_{c}"
                                 else:
                                     if not cambios:
-                                        ws_resumen.append_row([c, nuevo_estado, ""])
-                                    st.session_state["aviso_guardado"] = f"✅ Estado de {c} actualizado a {nuevo_estado}."
+                                        ws_resumen.append_row([c, nuevo_estado, "", chk_json])
+                                    st.session_state["aviso_guardado"] = f"✅ Datos y control fotográfico de {c} guardados."
                             except Exception as e:
                                 st.error(f"Error detallado al guardar: {e}")
                             else:
