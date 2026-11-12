@@ -577,9 +577,14 @@ with tab_capillas:
                 continue
             lineas_msg.append(f"📍 {zona_m}")
             for cap in caps_msg:
-                # Recopilar zonas faltantes o con observaciones para esta capilla
+                # Recopilar zonas faltantes sin los números y con la primera letra en mayúscula
                 chk_info = checklist_por_capilla.get(cap, {})
-                faltantes_cap = [zf.replace("-", " ").title() for zf in ZONAS_FOTOS if not chk_info.get(zf, {}).get("ok", False)]
+                faltantes_cap = []
+                for zf in ZONAS_FOTOS:
+                    if not chk_info.get(zf, {}).get("ok", False):
+                        # Quita el número inicial (ej: "0-FACHADA" -> "FACHADA" -> "Fachada")
+                        nombre_limpio = zf.split("-", 1)[1].title() if "-" in zf else zf.title()
+                        faltantes_cap.append(nombre_limpio)
 
                 if fechas_mes[cap]:
                     fechas_txt = ", ".join(fv.strftime("%d/%m") for fv in fechas_mes[cap])
@@ -678,7 +683,11 @@ with tab_capillas:
                     col_cb, col_obs = st.columns([2, 3])
                     prev_ok = chk_guardado.get(zf, {}).get("ok", False)
                     prev_obs = chk_guardado.get(zf, {}).get("obs", "")
-                    es_ok = col_cb.checkbox(zf, value=prev_ok, key=f"chk_{zona}_{c}_{zf}")
+                    
+                    # Nombre limpio para mostrar en la interfaz (sin número)
+                    nombre_zona_ui = zf.split("-", 1)[1].title() if "-" in zf else zf.title()
+                    
+                    es_ok = col_cb.checkbox(nombre_zona_ui, value=prev_ok, key=f"chk_{zona}_{c}_{zf}")
                     obs_txt = col_obs.text_input(
                         "Motivo / Falta:", value=prev_obs, label_visibility="collapsed",
                         placeholder="Observación (si falta o no cumple)", key=f"obs_{zona}_{c}_{zf}"
@@ -686,7 +695,7 @@ with tab_capillas:
                     nuevo_chk_data[zf] = {"ok": es_ok, "obs": obs_txt.strip()}
                     if not es_ok:
                         detalle_falta = f" ({obs_txt.strip()})" if obs_txt.strip() else " (falta foto / revisar)"
-                        faltantes_msg.append(f"• {zf}{detalle_falta}")
+                        faltantes_msg.append(f"• {nombre_zona_ui}{detalle_falta}")
 
                 if faltantes_msg:
                     with st.expander("📋 Mensaje listo para reclamar fotos faltantes", expanded=False):
