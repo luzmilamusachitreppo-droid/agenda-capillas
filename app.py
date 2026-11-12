@@ -577,11 +577,19 @@ with tab_capillas:
                 continue
             lineas_msg.append(f"📍 {zona_m}")
             for cap in caps_msg:
+                # Recopilar zonas faltantes o con observaciones para esta capilla
+                chk_info = checklist_por_capilla.get(cap, {})
+                faltantes_cap = [zf.replace("-", " ").title() for zf in ZONAS_FOTOS if not chk_info.get(zf, {}).get("ok", False)]
+
                 if fechas_mes[cap]:
                     fechas_txt = ", ".join(fv.strftime("%d/%m") for fv in fechas_mes[cap])
-                    lineas_msg.append(f"* {cap}: Visitada ({fechas_txt})")
+                    lineas_msg.append(f"- {cap}: Visitada ({fechas_txt})")
                 else:
-                    lineas_msg.append(f"* {cap}: Sin visitas")
+                    lineas_msg.append(f"- {cap}: Sin visitas")
+                
+                if faltantes_cap:
+                    lineas_msg.append(f"  FALTAN FOTOS: {', '.join(faltantes_cap)}")
+
             pendientes = sorted(
                 [cap for cap in caps_msg if len(fechas_mes[cap]) < META_VISITAS_MES],
                 key=lambda cap: len(fechas_mes[cap])
@@ -680,7 +688,6 @@ with tab_capillas:
                         detalle_falta = f" ({obs_txt.strip()})" if obs_txt.strip() else " (falta foto / revisar)"
                         faltantes_msg.append(f"• {zf}{detalle_falta}")
 
-                # Armado automático del mensaje para copiar y mandar por WhatsApp si hay faltantes
                 if faltantes_msg:
                     with st.expander("📋 Mensaje listo para reclamar fotos faltantes", expanded=False):
                         texto_reclamo = (
