@@ -444,10 +444,10 @@ with tab_check:
 with tab_capillas:
     st.header("⛪ Resumen de Capillas y Control de Inspección Fotográfica")
 
-    # 🔍 LUPITA DE BÚSQUEDA (agregada sin tocar nada más)
+    # 🔍 LUPITA DE BÚSQUEDA
     buscar_capilla = st.text_input(
-        "🔍 Buscar Capilla:",
-        placeholder="Escribí el nombre de la capilla para filtrar...",
+        "🔍 Buscar Capilla (escribí para filtrar la vista de abajo):",
+        placeholder="Escribí el nombre de la capilla (ej: Goya)...",
         key="lupita_capillas"
     ).strip().lower()
 
@@ -535,6 +535,9 @@ with tab_capillas:
     for zona_r, caps_r in ZONAS_CAPILLAS.items():
         filas_tabla = []
         for cap in caps_r:
+            # Si se está usando la lupita, filtramos opcionalmente la tablita resumen también
+            if buscar_capilla and buscar_capilla not in cap.lower():
+                continue
             n_vis = len(fechas_mes[cap])
             filas_tabla.append({
                 "Capilla": cap,
@@ -542,8 +545,9 @@ with tab_capillas:
                 "Estado": "✅ Completa" if n_vis >= META_VISITAS_MES else f"⚠️ Faltan {META_VISITAS_MES - n_vis}",
                 "Fechas": ", ".join(fv.strftime("%d/%m") for fv in fechas_mes[cap]) or "—",
             })
-        st.markdown(f"**📍 {zona_r}**")
-        st.dataframe(pd.DataFrame(filas_tabla), hide_index=True, use_container_width=True)
+        if filas_tabla:
+            st.markdown(f"**📍 {zona_r}**")
+            st.dataframe(pd.DataFrame(filas_tabla), hide_index=True, use_container_width=True)
 
     with st.expander("📲 Mensaje para WhatsApp", expanded=True):
         zonas_msg = st.multiselect(
@@ -566,7 +570,6 @@ with tab_capillas:
                     lineas_msg.append(f"* {cap}: Visitada ({fechas_txt})")
                 else:
                     lineas_msg.append(f"* {cap}: Sin visitas")
-            # Prioridad: las capillas que no llegaron a la meta, empezando por las que tienen menos visitas
             pendientes = sorted(
                 [cap for cap in caps_msg if len(fechas_mes[cap]) < META_VISITAS_MES],
                 key=lambda cap: len(fechas_mes[cap])
@@ -589,12 +592,21 @@ with tab_capillas:
     st.markdown("### 🗂️ Detalle por capilla")
 
     for zona, caps_zona in ZONAS_CAPILLAS.items():
+        # Filtramos las capillas de esta zona según lo que escribieron en la lupita
+        caps_filtradas = [c for c in caps_zona if not buscar_capilla or buscar_capilla in c.lower()]
+        
+        if not caps_filtradas:
+            continue  # Si ninguna capilla de esta zona coincide con la búsqueda, pasamos a la siguiente zona
+
         st.subheader(f"📍 {zona}")
-        for c in caps_zona:
+        for c in caps_filtradas:
             estado_actual = estado_por_capilla.get(c, ESTADOS_CAPILLA[0])
             visitas = visitas_por_capilla.get(c, [])
 
-            with st.expander(f"⛪ {c} — {estado_actual} ({len(visitas)} visita/s)", expanded=False):
+            # Si se usó la lupita, abrimos la tarjeta automáticamente para que cargues la info de una
+            esta_expandida = True if buscar_capilla else False
+
+            with st.expander(f"⛪ {c} — {estado_actual} ({len(visitas)} visita/s)", expanded=esta_expandida):
                 if visitas:
                     st.markdown("**Visitas registradas:**")
                     for n_fila, texto_v in visitas:
@@ -617,7 +629,6 @@ with tab_capillas:
                                     else:
                                         filas_de_la_capilla = [r for r in rows[1:] if r and r[0].strip() == c]
                                         if len(filas_de_la_capilla) <= 1:
-                                            # Es la única fila de la capilla: se vacía la visita pero se conserva el estado
                                             ws_resumen.update_cell(n_fila, 3, "")
                                         else:
                                             ws_resumen.delete_rows(n_fila)
@@ -639,7 +650,6 @@ with tab_capillas:
                     "Nueva visita (DD/MM/AAAA):", key=f"vis_cap_{zona}_{c}", placeholder="Ej: 02/11/2026"
                 )
 
-                # La clave incluye la zona Y la capilla: así nunca se repite (error StreamlitDuplicateElementKey)
                 if st.button("💾 Guardar Cambios", key=f"btn_save_cap_{zona}_{c}", type="primary", use_container_width=True):
                     if ws_resumen is None:
                         st.error("⚠️ La hoja 'resumen_capillas' no está conectada o no existe en Google Sheets.")
@@ -682,7 +692,6 @@ with tab_capillas:
                                 st.error(f"Error detallado al guardar: {e}")
                             else:
                                 st.rerun()
-
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
 # ==========================================
