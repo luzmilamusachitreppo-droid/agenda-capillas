@@ -444,6 +444,13 @@ with tab_check:
 with tab_capillas:
     st.header("⛪ Resumen de Capillas y Control de Inspección Fotográfica")
 
+    # 🔍 LUPITA DE BÚSQUEDA (agregada sin tocar nada más)
+    buscar_capilla = st.text_input(
+        "🔍 Buscar Capilla:",
+        placeholder="Escribí el nombre de la capilla para filtrar...",
+        key="lupita_capillas"
+    ).strip().lower()
+
     MESES_NOMBRES = {
         "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", "05": "Mayo", "06": "Junio",
         "07": "Julio", "08": "Agosto", "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
