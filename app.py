@@ -62,7 +62,7 @@ USUARIOS_AUTORIZADOS = {
     "admin": "capillas2026",
     "Luzmila": "Caceresythomas456",
     "Guillermo": "Caceresythomas789",
-    "encargado": "parroquia2026",
+    "Gustavo": "Caceresythomas2026",
     "Silvia": "Caceresythomas123"
 }
 
