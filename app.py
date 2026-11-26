@@ -170,7 +170,9 @@ COLORES_URGENCIA = {
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
-# Definición de las 6 pestañas arriba:
+# ==========================================
+# DEFINICIÓN DE PESTAÑAS (Arriba de todo)
+# ==========================================
 tab_agenda, tab_checklist, tab_capillas, tab_recordatorios, tab_gmail, tab_agua_luz = st.tabs([
     "📅 1. Agenda Principal", 
     "📝 2. Checklist Digital", 
@@ -180,30 +182,48 @@ tab_agenda, tab_checklist, tab_capillas, tab_recordatorios, tab_gmail, tab_agua_
     "⚡💧 6. Agua y Luz"
 ])
 
-# 1. Agenda Principal
+# ==========================================
+# 1. AGENDA PRINCIPAL
+# ==========================================
+with tab_agenda:
+    # Todo el código de tu agenda va aquí adentro (con sangría)
+    pass  # (Reemplazá 'pass' por tu código real de la agenda)
+
+# ==========================================
+# 2. CHECKLIST DIGITAL
+# ==========================================
 with tab_checklist:
-    # Asegurate de que haya al menos una línea con sangría aquí adentro, por ejemplo:
-    st.markdown("### Contenido del Checklist")
-
-with tab_capillas:
-    # Todo el código de tu resumen de capillas va aquí adentro, con sangría:
-    st.markdown("### Resumen de Capillas")
-    # ... tu código existente ...
-
-# 3. Resumen de Capillas
-with tab_recordatorios:
-    # Todo el código de tus recordatorios rápidos va aquí adentro con sangría:
-    st.markdown("### Recordatorios")
-    # ... o en su defecto, para salir del paso mientras lo acomodas:
+    # Todo el código de tu checklist va aquí adentro
     pass
 
-# 5. Gmail
-with tab_gmail:
-    # (Todo el código de la Pestaña 5 va acá adentro)
+# ==========================================
+# 3. RESUMEN DE CAPILLAS
+# ==========================================
+with tab_capillas:
+    # Todo el código de capillas va aquí adentro
+    pass
 
-# 6. Agua y Luz
+# ==========================================
+# 4. RECORDATORIOS RÁPIDOS
+# ==========================================
+with tab_recordatorios:
+    # Todo el código de recordatorios va aquí adentro
+    pass
+
+# ==========================================
+# 5. GMAIL
+# ==========================================
+with tab_gmail:
+    # Todo el código de Gmail va aquí adentro
+    pass
+
+# ==========================================
+# 6. AGUA Y LUZ / SERVICIOS CAPILLAS
+# ==========================================
 with tab_agua_luz:
-    # (Todo el código de la Pestaña 6 que armamos recién va acá adentro)
+    # Aquí va todo el código de Agua y Luz que armamos con las provincias y medidores
+    st.header("⚡💧 Control de Servicios (Agua y Luz) — Capillas")
+    # ... (el resto del código de la pestaña 6)
 # ==========================================
 # 1. AGENDA PRINCIPAL (CON CAPILLA OPCIONAL)
 # ==========================================
