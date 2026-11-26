@@ -170,13 +170,14 @@ COLORES_URGENCIA = {
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
-# 5 Pestañas principales
-tab_cal, tab_check, tab_capillas, tab_notes, tab_gmail = st.tabs([
+tab_agenda, tab_checklist, tab_capillas, tab_recordatorios, tab_gmail, tab_agua_luz = st.tabs([
     "📅 1. Agenda Principal", 
     "📝 2. Checklist Digital", 
-    "⛪ 3. Resumen de Capillas",
-    "📌 4. Recordatorios Rápidos",
-    "✉️ 5. Gmail"
+    "⛪ 3. Resumen de Capillas", 
+    "📌 4. Recordatorios Rápidos", 
+    "✉️ 5. Gmail", 
+    "⚡💧 6. Agua y Luz"
+])
 ])
 
 # ==========================================
