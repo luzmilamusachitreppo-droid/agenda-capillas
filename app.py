@@ -182,7 +182,7 @@ tab_agenda, tab_checklist, tab_capillas, tab_recordatorios, tab_gmail, tab_agua_
 # ==========================================
 # 1. AGENDA PRINCIPAL (CON CAPILLA OPCIONAL)
 # ==========================================
-with tab_cal:
+with tab_checklist:
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
 
