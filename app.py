@@ -765,7 +765,7 @@ with tab_capillas:
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
 # ==========================================
-with tab_notes:
+with tab_recordatorios:
     st.header("📌 Recordatorios Rápidos")
     
     try:
