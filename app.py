@@ -181,8 +181,9 @@ tab_agenda, tab_checklist, tab_capillas, tab_recordatorios, tab_gmail, tab_agua_
 ])
 
 # 1. Agenda Principal
-with tab_agenda:
-    # (Todo el código que dibuja el calendario, los eventos y la agenda va acá adentro)
+with tab_checklist:
+    # Asegurate de que haya al menos una línea con sangría aquí adentro, por ejemplo:
+    st.markdown("### Contenido del Checklist")
 
 # 2. Checklist Digital
 with tab_checklist:
