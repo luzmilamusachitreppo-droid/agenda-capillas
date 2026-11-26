@@ -170,6 +170,7 @@ COLORES_URGENCIA = {
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
+# Definición de las 6 pestañas arriba:
 tab_agenda, tab_checklist, tab_capillas, tab_recordatorios, tab_gmail, tab_agua_luz = st.tabs([
     "📅 1. Agenda Principal", 
     "📝 2. Checklist Digital", 
@@ -179,6 +180,29 @@ tab_agenda, tab_checklist, tab_capillas, tab_recordatorios, tab_gmail, tab_agua_
     "⚡💧 6. Agua y Luz"
 ])
 
+# 1. Agenda Principal
+with tab_agenda:
+    # (Todo el código que dibuja el calendario, los eventos y la agenda va acá adentro)
+
+# 2. Checklist Digital
+with tab_checklist:
+    # (Todo el código del checklist de zonas va acá adentro)
+
+# 3. Resumen de Capillas
+with tab_capillas:
+    # (Todo el código del resumen de capillas y WhatsApp va acá adentro)
+
+# 4. Recordatorios Rápidos
+with tab_recordatorios:
+    # (Todo el código de notas y recordatorios va acá adentro)
+
+# 5. Gmail
+with tab_gmail:
+    # (Todo el código de la Pestaña 5 va acá adentro)
+
+# 6. Agua y Luz
+with tab_agua_luz:
+    # (Todo el código de la Pestaña 6 que armamos recién va acá adentro)
 # ==========================================
 # 1. AGENDA PRINCIPAL (CON CAPILLA OPCIONAL)
 # ==========================================
