@@ -1072,171 +1072,172 @@ with tab_gmail:
                 st.rerun()
 
 # ==========================================
-# 6. AGUA Y LUZ / SERVICIOS CAPILLAS
+# 6. AGUA Y LUZ / SECTORES SEPARADOS
 # ==========================================
 with tab_agua_luz:
-    st.header("⚡💧 Control de Servicios (Agua y Luz) — Capillas")
+    st.header("⚡💧 Control de Servicios Separados — Capillas")
     
-    CAPILLAS_SERVICIOS_DEF = {
-        # Corrientes AGUA Y LUZ
-        "Capilla Costanera": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
-        "Capilla Armenia": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
-        "Capilla Laguna Seca": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
-        "Capilla Mendoza al sur": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
-        "Capilla Itati": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
-        "Capilla Empedrado": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
-        
-        # Corrientes SOLAMENTE AGUA
-        "Capilla Bella Vista": {"provincia": "Corrientes", "servicio": "Solo Agua"},
-        "Capilla Goya": {"provincia": "Corrientes", "servicio": "Solo Agua"},
-        "Capilla Esquina": {"provincia": "Corrientes", "servicio": "Solo Agua"},
-        
-        # Chaco AGUA Y LUZ
-        "Capilla Alberdi": {"provincia": "Chaco", "servicio": "Agua y Luz"},
-        "Capilla Barrio 1": {"provincia": "Chaco", "servicio": "Agua y Luz"},
-        "Capilla Barrio 2": {"provincia": "Chaco", "servicio": "Agua y Luz"},
-        "Capilla Barrio 3": {"provincia": "Chaco", "servicio": "Agua y Luz"},
-        "Capilla Barrio 4": {"provincia": "Chaco", "servicio": "Agua y Luz"},
-        "Capilla Guiraldes": {"provincia": "Chaco", "servicio": "Agua y Luz"},
-        "Capilla La Leonesa": {"provincia": "Chaco", "servicio": "Agua y Luz"},
-        "Capilla General San Martin": {"provincia": "Chaco", "servicio": "Agua y Luz"},
-        
-        # Chaco SOLO AGUA
-        "Capilla Puerto Tirol": {"provincia": "Chaco", "servicio": "Solo Agua"},
-        
-        # Formosa SOLO AGUA
-        "Capilla El Colorado": {"provincia": "Formosa", "servicio": "Solo Agua"}
-    }
+    # Listas oficiales según el servicio
+    CAPILLAS_LUZ = [
+        "Capilla Costanera", "Capilla Armenia", "Capilla Laguna Seca", "Capilla Mendoza al sur", 
+        "Capilla Itati", "Capilla Empedrado", "Capilla Alberdi", "Capilla Barrio 1", 
+        "Capilla Barrio 2", "Capilla Barrio 3", "Capilla Barrio 4", "Capilla Guiraldes", 
+        "Capilla La Leonesa", "Capilla General San Martin"
+    ]
 
-    ws_agua_luz = None
+    CAPILLAS_AGUA = [
+        "Capilla Costanera", "Capilla Armenia", "Capilla Laguna Seca", "Capilla Mendoza al sur", 
+        "Capilla Itati", "Capilla Empedrado", "Capilla Bella Vista", "Capilla Goya", 
+        "Capilla Esquina", "Capilla Alberdi", "Capilla Barrio 1", "Capilla Barrio 2", 
+        "Capilla Barrio 3", "Capilla Barrio 4", "Capilla Guiraldes", "Capilla La Leonesa", 
+        "Capilla General San Martin", "Capilla Puerto Tirol", "Capilla El Colorado"
+    ]
+
+    # Conexión a Google Sheets (usamos dos hojas o una adaptada, acá usamos 'agua' y 'luz' o buscamos en 'agua_luz')
+    ws_agua = None
+    ws_luz = None
     try:
-        ws_agua_luz = sheet.worksheet("agua_luz")
+        ws_luz = sheet.worksheet("medidores_luz")
     except Exception:
-        st.warning("⚠️ La hoja 'agua_luz' no existe en tu Google Sheets. Creá una pestaña con ese nombre y los encabezados: capilla | servicio | nro_medidor | pagado | mail_enviado | observaciones")
+        ws_luz = None
 
-    registros_agualuz = []
-    if ws_agua_luz:
-        try:
-            registros_agualuz = ws_agua_luz.get_all_records()
-        except Exception:
-            registros_agualuz = []
+    try:
+        ws_agua = sheet.worksheet("medidores_agua")
+    except Exception:
+        ws_agua = None
 
-    # Mapear lo guardado en Sheets por nombre de capilla
-    datos_guardados_al = {}
-    for r in registros_agualuz:
-        cap_k = str(r.get("capilla", "")).strip()
-        if cap_k:
-            datos_guardados_al[cap_k] = r
+    # Si no crearon solapas separadas en Sheets, intentamos usar la general o avisamos
+    registros_luz = ws_luz.get_all_records() if ws_luz else []
+    registros_agua = ws_agua.get_all_records() if ws_agua else []
 
-    # Construir la tabla completa combinando el listado oficial con los datos de Google Sheets
-    filas_cuadro_al = []
-    for cap_nombre, info_def in CAPILLAS_SERVICIOS_DEF.items():
-        reg = datos_guardados_al.get(cap_nombre, {})
-        filas_cuadro_al.append({
-            "provincia": info_def["provincia"],
-            "capilla": cap_nombre,
-            "servicio": info_def["servicio"],
-            "nro_medidor": str(reg.get("nro_medidor", "")),
-            "pagado": str(reg.get("pagado", "")),
-            "mail_enviado": str(reg.get("mail_enviado", "")),
-            "observaciones": str(reg.get("observaciones", ""))
+    # Diccionarios para cruzar datos guardados
+    datos_luz_dict = {str(r.get("capilla", "")): r for r in registros_luz}
+    datos_agua_dict = {str(r.get("capilla", "")): r for r in registros_agua}
+
+    # ==========================================
+    # SECCIÓN 1: ⚡ SECTOR LUZ
+    # ==========================================
+    st.subheader("⚡ Sector Luz (Energía Eléctrica)")
+    
+    filas_luz = []
+    for cap in CAPILLAS_LUZ:
+        reg = datos_luz_dict.get(cap, {})
+        filas_luz.append({
+            "Capilla": cap,
+            "Nro Medidor Luz": reg.get("nro_medidor", ""),
+            "Pagado": reg.get("pagado", ""),
+            "Mail Enviado": reg.get("mail_enviado", ""),
+            "Observaciones": reg.get("observaciones", "")
         })
 
-    # Agregar cualquier capilla extra que esté en Sheets pero no en el diccionario fijo
-    for cap_k, reg in datos_guardados_al.items():
-        if cap_k not in CAPILLAS_SERVICIOS_DEF:
-            filas_cuadro_al.append({
-                "provincia": "Otra",
-                "capilla": cap_k,
-                "servicio": str(reg.get("servicio", "")),
-                "nro_medidor": str(reg.get("nro_medidor", "")),
-                "pagado": str(reg.get("pagado", "")),
-                "mail_enviado": str(reg.get("mail_enviado", "")),
-                "observaciones": str(reg.get("observaciones", ""))
-            })
+    df_luz = pd.DataFrame(filas_luz)
+    st.dataframe(df_luz, use_container_width=True, hide_index=True)
 
-    df_agua_luz = pd.DataFrame(filas_cuadro_al)
-
-    # --- CUADRO GENERAL IGUAL QUE EN GMAIL ---
-    st.markdown("#### 📋 Estado Actual de Servicios (Todas las Capillas)")
-    st.dataframe(df_agua_luz, use_container_width=True, hide_index=True)
-
-    # --- BOTÓN EXCEL DESCARGABLE SIEMPRE VISIBLE ---
-    buffer_excel_al = io.BytesIO()
-    with pd.ExcelWriter(buffer_excel_al, engine="xlsxwriter") as writer:
-        df_agua_luz.to_excel(writer, sheet_name="Agua_Luz_Capillas", index=False)
+    # Excel Luz
+    buffer_excel_luz = io.BytesIO()
+    with pd.ExcelWriter(buffer_excel_luz, engine="xlsxwriter") as writer:
+        df_luz.to_excel(writer, sheet_name="Servicio_Luz", index=False)
 
     st.download_button(
-        label="📊 Descargar Planilla de Servicios en Excel (.xlsx)",
-        data=buffer_excel_al.getvalue(),
-        file_name=f"Reporte_Servicios_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+        label="📊 Descargar Planilla de Luz en Excel (.xlsx)",
+        data=buffer_excel_luz.getvalue(),
+        file_name=f"Reporte_Luz_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True,
-        type="primary"
+        use_container_width=True
     )
-    
+
+    with st.expander("⚙️ Gestionar / Actualizar Medidores de Luz"):
+        with st.form("form_gestion_luz"):
+            cap_luz_sel = st.selectbox("Seleccionar Capilla (Luz):", options=CAPILLAS_LUZ, key="ges_luz_cap")
+            reg_actual_luz = datos_luz_dict.get(cap_luz_sel, {})
+            
+            med_luz = st.text_input("Nro de Medidor de Luz:", value=str(reg_actual_luz.get("nro_medidor", "")))
+            col_l1, col_l2 = st.columns(2)
+            pag_luz = col_l1.selectbox("Pagado:", options=["", "SI", "NO"], index=0 if not reg_actual_luz.get("pagado") else (1 if reg_actual_luz.get("pagado") == "SI" else 2))
+            mail_luz = col_l2.selectbox("Mail Enviado:", options=["", "SI", "NO"], index=0 if not reg_actual_luz.get("mail_enviado") else (1 if reg_actual_luz.get("mail_enviado") == "SI" else 2))
+            obs_luz = st.text_area("Observaciones Luz:", value=str(reg_actual_luz.get("observaciones", "")))
+
+            if st.form_submit_button("💾 Guardar Datos de Luz", type="primary", use_container_width=True):
+                if ws_luz:
+                    rows_l = ws_luz.get_all_values()
+                    encontrado = False
+                    for i_r, rw in enumerate(rows_l[1:], start=2):
+                        if rw and rw[0].strip() == cap_luz_sel:
+                            ws_luz.update_cell(i_r, 1, cap_luz_sel)
+                            ws_luz.update_cell(i_r, 2, med_luz.strip())
+                            ws_luz.update_cell(i_r, 3, pag_luz)
+                            ws_luz.update_cell(i_r, 4, mail_luz)
+                            ws_luz.update_cell(i_r, 5, obs_luz.strip())
+                            encontrado = True
+                            break
+                    if not encontrado:
+                        ws_luz.append_row([cap_luz_sel, med_luz.strip(), pag_luz, mail_luz, obs_luz.strip()])
+                    st.success(f"¡Datos de Luz para {cap_luz_sel} guardados!")
+                    st.rerun()
+                else:
+                    st.error("⚠️ Creá una pestaña en tu Google Sheets llamada 'medidores_luz' con columnas: capilla | nro_medidor | pagado | mail_enviado | observaciones")
+
     st.divider()
 
-    # --- GESTIÓN POR PROVINCIA Y CAPILLA ---
-    st.markdown("#### ⚙️ Gestionar / Actualizar Servicios por Provincia y Capilla")
-    OPCIONES_SI_NO = ["", "SI", "NO"]
+    # ==========================================
+    # SECCIÓN 2: 💧 SECTOR AGUA
+    # ==========================================
+    st.subheader("💧 Sector Agua (Suministro de Agua)")
+    
+    filas_agua = []
+    for cap in CAPILLAS_AGUA:
+        reg = datos_agua_dict.get(cap, {})
+        filas_agua.append({
+            "Capilla": cap,
+            "Nro Medidor Agua": reg.get("nro_medidor", ""),
+            "Pagado": reg.get("pagado", ""),
+            "Mail Enviado": reg.get("mail_enviado", ""),
+            "Observaciones": reg.get("observaciones", "")
+        })
 
-    for prov in ["Corrientes", "Chaco", "Formosa"]:
-        caps_prov = [f for f in filas_cuadro_al if f["provincia"] == prov]
-        if not caps_prov:
-            continue
-        with st.expander(f"📍 Provincia: {prov} ({len(caps_prov)} capillas)", expanded=False):
-            for idx_p, item_al in enumerate(caps_prov):
-                capilla_v = item_al["capilla"]
-                servicio_v = item_al["servicio"]
-                estado_badge = f"✅ Pagado: {item_al['pagado']}" if item_al["pagado"] else "⏳ Sin cargar"
+    df_agua = pd.DataFrame(filas_agua)
+    st.dataframe(df_agua, use_container_width=True, hide_index=True)
 
-                with st.expander(f"⚡💧 {capilla_v} — {servicio_v} ({estado_badge})", expanded=False):
-                    with st.form(key=f"form_edit_al_{prov}_{idx_p}"):
-                        col_al1, col_al2 = st.columns(2)
-                        e_servicio = col_al1.text_input("Servicio (Automático):", value=servicio_v, disabled=True, key=f"al_serv_{prov}_{idx_p}")
-                        e_medidor = col_al2.text_input("Nro de Medidor:", value=item_al["nro_medidor"], key=f"al_med_{prov}_{idx_p}")
-                        
-                        col_al3, col_al4 = st.columns(2)
-                        val_pagado = item_al["pagado"].strip().upper()
-                        idx_pag = OPCIONES_SI_NO.index(val_pagado) if val_pagado in OPCIONES_SI_NO else 0
-                        e_pagado = col_al3.selectbox("Pagado:", options=OPCIONES_SI_NO, index=idx_pag, key=f"al_pag_{prov}_{idx_p}")
-                        
-                        val_mail = item_al["mail_enviado"].strip().upper()
-                        idx_mail = OPCIONES_SI_NO.index(val_mail) if val_mail in OPCIONES_SI_NO else 0
-                        e_mail = col_al4.selectbox("Mail Enviado:", options=OPCIONES_SI_NO, index=idx_mail, key=f"al_mail_{prov}_{idx_p}")
+    # Excel Agua
+    buffer_excel_agua = io.BytesIO()
+    with pd.ExcelWriter(buffer_excel_agua, engine="xlsxwriter") as writer:
+        df_agua.to_excel(writer, sheet_name="Servicio_Agua", index=False)
 
-                        e_obs = st.text_area("Observaciones:", value=item_al["observaciones"], key=f"al_obs_{prov}_{idx_p}")
+    st.download_button(
+        label="📊 Descargar Planilla de Agua en Excel (.xlsx)",
+        data=buffer_excel_agua.getvalue(),
+        file_name=f"Reporte_Agua_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
-                        if st.form_submit_button("💾 Guardar / Actualizar en Sheets", type="primary", use_container_width=True):
-                            if ws_agua_luz:
-                                try:
-                                    rows_all = ws_agua_luz.get_all_values()
-                                    fila_encontrada = False
-                                    for i_r, rw in enumerate(rows_all[1:], start=2):
-                                        if rw and len(rw) > 0 and rw[0].strip() == capilla_v:
-                                            ws_agua_luz.update_cell(i_r, 1, capilla_v)
-                                            ws_agua_luz.update_cell(i_r, 2, servicio_v)
-                                            ws_agua_luz.update_cell(i_r, 3, e_medidor.strip())
-                                            ws_agua_luz.update_cell(i_r, 4, e_pagado.strip())
-                                            ws_agua_luz.update_cell(i_r, 5, e_mail.strip())
-                                            ws_agua_luz.update_cell(i_r, 6, e_obs.strip())
-                                            fila_encontrada = True
-                                            break
-                                    
-                                    # Si todavía no estaba en Google Sheets, la agrega automáticamente
-                                    if not fila_encontrada:
-                                        ws_agua_luz.append_row([
-                                            capilla_v,
-                                            servicio_v,
-                                            e_medidor.strip(),
-                                            e_pagado.strip(),
-                                            e_mail.strip(),
-                                            e_obs.strip()
-                                        ])
-                                    st.success(f"¡Datos de {capilla_v} guardados!")
-                                    st.rerun()
-                                except Exception as err_al:
-                                    st.error(f"Error al guardar: {err_al}")
-                            else:
-                                st.error("⚠️ No se encontró la pestaña 'agua_luz' en Google Sheets.")
+    with st.expander("⚙️ Gestionar / Actualizar Medidores de Agua"):
+        with st.form("form_gestion_agua"):
+            cap_agua_sel = st.selectbox("Seleccionar Capilla (Agua):", options=CAPILLAS_AGUA, key="ges_agua_cap")
+            reg_actual_agua = datos_agua_dict.get(cap_agua_sel, {})
+            
+            med_agua = st.text_input("Nro de Medidor de Agua:", value=str(reg_actual_agua.get("nro_medidor", "")))
+            col_a1, col_a2 = st.columns(2)
+            pag_agua = col_a1.selectbox("Pagado (Agua):", options=["", "SI", "NO"], index=0 if not reg_actual_agua.get("pagado") else (1 if reg_actual_agua.get("pagado") == "SI" else 2))
+            mail_agua = col_a2.selectbox("Mail Enviado (Agua):", options=["", "SI", "NO"], index=0 if not reg_actual_agua.get("mail_enviado") else (1 if reg_actual_agua.get("mail_enviado") == "SI" else 2))
+            obs_agua = st.text_area("Observaciones Agua:", value=str(reg_actual_agua.get("observaciones", "")))
+
+            if st.form_submit_button("💾 Guardar Datos de Agua", type="primary", use_container_width=True):
+                if ws_agua:
+                    rows_a = ws_agua.get_all_values()
+                    encontrado_a = False
+                    for i_r, rw in enumerate(rows_a[1:], start=2):
+                        if rw and rw[0].strip() == cap_agua_sel:
+                            ws_agua.update_cell(i_r, 1, cap_agua_sel)
+                            ws_agua.update_cell(i_r, 2, med_agua.strip())
+                            ws_agua.update_cell(i_r, 3, pag_agua)
+                            ws_agua.update_cell(i_r, 4, mail_agua)
+                            ws_agua.update_cell(i_r, 5, obs_agua.strip())
+                            encontrado_a = True
+                            break
+                    if not encontrado_a:
+                        ws_agua.append_row([cap_agua_sel, med_agua.strip(), pag_agua, mail_agua, obs_agua.strip()])
+                    st.success(f"¡Datos de Agua para {cap_agua_sel} guardados!")
+                    st.rerun()
+                else:
+                    st.error("⚠️ Creá una pestaña en tu Google Sheets llamada 'medidores_agua' con columnas: capilla | nro_medidor | pagado | mail_enviado | observaciones")
