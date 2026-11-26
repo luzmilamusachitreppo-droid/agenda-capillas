@@ -178,7 +178,6 @@ tab_agenda, tab_checklist, tab_capillas, tab_recordatorios, tab_gmail, tab_agua_
     "✉️ 5. Gmail", 
     "⚡💧 6. Agua y Luz"
 ])
-])
 
 # ==========================================
 # 1. AGENDA PRINCIPAL (CON CAPILLA OPCIONAL)
