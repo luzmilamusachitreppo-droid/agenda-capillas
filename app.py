@@ -1072,7 +1072,7 @@ with tab_gmail:
                 st.rerun()
 
 # ==========================================
-# 6. AGUA Y LUZ / SECTORES SEPARADOS
+# 6. AGUA Y LUZ / SECTORES SEPARADOS E IDENTICOS
 # ==========================================
 with tab_agua_luz:
     st.header("⚡💧 Control de Servicios Separados — Capillas")
@@ -1122,7 +1122,7 @@ with tab_agua_luz:
             "Capilla": cap,
             "Usuario / Titular": reg.get("usuario", ""),
             "Dirección": reg.get("direccion", ""),
-            "Nro Medidor Luz": reg.get("nro_medidor", ""),
+            "Nro Medidor": reg.get("nro_medidor", ""),
             "Pagado": reg.get("pagado", ""),
             "Mail Enviado": reg.get("mail_enviado", ""),
             "Observaciones": reg.get("observaciones", "")
@@ -1195,7 +1195,7 @@ with tab_agua_luz:
             "Capilla": cap,
             "Usuario / Titular": reg.get("usuario", ""),
             "Dirección": reg.get("direccion", ""),
-            "Nro Medidor Agua": reg.get("nro_medidor", ""),
+            "Nro Medidor": reg.get("nro_medidor", ""),
             "Pagado": reg.get("pagado", ""),
             "Mail Enviado": reg.get("mail_enviado", ""),
             "Observaciones": reg.get("observaciones", "")
