@@ -7,6 +7,7 @@ from google.oauth2.service_account import Credentials
 import json
 import time
 import io
+import re
 
 # Configuración de página
 st.set_page_config(
@@ -19,7 +20,6 @@ st.set_page_config(
 # Conexión optimizada a Google Sheets
 @st.cache_resource
 def get_spreadsheet():
-    import re
     scope = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
@@ -161,17 +161,11 @@ PALETA_COLORES = {
     "🩷 Rosa - Alerta": {"bg": "#f8d7da", "border": "#842029", "text": "#842029"}
 }
 
-COLORES_URGENCIA = {
-    "💓 Urgente / Importante": {"bg": "#f8d7da", "border": "#ef4444", "text": "#991b1b"},
-    "💛 Normal": {"bg": "#fef9c3", "border": "#eab308", "text": "#854d0e"},
-    "💚 Poco Urgente / Rutinario": {"bg": "#d1e7dd", "border": "#10b981", "text": "#065f46"}
-}
-
 if "fecha_seleccionada" not in st.session_state:
     st.session_state["fecha_seleccionada"] = date.today()
 
 # ==========================================
-# DEFINICIÓN DE PESTAÑAS (Arriba de todo)
+# DEFINICIÓN DE PESTAÑAS
 # ==========================================
 tab_agenda, tab_checklist, tab_capillas, tab_recordatorios, tab_gmail, tab_agua_luz = st.tabs([
     "📅 1. Agenda Principal", 
@@ -183,51 +177,9 @@ tab_agenda, tab_checklist, tab_capillas, tab_recordatorios, tab_gmail, tab_agua_
 ])
 
 # ==========================================
-# 1. AGENDA PRINCIPAL
-# ==========================================
-with tab_agenda:
-    # Todo el código de tu agenda va aquí adentro (con sangría)
-    pass  # (Reemplazá 'pass' por tu código real de la agenda)
-
-# ==========================================
-# 2. CHECKLIST DIGITAL
-# ==========================================
-with tab_checklist:
-    # Todo el código de tu checklist va aquí adentro
-    pass
-
-# ==========================================
-# 3. RESUMEN DE CAPILLAS
-# ==========================================
-with tab_capillas:
-    # Todo el código de capillas va aquí adentro
-    pass
-
-# ==========================================
-# 4. RECORDATORIOS RÁPIDOS
-# ==========================================
-with tab_recordatorios:
-    # Todo el código de recordatorios va aquí adentro
-    pass
-
-# ==========================================
-# 5. GMAIL
-# ==========================================
-with tab_gmail:
-    # Todo el código de Gmail va aquí adentro
-    pass
-
-# ==========================================
-# 6. AGUA Y LUZ / SERVICIOS CAPILLAS
-# ==========================================
-with tab_agua_luz:
-    # Aquí va todo el código de Agua y Luz que armamos con las provincias y medidores
-    st.header("⚡💧 Control de Servicios (Agua y Luz) — Capillas")
-    # ... (el resto del código de la pestaña 6)
-# ==========================================
 # 1. AGENDA PRINCIPAL (CON CAPILLA OPCIONAL)
 # ==========================================
-with tab_checklist:
+with tab_agenda:
     f_sel = st.session_state["fecha_seleccionada"]
     f_sel_str = f_sel.strftime("%Y-%m-%d")
 
@@ -539,7 +491,6 @@ with tab_capillas:
             visitas_por_capilla.setdefault(nombre_cap, []).append((n_fila, fila[2].strip()))
         if len(fila) > 3 and fila[3].strip():
             try:
-                import json
                 checklist_por_capilla[nombre_cap] = json.loads(fila[3].strip())
             except Exception:
                 pass
@@ -547,8 +498,6 @@ with tab_capillas:
     # ==================================================================
     # RESUMEN DEL MES + MENSAJE PARA WHATSAPP
     # ==================================================================
-    import re
-    import json
     META_VISITAS_MES = 4
     MAX_PRIORIDAD = 3
 
@@ -622,15 +571,13 @@ with tab_capillas:
                 continue
             lineas_msg.append(f"📍 {zona_m}")
             for cap in caps_msg:
-                # Fotos que faltan (con su observación) y observaciones de las zonas que sí tienen foto
                 chk_info = checklist_por_capilla.get(cap, {})
                 faltantes_cap = []
                 observaciones_cap = []
                 for zf in ZONAS_FOTOS:
-                    # Quita el número inicial (ej: "0-FACHADA" -> "FACHADA" -> "Fachada")
                     nombre_limpio = zf.split("-", 1)[1].title() if "-" in zf else zf.title()
                     datos_zf = chk_info.get(zf, {})
-                    obs_zf = " ".join(str(datos_zf.get("obs", "")).split())   # una sola línea, sin espacios de más
+                    obs_zf = " ".join(str(datos_zf.get("obs", "")).split())
                     if not datos_zf.get("ok", False):
                         faltantes_cap.append(f"{nombre_limpio}: {obs_zf}" if obs_zf else nombre_limpio)
                     elif obs_zf:
@@ -642,7 +589,6 @@ with tab_capillas:
                 else:
                     lineas_msg.append(f"- {cap}: Sin visitas")
 
-                # Cada ítem va en su propia línea, uno debajo del otro
                 if faltantes_cap:
                     lineas_msg.append("  FALTAN FOTOS:")
                     for item_falta in faltantes_cap:
@@ -741,7 +687,6 @@ with tab_capillas:
                     prev_ok = chk_guardado.get(zf, {}).get("ok", False)
                     prev_obs = chk_guardado.get(zf, {}).get("obs", "")
                     
-                    # Nombre limpio para mostrar en la interfaz (sin número)
                     nombre_zona_ui = zf.split("-", 1)[1].title() if "-" in zf else zf.title()
                     
                     es_ok = col_cb.checkbox(nombre_zona_ui, value=prev_ok, key=f"chk_{zona}_{c}_{zf}")
@@ -807,6 +752,7 @@ with tab_capillas:
                                 st.error(f"Error detallado al guardar: {e}")
                             else:
                                 st.rerun()
+
 # ==========================================
 # 4. RECORDATORIOS RÁPIDOS (100% NATIVO Y ESTABLE)
 # ==========================================
@@ -818,7 +764,7 @@ with tab_recordatorios:
     except Exception:
         recs_gsheets = []
 
-    COLORES_URGENCIA = [
+    COLORES_URGENCIA_LISTA = [
         "💓 Urgente / Importante",
         "💛 Normal",
         "💚 Poco Urgente / Rutinario"
@@ -828,7 +774,7 @@ with tab_recordatorios:
         st.markdown("**Nuevo Recordatorio**")
         titulo_rec_input = st.text_input("Título principal:", placeholder="Ej: Compra de materiales, Tarea general...")
         nota_rec_input = st.text_area("Nota / Detalle adicional:", placeholder="Escribí los detalles acá...", height=70)
-        prio_rec = st.selectbox("Nivel de Urgencia:", options=COLORES_URGENCIA)
+        prio_rec = st.selectbox("Nivel de Urgencia:", options=COLORES_URGENCIA_LISTA)
         
         if st.form_submit_button("📌 Guardar Recordatorio", type="primary", use_container_width=True):
             if titulo_rec_input.strip():
@@ -871,7 +817,6 @@ with tab_recordatorios:
             fecha_val = str(r.get('fecha') or r.get('Fecha') or (vals[4] if len(vals) > 4 else ''))
             autor_val = str(vals[5] if len(vals) > 5 else '')
 
-            # Contenedor nativo limpio, ordenado y sin errores de HTML
             with st.container(border=True):
                 st.subheader(f"📌 {titulo_rec}")
                 if nota_rec:
@@ -891,8 +836,8 @@ with tab_recordatorios:
                         with st.form(key=f"form_edit_rec_{id_rec}"):
                             new_tit = st.text_input("Título:", value=titulo_rec, key=f"t_ed_{id_rec}")
                             new_nota = st.text_area("Nota:", value=nota_rec, key=f"n_ed_{id_rec}")
-                            idx_p = COLORES_URGENCIA.index(prio_val) if prio_val in COLORES_URGENCIA else 1
-                            new_prio = st.selectbox("Urgencia:", options=COLORES_URGENCIA, index=idx_p, key=f"p_ed_{id_rec}")
+                            idx_p = COLORES_URGENCIA_LISTA.index(prio_val) if prio_val in COLORES_URGENCIA_LISTA else 1
+                            new_prio = st.selectbox("Urgencia:", options=COLORES_URGENCIA_LISTA, index=idx_p, key=f"p_ed_{id_rec}")
 
                             if st.form_submit_button("💾 Guardar", type="primary", use_container_width=True):
                                 cell = ws_recordatorios.find(id_rec)
@@ -910,6 +855,7 @@ with tab_recordatorios:
                         if cell:
                             ws_recordatorios.delete_rows(cell.row)
                         st.rerun()
+
 # ==========================================
 # 5. GMAIL
 # ==========================================
@@ -969,7 +915,6 @@ with tab_gmail:
             fecha_str = str(row_g.get("FECHA DE ENVIO DE PRESUPUESTO", "")).strip()
             mes_key = "Sin Fecha / Otros"
             
-            import re
             coincide_mes = re.search(r"^\d{1,2}/(\d{1,2})/\d{2,4}", fecha_str)
             if coincide_mes:
                 nro_mes = coincide_mes.group(1).zfill(2)
@@ -1125,15 +1070,15 @@ with tab_gmail:
                 ])
                 st.success("¡Guardado con éxito!")
                 st.rerun()
+
 # ==========================================
 # 6. AGUA Y LUZ / SERVICIOS CAPILLAS
 # ==========================================
 with tab_agua_luz:
     st.header("⚡💧 Control de Servicios (Agua y Luz) — Capillas")
     
-    # Mapeo automático de capillas, provincia y tipo de servicio según tu listado
     CAPILLAS_SERVICIOS_DEF = {
-        # CORRIENTES Y CHACO - Corrientes AGUA Y LUZ
+        # Corrientes AGUA Y LUZ
         "Capilla Costanera": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
         "Capilla Armenia": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
         "Capilla Laguna Seca": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
@@ -1141,12 +1086,12 @@ with tab_agua_luz:
         "Capilla Itati": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
         "Capilla Empedrado": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
         
-        # CORRIENTES SOLAMENTE AGUA
+        # Corrientes SOLAMENTE AGUA
         "Capilla Bella Vista": {"provincia": "Corrientes", "servicio": "Solo Agua"},
         "Capilla Goya": {"provincia": "Corrientes", "servicio": "Solo Agua"},
         "Capilla Esquina": {"provincia": "Corrientes", "servicio": "Solo Agua"},
         
-        # CHACO AGUA Y LUZ
+        # Chaco AGUA Y LUZ
         "Capilla Alberdi": {"provincia": "Chaco", "servicio": "Agua y Luz"},
         "Capilla Barrio 1": {"provincia": "Chaco", "servicio": "Agua y Luz"},
         "Capilla Barrio 2": {"provincia": "Chaco", "servicio": "Agua y Luz"},
@@ -1156,16 +1101,16 @@ with tab_agua_luz:
         "Capilla La Leonesa": {"provincia": "Chaco", "servicio": "Agua y Luz"},
         "Capilla General San Martin": {"provincia": "Chaco", "servicio": "Agua y Luz"},
         
-        # CHACO SOLO AGUA
+        # Chaco SOLO AGUA
         "Capilla Puerto Tirol": {"provincia": "Chaco", "servicio": "Solo Agua"},
         
-        # FORMOSA SOLO AGUA
+        # Formosa SOLO AGUA
         "Capilla El Colorado": {"provincia": "Formosa", "servicio": "Solo Agua"}
     }
 
     ws_agua_luz = None
     try:
-        ws_agua_luz = sh.worksheet("agua_luz")
+        ws_agua_luz = sheet.worksheet("agua_luz")
     except Exception:
         st.warning("⚠️ La hoja 'agua_luz' no existe en tu Google Sheets. Creá una pestaña con ese nombre.")
 
@@ -1213,7 +1158,6 @@ with tab_agua_luz:
                 with st.form(key=f"form_edit_al_{idx}"):
                     e_capilla = st.text_input("Capilla:", value=capilla_v, key=f"al_cap_{idx}")
                     
-                    # Servicio automático basado en el diccionario si coincide, o editable
                     info_auto = CAPILLAS_SERVICIOS_DEF.get(capilla_v, {})
                     serv_sugerido = info_auto.get("servicio", servicio_v)
                     
@@ -1277,11 +1221,9 @@ with tab_agua_luz:
     # --- FORMULARIO NUEVO REGISTRO ---
     st.markdown("#### ➕ Agregar Nuevo Registro de Servicio")
     with st.form("form_add_agua_luz", clear_on_submit=True):
-        # Selector de capilla basado en tu listado oficial
         lista_nombres_capillas = sorted(list(CAPILLAS_SERVICIOS_DEF.keys()))
         nuevo_capilla = st.selectbox("Seleccionar Capilla:", options=lista_nombres_capillas)
         
-        # Servicio automático visual
         info_nueva = CAPILLAS_SERVICIOS_DEF.get(nuevo_capilla, {})
         serv_auto_val = info_nueva.get("servicio", "Agua y Luz")
         prov_auto_val = info_nueva.get("provincia", "Corrientes")
@@ -1300,8 +1242,6 @@ with tab_agua_luz:
 
         if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
             if ws_agua_luz:
-                # Orden exacto de columnas en Sheets:
-                # [capilla, servicio, nro_medidor, pagado, mail_enviado, observaciones]
                 obs_final = f"{nuevo_obs.strip()} - {nuevo_observaciones_larga.strip()}".strip(" -")
                 ws_agua_luz.append_row([
                     nuevo_capilla.strip(),
