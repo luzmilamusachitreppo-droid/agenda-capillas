@@ -1112,7 +1112,7 @@ with tab_agua_luz:
     try:
         ws_agua_luz = sheet.worksheet("agua_luz")
     except Exception:
-        st.warning("⚠️ La hoja 'agua_luz' no existe en tu Google Sheets. Creá una pestaña con ese nombre.")
+        st.warning("⚠️ La hoja 'agua_luz' no existe en tu Google Sheets. Creá una pestaña con ese nombre y los encabezados: capilla | servicio | nro_medidor | pagado | mail_enviado | observaciones")
 
     registros_agualuz = []
     if ws_agua_luz:
@@ -1121,135 +1121,122 @@ with tab_agua_luz:
         except Exception:
             registros_agualuz = []
 
-    if registros_agualuz:
-        df_agua_luz = pd.DataFrame(registros_agualuz)
-        
-        columnas_a_borrar_al = [c for c in ["id"] if c in df_agua_luz.columns]
-        if columnas_a_borrar_al:
-            df_agua_luz = df_agua_luz.drop(columns=columnas_a_borrar_al)
-            
-        st.markdown("#### 📋 Estado Actual de Servicios")
-        st.dataframe(df_agua_luz, use_container_width=True, hide_index=True)
+    # Mapear lo guardado en Sheets por nombre de capilla
+    datos_guardados_al = {}
+    for r in registros_agualuz:
+        cap_k = str(r.get("capilla", "")).strip()
+        if cap_k:
+            datos_guardados_al[cap_k] = r
 
-        # --- EXCEL DESCARGABLE ---
-        buffer_excel_al = io.BytesIO()
-        with pd.ExcelWriter(buffer_excel_al, engine="xlsxwriter") as writer:
-            df_agua_luz.to_excel(writer, sheet_name="Agua_Luz_Capillas", index=False)
+    # Construir la tabla completa combinando el listado oficial con los datos de Google Sheets
+    filas_cuadro_al = []
+    for cap_nombre, info_def in CAPILLAS_SERVICIOS_DEF.items():
+        reg = datos_guardados_al.get(cap_nombre, {})
+        filas_cuadro_al.append({
+            "provincia": info_def["provincia"],
+            "capilla": cap_nombre,
+            "servicio": info_def["servicio"],
+            "nro_medidor": str(reg.get("nro_medidor", "")),
+            "pagado": str(reg.get("pagado", "")),
+            "mail_enviado": str(reg.get("mail_enviado", "")),
+            "observaciones": str(reg.get("observaciones", ""))
+        })
 
-        st.download_button(
-            label="📊 Descargar Reporte de Servicios en Excel (.xlsx)",
-            data=buffer_excel_al.getvalue(),
-            file_name=f"Reporte_Servicios_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-            type="primary"
-        )
-        
-        st.divider()
+    # Agregar cualquier capilla extra que esté en Sheets pero no en el diccionario fijo
+    for cap_k, reg in datos_guardados_al.items():
+        if cap_k not in CAPILLAS_SERVICIOS_DEF:
+            filas_cuadro_al.append({
+                "provincia": "Otra",
+                "capilla": cap_k,
+                "servicio": str(reg.get("servicio", "")),
+                "nro_medidor": str(reg.get("nro_medidor", "")),
+                "pagado": str(reg.get("pagado", "")),
+                "mail_enviado": str(reg.get("mail_enviado", "")),
+                "observaciones": str(reg.get("observaciones", ""))
+            })
 
-        st.markdown("#### ⚙️ Gestionar / Actualizar Servicios por Capilla")
-        OPCIONES_SI_NO = ["", "SI", "NO"]
+    df_agua_luz = pd.DataFrame(filas_cuadro_al)
 
-        for idx, row_al in enumerate(registros_agualuz):
-            capilla_v = str(row_al.get("capilla", "Capilla sin nombre"))
-            servicio_v = str(row_al.get("servicio", ""))
-            
-            with st.expander(f"⚡💧 {capilla_v} — Servicio: {servicio_v or 'Automático'}", expanded=False):
-                with st.form(key=f"form_edit_al_{idx}"):
-                    e_capilla = st.text_input("Capilla:", value=capilla_v, key=f"al_cap_{idx}")
-                    
-                    info_auto = CAPILLAS_SERVICIOS_DEF.get(capilla_v, {})
-                    serv_sugerido = info_auto.get("servicio", servicio_v)
-                    
-                    col_al1, col_al2 = st.columns(2)
-                    e_servicio = col_al1.text_input("Servicio (Automático):", value=serv_sugerido, disabled=True, key=f"al_serv_{idx}")
-                    e_medidor = col_al2.text_input("Nro de Medidor:", value=str(row_al.get("nro_medidor", "")), key=f"al_med_{idx}")
-                    
-                    col_al3, col_al4 = st.columns(2)
-                    
-                    val_pagado = str(row_al.get("pagado", "")).strip().upper()
-                    idx_pag = OPCIONES_SI_NO.index(val_pagado) if val_pagado in OPCIONES_SI_NO else 0
-                    e_pagado = col_al3.selectbox("Pagado:", options=OPCIONES_SI_NO, index=idx_pag, key=f"al_pag_{idx}")
-                    
-                    val_mail = str(row_al.get("mail_enviado", "")).strip().upper()
-                    idx_mail = OPCIONES_SI_NO.index(val_mail) if val_mail in OPCIONES_SI_NO else 0
-                    e_mail = col_al4.selectbox("Mail Enviado:", options=OPCIONES_SI_NO, index=idx_mail, key=f"al_mail_{idx}")
+    # --- CUADRO GENERAL IGUAL QUE EN GMAIL ---
+    st.markdown("#### 📋 Estado Actual de Servicios (Todas las Capillas)")
+    st.dataframe(df_agua_luz, use_container_width=True, hide_index=True)
 
-                    e_obs = st.text_area("Observaciones:", value=str(row_al.get("observaciones", "")), key=f"al_obs_{idx}")
+    # --- BOTÓN EXCEL DESCARGABLE SIEMPRE VISIBLE ---
+    buffer_excel_al = io.BytesIO()
+    with pd.ExcelWriter(buffer_excel_al, engine="xlsxwriter") as writer:
+        df_agua_luz.to_excel(writer, sheet_name="Agua_Luz_Capillas", index=False)
 
-                    col_bt1, col_bt2 = st.columns(2)
-                    if col_bt1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
-                        if ws_agua_luz:
-                            try:
-                                rows_all = ws_agua_luz.get_all_values()
-                                fila_encontrada = False
-                                for i_r, rw in enumerate(rows_all[1:], start=2):
-                                    if rw and len(rw) > 0 and rw[0].strip() == capilla_v.strip():
-                                        ws_agua_luz.update_cell(i_r, 1, e_capilla.strip())
-                                        ws_agua_luz.update_cell(i_r, 2, serv_sugerido)
-                                        ws_agua_luz.update_cell(i_r, 3, e_medidor.strip())
-                                        ws_agua_luz.update_cell(i_r, 4, e_pagado.strip())
-                                        ws_agua_luz.update_cell(i_r, 5, e_mail.strip())
-                                        ws_agua_luz.update_cell(i_r, 6, e_obs.strip())
-                                        fila_encontrada = True
-                                        break
-                                
-                                if fila_encontrada:
-                                    st.success("¡Registro actualizado con éxito!")
-                                    st.rerun()
-                                else:
-                                    st.error("No se pudo ubicar la fila exacta en Google Sheets.")
-                            except Exception as err_al:
-                                st.error(f"Error al actualizar: {err_al}")
-                    
-                    if col_bt2.form_submit_button("🗑️ Borrar Registro", use_container_width=True):
-                        if ws_agua_luz:
-                            try:
-                                rows_all = ws_agua_luz.get_all_values()
-                                for i_r, rw in enumerate(rows_all[1:], start=2):
-                                    if rw and len(rw) > 0 and rw[0].strip() == capilla_v.strip():
-                                        ws_agua_luz.delete_rows(i_r)
-                                        st.success("¡Registro borrado!")
-                                        st.rerun()
-                            except Exception as err_del_al:
-                                st.error(f"Error al borrar: {err_del_al}")
-    else:
-        st.info("No hay registros cargados para el control de servicios.")
-
+    st.download_button(
+        label="📊 Descargar Planilla de Servicios en Excel (.xlsx)",
+        data=buffer_excel_al.getvalue(),
+        file_name=f"Reporte_Servicios_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+        type="primary"
+    )
+    
     st.divider()
 
-    # --- FORMULARIO NUEVO REGISTRO ---
-    st.markdown("#### ➕ Agregar Nuevo Registro de Servicio")
-    with st.form("form_add_agua_luz", clear_on_submit=True):
-        lista_nombres_capillas = sorted(list(CAPILLAS_SERVICIOS_DEF.keys()))
-        nuevo_capilla = st.selectbox("Seleccionar Capilla:", options=lista_nombres_capillas)
-        
-        info_nueva = CAPILLAS_SERVICIOS_DEF.get(nuevo_capilla, {})
-        serv_auto_val = info_nueva.get("servicio", "Agua y Luz")
-        prov_auto_val = info_nueva.get("provincia", "Corrientes")
-        
-        st.caption(f"📍 Provincia: **{prov_auto_val}** | ⚡ Servicio asignado automáticamente: **{serv_auto_val}**")
+    # --- GESTIÓN POR PROVINCIA Y CAPILLA ---
+    st.markdown("#### ⚙️ Gestionar / Actualizar Servicios por Provincia y Capilla")
+    OPCIONES_SI_NO = ["", "SI", "NO"]
 
-        nac1, nac2 = st.columns(2)
-        nuevo_medidor = nac1.text_input("Nro de Medidor:")
-        nuevo_pagado = nac2.selectbox("Pagado:", options=["", "SI", "NO"], index=0)
-        
-        nac3, nac4 = st.columns(2)
-        nuevo_mail = nac3.selectbox("Mail Enviado:", options=["", "SI", "NO"], index=0)
-        nuevo_obs = nac4.text_input("Observación rápida:")
+    for prov in ["Corrientes", "Chaco", "Formosa"]:
+        caps_prov = [f for f in filas_cuadro_al if f["provincia"] == prov]
+        if not caps_prov:
+            continue
+        with st.expander(f"📍 Provincia: {prov} ({len(caps_prov)} capillas)", expanded=False):
+            for idx_p, item_al in enumerate(caps_prov):
+                capilla_v = item_al["capilla"]
+                servicio_v = item_al["servicio"]
+                estado_badge = f"✅ Pagado: {item_al['pagado']}" if item_al["pagado"] else "⏳ Sin cargar"
 
-        nuevo_observaciones_larga = st.text_area("Observaciones detalladas:")
+                with st.expander(f"⚡💧 {capilla_v} — {servicio_v} ({estado_badge})", expanded=False):
+                    with st.form(key=f"form_edit_al_{prov}_{idx_p}"):
+                        col_al1, col_al2 = st.columns(2)
+                        e_servicio = col_al1.text_input("Servicio (Automático):", value=servicio_v, disabled=True, key=f"al_serv_{prov}_{idx_p}")
+                        e_medidor = col_al2.text_input("Nro de Medidor:", value=item_al["nro_medidor"], key=f"al_med_{prov}_{idx_p}")
+                        
+                        col_al3, col_al4 = st.columns(2)
+                        val_pagado = item_al["pagado"].strip().upper()
+                        idx_pag = OPCIONES_SI_NO.index(val_pagado) if val_pagado in OPCIONES_SI_NO else 0
+                        e_pagado = col_al3.selectbox("Pagado:", options=OPCIONES_SI_NO, index=idx_pag, key=f"al_pag_{prov}_{idx_p}")
+                        
+                        val_mail = item_al["mail_enviado"].strip().upper()
+                        idx_mail = OPCIONES_SI_NO.index(val_mail) if val_mail in OPCIONES_SI_NO else 0
+                        e_mail = col_al4.selectbox("Mail Enviado:", options=OPCIONES_SI_NO, index=idx_mail, key=f"al_mail_{prov}_{idx_p}")
 
-        if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
-            if ws_agua_luz:
-                obs_final = f"{nuevo_obs.strip()} - {nuevo_observaciones_larga.strip()}".strip(" -")
-                ws_agua_luz.append_row([
-                    nuevo_capilla.strip(),
-                    serv_auto_val,
-                    nuevo_medidor.strip(),
-                    nuevo_pagado.strip(),
-                    nuevo_mail.strip(),
-                    obs_final
-                ])
-                st.success("¡Servicio guardado con éxito!")
-                st.rerun()
+                        e_obs = st.text_area("Observaciones:", value=item_al["observaciones"], key=f"al_obs_{prov}_{idx_p}")
+
+                        if st.form_submit_button("💾 Guardar / Actualizar en Sheets", type="primary", use_container_width=True):
+                            if ws_agua_luz:
+                                try:
+                                    rows_all = ws_agua_luz.get_all_values()
+                                    fila_encontrada = False
+                                    for i_r, rw in enumerate(rows_all[1:], start=2):
+                                        if rw and len(rw) > 0 and rw[0].strip() == capilla_v:
+                                            ws_agua_luz.update_cell(i_r, 1, capilla_v)
+                                            ws_agua_luz.update_cell(i_r, 2, servicio_v)
+                                            ws_agua_luz.update_cell(i_r, 3, e_medidor.strip())
+                                            ws_agua_luz.update_cell(i_r, 4, e_pagado.strip())
+                                            ws_agua_luz.update_cell(i_r, 5, e_mail.strip())
+                                            ws_agua_luz.update_cell(i_r, 6, e_obs.strip())
+                                            fila_encontrada = True
+                                            break
+                                    
+                                    # Si todavía no estaba en Google Sheets, la agrega automáticamente
+                                    if not fila_encontrada:
+                                        ws_agua_luz.append_row([
+                                            capilla_v,
+                                            servicio_v,
+                                            e_medidor.strip(),
+                                            e_pagado.strip(),
+                                            e_mail.strip(),
+                                            e_obs.strip()
+                                        ])
+                                    st.success(f"¡Datos de {capilla_v} guardados!")
+                                    st.rerun()
+                                except Exception as err_al:
+                                    st.error(f"Error al guardar: {err_al}")
+                            else:
+                                st.error("⚠️ No se encontró la pestaña 'agua_luz' en Google Sheets.")
