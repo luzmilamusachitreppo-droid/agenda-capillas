@@ -1077,7 +1077,6 @@ with tab_gmail:
 with tab_agua_luz:
     st.header("⚡💧 Control de Servicios Separados — Capillas")
     
-    # Listas oficiales según el servicio
     CAPILLAS_LUZ = [
         "Capilla Costanera", "Capilla Armenia", "Capilla Laguna Seca", "Capilla Mendoza al sur", 
         "Capilla Itati", "Capilla Empedrado", "Capilla Alberdi", "Capilla Barrio 1", 
@@ -1093,7 +1092,6 @@ with tab_agua_luz:
         "Capilla General San Martin", "Capilla Puerto Tirol", "Capilla El Colorado"
     ]
 
-    # Conexión a Google Sheets (usamos dos hojas o una adaptada, acá usamos 'agua' y 'luz' o buscamos en 'agua_luz')
     ws_agua = None
     ws_luz = None
     try:
@@ -1106,11 +1104,9 @@ with tab_agua_luz:
     except Exception:
         ws_agua = None
 
-    # Si no crearon solapas separadas en Sheets, intentamos usar la general o avisamos
     registros_luz = ws_luz.get_all_records() if ws_luz else []
     registros_agua = ws_agua.get_all_records() if ws_agua else []
 
-    # Diccionarios para cruzar datos guardados
     datos_luz_dict = {str(r.get("capilla", "")): r for r in registros_luz}
     datos_agua_dict = {str(r.get("capilla", "")): r for r in registros_agua}
 
@@ -1124,6 +1120,8 @@ with tab_agua_luz:
         reg = datos_luz_dict.get(cap, {})
         filas_luz.append({
             "Capilla": cap,
+            "Usuario / Titular": reg.get("usuario", ""),
+            "Dirección": reg.get("direccion", ""),
             "Nro Medidor Luz": reg.get("nro_medidor", ""),
             "Pagado": reg.get("pagado", ""),
             "Mail Enviado": reg.get("mail_enviado", ""),
@@ -1133,7 +1131,6 @@ with tab_agua_luz:
     df_luz = pd.DataFrame(filas_luz)
     st.dataframe(df_luz, use_container_width=True, hide_index=True)
 
-    # Excel Luz
     buffer_excel_luz = io.BytesIO()
     with pd.ExcelWriter(buffer_excel_luz, engine="xlsxwriter") as writer:
         df_luz.to_excel(writer, sheet_name="Servicio_Luz", index=False)
@@ -1146,12 +1143,17 @@ with tab_agua_luz:
         use_container_width=True
     )
 
-    with st.expander("⚙️ Gestionar / Actualizar Medidores de Luz"):
+    with st.expander("⚙️ Gestionar / Actualizar Medidores y Datos de Luz"):
         with st.form("form_gestion_luz"):
             cap_luz_sel = st.selectbox("Seleccionar Capilla (Luz):", options=CAPILLAS_LUZ, key="ges_luz_cap")
             reg_actual_luz = datos_luz_dict.get(cap_luz_sel, {})
             
+            col_lu1, col_lu2 = st.columns(2)
+            usr_luz = col_lu1.text_input("Usuario / Titular (Luz):", value=str(reg_actual_luz.get("usuario", "")))
+            dir_luz = col_lu2.text_input("Dirección (Luz):", value=str(reg_actual_luz.get("direccion", "")))
+
             med_luz = st.text_input("Nro de Medidor de Luz:", value=str(reg_actual_luz.get("nro_medidor", "")))
+            
             col_l1, col_l2 = st.columns(2)
             pag_luz = col_l1.selectbox("Pagado:", options=["", "SI", "NO"], index=0 if not reg_actual_luz.get("pagado") else (1 if reg_actual_luz.get("pagado") == "SI" else 2))
             mail_luz = col_l2.selectbox("Mail Enviado:", options=["", "SI", "NO"], index=0 if not reg_actual_luz.get("mail_enviado") else (1 if reg_actual_luz.get("mail_enviado") == "SI" else 2))
@@ -1164,18 +1166,20 @@ with tab_agua_luz:
                     for i_r, rw in enumerate(rows_l[1:], start=2):
                         if rw and rw[0].strip() == cap_luz_sel:
                             ws_luz.update_cell(i_r, 1, cap_luz_sel)
-                            ws_luz.update_cell(i_r, 2, med_luz.strip())
-                            ws_luz.update_cell(i_r, 3, pag_luz)
-                            ws_luz.update_cell(i_r, 4, mail_luz)
-                            ws_luz.update_cell(i_r, 5, obs_luz.strip())
+                            ws_luz.update_cell(i_r, 2, usr_luz.strip())
+                            ws_luz.update_cell(i_r, 3, dir_luz.strip())
+                            ws_luz.update_cell(i_r, 4, med_luz.strip())
+                            ws_luz.update_cell(i_r, 5, pag_luz)
+                            ws_luz.update_cell(i_r, 6, mail_luz)
+                            ws_luz.update_cell(i_r, 7, obs_luz.strip())
                             encontrado = True
                             break
                     if not encontrado:
-                        ws_luz.append_row([cap_luz_sel, med_luz.strip(), pag_luz, mail_luz, obs_luz.strip()])
+                        ws_luz.append_row([cap_luz_sel, usr_luz.strip(), dir_luz.strip(), med_luz.strip(), pag_luz, mail_luz, obs_luz.strip()])
                     st.success(f"¡Datos de Luz para {cap_luz_sel} guardados!")
                     st.rerun()
                 else:
-                    st.error("⚠️ Creá una pestaña en tu Google Sheets llamada 'medidores_luz' con columnas: capilla | nro_medidor | pagado | mail_enviado | observaciones")
+                    st.error("⚠️ Creá una pestaña en tu Google Sheets llamada 'medidores_luz' con columnas: capilla | usuario | direccion | nro_medidor | pagado | mail_enviado | observaciones")
 
     st.divider()
 
@@ -1189,6 +1193,8 @@ with tab_agua_luz:
         reg = datos_agua_dict.get(cap, {})
         filas_agua.append({
             "Capilla": cap,
+            "Usuario / Titular": reg.get("usuario", ""),
+            "Dirección": reg.get("direccion", ""),
             "Nro Medidor Agua": reg.get("nro_medidor", ""),
             "Pagado": reg.get("pagado", ""),
             "Mail Enviado": reg.get("mail_enviado", ""),
@@ -1198,7 +1204,6 @@ with tab_agua_luz:
     df_agua = pd.DataFrame(filas_agua)
     st.dataframe(df_agua, use_container_width=True, hide_index=True)
 
-    # Excel Agua
     buffer_excel_agua = io.BytesIO()
     with pd.ExcelWriter(buffer_excel_agua, engine="xlsxwriter") as writer:
         df_agua.to_excel(writer, sheet_name="Servicio_Agua", index=False)
@@ -1211,12 +1216,17 @@ with tab_agua_luz:
         use_container_width=True
     )
 
-    with st.expander("⚙️ Gestionar / Actualizar Medidores de Agua"):
+    with st.expander("⚙️ Gestionar / Actualizar Medidores y Datos de Agua"):
         with st.form("form_gestion_agua"):
             cap_agua_sel = st.selectbox("Seleccionar Capilla (Agua):", options=CAPILLAS_AGUA, key="ges_agua_cap")
             reg_actual_agua = datos_agua_dict.get(cap_agua_sel, {})
             
+            col_au1, col_au2 = st.columns(2)
+            usr_agua = col_au1.text_input("Usuario / Titular (Agua):", value=str(reg_actual_agua.get("usuario", "")))
+            dir_agua = col_au2.text_input("Dirección (Agua):", value=str(reg_actual_agua.get("direccion", "")))
+
             med_agua = st.text_input("Nro de Medidor de Agua:", value=str(reg_actual_agua.get("nro_medidor", "")))
+            
             col_a1, col_a2 = st.columns(2)
             pag_agua = col_a1.selectbox("Pagado (Agua):", options=["", "SI", "NO"], index=0 if not reg_actual_agua.get("pagado") else (1 if reg_actual_agua.get("pagado") == "SI" else 2))
             mail_agua = col_a2.selectbox("Mail Enviado (Agua):", options=["", "SI", "NO"], index=0 if not reg_actual_agua.get("mail_enviado") else (1 if reg_actual_agua.get("mail_enviado") == "SI" else 2))
@@ -1229,15 +1239,17 @@ with tab_agua_luz:
                     for i_r, rw in enumerate(rows_a[1:], start=2):
                         if rw and rw[0].strip() == cap_agua_sel:
                             ws_agua.update_cell(i_r, 1, cap_agua_sel)
-                            ws_agua.update_cell(i_r, 2, med_agua.strip())
-                            ws_agua.update_cell(i_r, 3, pag_agua)
-                            ws_agua.update_cell(i_r, 4, mail_agua)
-                            ws_agua.update_cell(i_r, 5, obs_agua.strip())
+                            ws_agua.update_cell(i_r, 2, usr_agua.strip())
+                            ws_agua.update_cell(i_r, 3, dir_agua.strip())
+                            ws_agua.update_cell(i_r, 4, med_agua.strip())
+                            ws_agua.update_cell(i_r, 5, pag_agua)
+                            ws_agua.update_cell(i_r, 6, mail_agua)
+                            ws_agua.update_cell(i_r, 7, obs_agua.strip())
                             encontrado_a = True
                             break
                     if not encontrado_a:
-                        ws_agua.append_row([cap_agua_sel, med_agua.strip(), pag_agua, mail_agua, obs_agua.strip()])
+                        ws_agua.append_row([cap_agua_sel, usr_agua.strip(), dir_agua.strip(), med_agua.strip(), pag_agua, mail_agua, obs_agua.strip()])
                     st.success(f"¡Datos de Agua para {cap_agua_sel} guardados!")
                     st.rerun()
                 else:
-                    st.error("⚠️ Creá una pestaña en tu Google Sheets llamada 'medidores_agua' con columnas: capilla | nro_medidor | pagado | mail_enviado | observaciones")
+                    st.error("⚠️ Creá una pestaña en tu Google Sheets llamada 'medidores_agua' con columnas: capilla | usuario | direccion | nro_medidor | pagado | mail_enviado | observaciones")
