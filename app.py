@@ -1080,3 +1080,191 @@ with tab_gmail:
                 ])
                 st.success("¡Guardado con éxito!")
                 st.rerun()
+# ==========================================
+# 6. AGUA Y LUZ / SERVICIOS CAPILLAS
+# ==========================================
+with tab_agua_luz:
+    st.header("⚡💧 Control de Servicios (Agua y Luz) — Capillas")
+    
+    # Mapeo automático de capillas, provincia y tipo de servicio según tu listado
+    CAPILLAS_SERVICIOS_DEF = {
+        # CORRIENTES Y CHACO - Corrientes AGUA Y LUZ
+        "Capilla Costanera": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
+        "Capilla Armenia": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
+        "Capilla Laguna Seca": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
+        "Capilla Mendoza al sur": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
+        "Capilla Itati": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
+        "Capilla Empedrado": {"provincia": "Corrientes", "servicio": "Agua y Luz"},
+        
+        # CORRIENTES SOLAMENTE AGUA
+        "Capilla Bella Vista": {"provincia": "Corrientes", "servicio": "Solo Agua"},
+        "Capilla Goya": {"provincia": "Corrientes", "servicio": "Solo Agua"},
+        "Capilla Esquina": {"provincia": "Corrientes", "servicio": "Solo Agua"},
+        
+        # CHACO AGUA Y LUZ
+        "Capilla Alberdi": {"provincia": "Chaco", "servicio": "Agua y Luz"},
+        "Capilla Barrio 1": {"provincia": "Chaco", "servicio": "Agua y Luz"},
+        "Capilla Barrio 2": {"provincia": "Chaco", "servicio": "Agua y Luz"},
+        "Capilla Barrio 3": {"provincia": "Chaco", "servicio": "Agua y Luz"},
+        "Capilla Barrio 4": {"provincia": "Chaco", "servicio": "Agua y Luz"},
+        "Capilla Guiraldes": {"provincia": "Chaco", "servicio": "Agua y Luz"},
+        "Capilla La Leonesa": {"provincia": "Chaco", "servicio": "Agua y Luz"},
+        "Capilla General San Martin": {"provincia": "Chaco", "servicio": "Agua y Luz"},
+        
+        # CHACO SOLO AGUA
+        "Capilla Puerto Tirol": {"provincia": "Chaco", "servicio": "Solo Agua"},
+        
+        # FORMOSA SOLO AGUA
+        "Capilla El Colorado": {"provincia": "Formosa", "servicio": "Solo Agua"}
+    }
+
+    ws_agua_luz = None
+    try:
+        ws_agua_luz = sh.worksheet("agua_luz")
+    except Exception:
+        st.warning("⚠️ La hoja 'agua_luz' no existe en tu Google Sheets. Creá una pestaña con ese nombre.")
+
+    registros_agualuz = []
+    if ws_agua_luz:
+        try:
+            registros_agualuz = ws_agua_luz.get_all_records()
+        except Exception:
+            registros_agualuz = []
+
+    if registros_agualuz:
+        df_agua_luz = pd.DataFrame(registros_agualuz)
+        
+        columnas_a_borrar_al = [c for c in ["id"] if c in df_agua_luz.columns]
+        if columnas_a_borrar_al:
+            df_agua_luz = df_agua_luz.drop(columns=columnas_a_borrar_al)
+            
+        st.markdown("#### 📋 Estado Actual de Servicios")
+        st.dataframe(df_agua_luz, use_container_width=True, hide_index=True)
+
+        # --- EXCEL DESCARGABLE ---
+        buffer_excel_al = io.BytesIO()
+        with pd.ExcelWriter(buffer_excel_al, engine="xlsxwriter") as writer:
+            df_agua_luz.to_excel(writer, sheet_name="Agua_Luz_Capillas", index=False)
+
+        st.download_button(
+            label="📊 Descargar Reporte de Servicios en Excel (.xlsx)",
+            data=buffer_excel_al.getvalue(),
+            file_name=f"Reporte_Servicios_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            type="primary"
+        )
+        
+        st.divider()
+
+        st.markdown("#### ⚙️ Gestionar / Actualizar Servicios por Capilla")
+        OPCIONES_SI_NO = ["", "SI", "NO"]
+
+        for idx, row_al in enumerate(registros_agualuz):
+            capilla_v = str(row_al.get("capilla", "Capilla sin nombre"))
+            servicio_v = str(row_al.get("servicio", ""))
+            
+            with st.expander(f"⚡💧 {capilla_v} — Servicio: {servicio_v or 'Automático'}", expanded=False):
+                with st.form(key=f"form_edit_al_{idx}"):
+                    e_capilla = st.text_input("Capilla:", value=capilla_v, key=f"al_cap_{idx}")
+                    
+                    # Servicio automático basado en el diccionario si coincide, o editable
+                    info_auto = CAPILLAS_SERVICIOS_DEF.get(capilla_v, {})
+                    serv_sugerido = info_auto.get("servicio", servicio_v)
+                    
+                    col_al1, col_al2 = st.columns(2)
+                    e_servicio = col_al1.text_input("Servicio (Automático):", value=serv_sugerido, disabled=True, key=f"al_serv_{idx}")
+                    e_medidor = col_al2.text_input("Nro de Medidor:", value=str(row_al.get("nro_medidor", "")), key=f"al_med_{idx}")
+                    
+                    col_al3, col_al4 = st.columns(2)
+                    
+                    val_pagado = str(row_al.get("pagado", "")).strip().upper()
+                    idx_pag = OPCIONES_SI_NO.index(val_pagado) if val_pagado in OPCIONES_SI_NO else 0
+                    e_pagado = col_al3.selectbox("Pagado:", options=OPCIONES_SI_NO, index=idx_pag, key=f"al_pag_{idx}")
+                    
+                    val_mail = str(row_al.get("mail_enviado", "")).strip().upper()
+                    idx_mail = OPCIONES_SI_NO.index(val_mail) if val_mail in OPCIONES_SI_NO else 0
+                    e_mail = col_al4.selectbox("Mail Enviado:", options=OPCIONES_SI_NO, index=idx_mail, key=f"al_mail_{idx}")
+
+                    e_obs = st.text_area("Observaciones:", value=str(row_al.get("observaciones", "")), key=f"al_obs_{idx}")
+
+                    col_bt1, col_bt2 = st.columns(2)
+                    if col_bt1.form_submit_button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                        if ws_agua_luz:
+                            try:
+                                rows_all = ws_agua_luz.get_all_values()
+                                fila_encontrada = False
+                                for i_r, rw in enumerate(rows_all[1:], start=2):
+                                    if rw and len(rw) > 0 and rw[0].strip() == capilla_v.strip():
+                                        ws_agua_luz.update_cell(i_r, 1, e_capilla.strip())
+                                        ws_agua_luz.update_cell(i_r, 2, serv_sugerido)
+                                        ws_agua_luz.update_cell(i_r, 3, e_medidor.strip())
+                                        ws_agua_luz.update_cell(i_r, 4, e_pagado.strip())
+                                        ws_agua_luz.update_cell(i_r, 5, e_mail.strip())
+                                        ws_agua_luz.update_cell(i_r, 6, e_obs.strip())
+                                        fila_encontrada = True
+                                        break
+                                
+                                if fila_encontrada:
+                                    st.success("¡Registro actualizado con éxito!")
+                                    st.rerun()
+                                else:
+                                    st.error("No se pudo ubicar la fila exacta en Google Sheets.")
+                            except Exception as err_al:
+                                st.error(f"Error al actualizar: {err_al}")
+                    
+                    if col_bt2.form_submit_button("🗑️ Borrar Registro", use_container_width=True):
+                        if ws_agua_luz:
+                            try:
+                                rows_all = ws_agua_luz.get_all_values()
+                                for i_r, rw in enumerate(rows_all[1:], start=2):
+                                    if rw and len(rw) > 0 and rw[0].strip() == capilla_v.strip():
+                                        ws_agua_luz.delete_rows(i_r)
+                                        st.success("¡Registro borrado!")
+                                        st.rerun()
+                            except Exception as err_del_al:
+                                st.error(f"Error al borrar: {err_del_al}")
+    else:
+        st.info("No hay registros cargados para el control de servicios.")
+
+    st.divider()
+
+    # --- FORMULARIO NUEVO REGISTRO ---
+    st.markdown("#### ➕ Agregar Nuevo Registro de Servicio")
+    with st.form("form_add_agua_luz", clear_on_submit=True):
+        # Selector de capilla basado en tu listado oficial
+        lista_nombres_capillas = sorted(list(CAPILLAS_SERVICIOS_DEF.keys()))
+        nuevo_capilla = st.selectbox("Seleccionar Capilla:", options=lista_nombres_capillas)
+        
+        # Servicio automático visual
+        info_nueva = CAPILLAS_SERVICIOS_DEF.get(nuevo_capilla, {})
+        serv_auto_val = info_nueva.get("servicio", "Agua y Luz")
+        prov_auto_val = info_nueva.get("provincia", "Corrientes")
+        
+        st.caption(f"📍 Provincia: **{prov_auto_val}** | ⚡ Servicio asignado automáticamente: **{serv_auto_val}**")
+
+        nac1, nac2 = st.columns(2)
+        nuevo_medidor = nac1.text_input("Nro de Medidor:")
+        nuevo_pagado = nac2.selectbox("Pagado:", options=["", "SI", "NO"], index=0)
+        
+        nac3, nac4 = st.columns(2)
+        nuevo_mail = nac3.selectbox("Mail Enviado:", options=["", "SI", "NO"], index=0)
+        nuevo_obs = nac4.text_input("Observación rápida:")
+
+        nuevo_observaciones_larga = st.text_area("Observaciones detalladas:")
+
+        if st.form_submit_button("Guardar Nuevo Registro", type="primary", use_container_width=True):
+            if ws_agua_luz:
+                # Orden exacto de columnas en Sheets:
+                # [capilla, servicio, nro_medidor, pagado, mail_enviado, observaciones]
+                obs_final = f"{nuevo_obs.strip()} - {nuevo_observaciones_larga.strip()}".strip(" -")
+                ws_agua_luz.append_row([
+                    nuevo_capilla.strip(),
+                    serv_auto_val,
+                    nuevo_medidor.strip(),
+                    nuevo_pagado.strip(),
+                    nuevo_mail.strip(),
+                    obs_final
+                ])
+                st.success("¡Servicio guardado con éxito!")
+                st.rerun()
