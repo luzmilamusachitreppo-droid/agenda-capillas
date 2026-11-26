@@ -1107,8 +1107,32 @@ with tab_agua_luz:
     registros_luz = ws_luz.get_all_records() if ws_luz else []
     registros_agua = ws_agua.get_all_records() if ws_agua else []
 
-    datos_luz_dict = {str(r.get("capilla", "")): r for r in registros_luz}
-    datos_agua_dict = {str(r.get("capilla", "")): r for r in registros_agua}
+    # Diccionarios flexibles que buscan tanto en minúscula como con mayúsculas
+    datos_luz_dict = {}
+    for r in registros_luz:
+        cap_val = str(r.get("capilla") or r.get("Capilla") or "").strip()
+        if cap_val:
+            datos_luz_dict[cap_val] = {
+                "usuario": str(r.get("usuario") or r.get("Usuario") or r.get("Usuario / Titular") or ""),
+                "direccion": str(r.get("direccion") or r.get("Dirección") or r.get("Direccion") or ""),
+                "nro_medidor": str(r.get("nro_medidor") or r.get("Nro Medidor") or r.get("Medidor") or ""),
+                "pagado": str(r.get("pagado") or r.get("Pagado") or ""),
+                "mail_enviado": str(r.get("mail_enviado") or r.get("Mail Enviado") or ""),
+                "observaciones": str(r.get("observaciones") or r.get("Observaciones") or "")
+            }
+
+    datos_agua_dict = {}
+    for r in registros_agua:
+        cap_val = str(r.get("capilla") or r.get("Capilla") or "").strip()
+        if cap_val:
+            datos_agua_dict[cap_val] = {
+                "usuario": str(r.get("usuario") or r.get("Usuario") or r.get("Usuario / Titular") or ""),
+                "direccion": str(r.get("direccion") or r.get("Dirección") or r.get("Direccion") or ""),
+                "nro_medidor": str(r.get("nro_medidor") or r.get("Nro Medidor") or r.get("Medidor") or ""),
+                "pagado": str(r.get("pagado") or r.get("Pagado") or ""),
+                "mail_enviado": str(r.get("mail_enviado") or r.get("Mail Enviado") or ""),
+                "observaciones": str(r.get("observaciones") or r.get("Observaciones") or "")
+            }
 
     # ==========================================
     # SECCIÓN 1: ⚡ SECTOR LUZ
@@ -1155,8 +1179,14 @@ with tab_agua_luz:
             med_luz = st.text_input("Nro de Medidor de Luz:", value=str(reg_actual_luz.get("nro_medidor", "")))
             
             col_l1, col_l2 = st.columns(2)
-            pag_luz = col_l1.selectbox("Pagado:", options=["", "SI", "NO"], index=0 if not reg_actual_luz.get("pagado") else (1 if reg_actual_luz.get("pagado") == "SI" else 2))
-            mail_luz = col_l2.selectbox("Mail Enviado:", options=["", "SI", "NO"], index=0 if not reg_actual_luz.get("mail_enviado") else (1 if reg_actual_luz.get("mail_enviado") == "SI" else 2))
+            val_p_luz = str(reg_actual_luz.get("pagado", "")).strip().upper()
+            idx_pl = 1 if val_p_luz == "SI" else (2 if val_p_luz == "NO" else 0)
+            pag_luz = col_l1.selectbox("Pagado:", options=["", "SI", "NO"], index=idx_pl)
+
+            val_m_luz = str(reg_actual_luz.get("mail_enviado", "")).strip().upper()
+            idx_ml = 1 if val_m_luz == "SI" else (2 if val_m_luz == "NO" else 0)
+            mail_luz = col_l2.selectbox("Mail Enviado:", options=["", "SI", "NO"], index=idx_ml)
+
             obs_luz = st.text_area("Observaciones Luz:", value=str(reg_actual_luz.get("observaciones", "")))
 
             if st.form_submit_button("💾 Guardar Datos de Luz", type="primary", use_container_width=True):
@@ -1228,8 +1258,14 @@ with tab_agua_luz:
             med_agua = st.text_input("Nro de Medidor de Agua:", value=str(reg_actual_agua.get("nro_medidor", "")))
             
             col_a1, col_a2 = st.columns(2)
-            pag_agua = col_a1.selectbox("Pagado (Agua):", options=["", "SI", "NO"], index=0 if not reg_actual_agua.get("pagado") else (1 if reg_actual_agua.get("pagado") == "SI" else 2))
-            mail_agua = col_a2.selectbox("Mail Enviado (Agua):", options=["", "SI", "NO"], index=0 if not reg_actual_agua.get("mail_enviado") else (1 if reg_actual_agua.get("mail_enviado") == "SI" else 2))
+            val_p_agua = str(reg_actual_agua.get("pagado", "")).strip().upper()
+            idx_pa = 1 if val_p_agua == "SI" else (2 if val_p_agua == "NO" else 0)
+            pag_agua = col_a1.selectbox("Pagado (Agua):", options=["", "SI", "NO"], index=idx_pa)
+
+            val_m_agua = str(reg_actual_agua.get("mail_enviado", "")).strip().upper()
+            idx_ma = 1 if val_m_agua == "SI" else (2 if val_m_agua == "NO" else 0)
+            mail_agua = col_a2.selectbox("Mail Enviado (Agua):", options=["", "SI", "NO"], index=idx_ma)
+
             obs_agua = st.text_area("Observaciones Agua:", value=str(reg_actual_agua.get("observaciones", "")))
 
             if st.form_submit_button("💾 Guardar Datos de Agua", type="primary", use_container_width=True):
