@@ -191,12 +191,11 @@ with tab_capillas:
     # ... tu código existente ...
 
 # 3. Resumen de Capillas
-with tab_capillas:
-    # (Todo el código del resumen de capillas y WhatsApp va acá adentro)
-
-# 4. Recordatorios Rápidos
 with tab_recordatorios:
-    # (Todo el código de notas y recordatorios va acá adentro)
+    # Todo el código de tus recordatorios rápidos va aquí adentro con sangría:
+    st.markdown("### Recordatorios")
+    # ... o en su defecto, para salir del paso mientras lo acomodas:
+    pass
 
 # 5. Gmail
 with tab_gmail:
