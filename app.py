@@ -185,9 +185,10 @@ with tab_checklist:
     # Asegurate de que haya al menos una línea con sangría aquí adentro, por ejemplo:
     st.markdown("### Contenido del Checklist")
 
-# 2. Checklist Digital
-with tab_checklist:
-    # (Todo el código del checklist de zonas va acá adentro)
+with tab_capillas:
+    # Todo el código de tu resumen de capillas va aquí adentro, con sangría:
+    st.markdown("### Resumen de Capillas")
+    # ... tu código existente ...
 
 # 3. Resumen de Capillas
 with tab_capillas:
