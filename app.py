@@ -399,7 +399,7 @@ with tab_checklist:
 # ==========================================
 # 2. CHECKLIST DIGITAL Y DESCARGA DE PLANILLA WORD
 # ==========================================
-with tab_check:
+with tab_checklist:
     st.header("📝 Checklist Digital de Control")
     
     try:
