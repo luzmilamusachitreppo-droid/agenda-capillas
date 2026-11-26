@@ -1107,7 +1107,6 @@ with tab_agua_luz:
     registros_luz = ws_luz.get_all_records() if ws_luz else []
     registros_agua = ws_agua.get_all_records() if ws_agua else []
 
-    # Diccionarios flexibles que buscan tanto en minúscula como con mayúsculas
     datos_luz_dict = {}
     for r in registros_luz:
         cap_val = str(r.get("capilla") or r.get("Capilla") or "").strip()
@@ -1147,7 +1146,7 @@ with tab_agua_luz:
             "Usuario / Titular": reg.get("usuario", ""),
             "Dirección": reg.get("direccion", ""),
             "Nro Medidor": reg.get("nro_medidor", ""),
-            "Pagado": reg.get("pagado", ""),
+            "Monto Pagado ($)": reg.get("pagado", ""),
             "Mail Enviado": reg.get("mail_enviado", ""),
             "Observaciones": reg.get("observaciones", "")
         })
@@ -1179,10 +1178,8 @@ with tab_agua_luz:
             med_luz = st.text_input("Nro de Medidor de Luz:", value=str(reg_actual_luz.get("nro_medidor", "")))
             
             col_l1, col_l2 = st.columns(2)
-            val_p_luz = str(reg_actual_luz.get("pagado", "")).strip().upper()
-            idx_pl = 1 if val_p_luz == "SI" else (2 if val_p_luz == "NO" else 0)
-            pag_luz = col_l1.selectbox("Pagado:", options=["", "SI", "NO"], index=idx_pl)
-
+            pag_luz = col_l1.text_input("Monto Pagado ($):", value=str(reg_actual_luz.get("pagado", "")))
+            
             val_m_luz = str(reg_actual_luz.get("mail_enviado", "")).strip().upper()
             idx_ml = 1 if val_m_luz == "SI" else (2 if val_m_luz == "NO" else 0)
             mail_luz = col_l2.selectbox("Mail Enviado:", options=["", "SI", "NO"], index=idx_ml)
@@ -1199,13 +1196,13 @@ with tab_agua_luz:
                             ws_luz.update_cell(i_r, 2, usr_luz.strip())
                             ws_luz.update_cell(i_r, 3, dir_luz.strip())
                             ws_luz.update_cell(i_r, 4, med_luz.strip())
-                            ws_luz.update_cell(i_r, 5, pag_luz)
+                            ws_luz.update_cell(i_r, 5, pag_luz.strip())
                             ws_luz.update_cell(i_r, 6, mail_luz)
                             ws_luz.update_cell(i_r, 7, obs_luz.strip())
                             encontrado = True
                             break
                     if not encontrado:
-                        ws_luz.append_row([cap_luz_sel, usr_luz.strip(), dir_luz.strip(), med_luz.strip(), pag_luz, mail_luz, obs_luz.strip()])
+                        ws_luz.append_row([cap_luz_sel, usr_luz.strip(), dir_luz.strip(), med_luz.strip(), pag_luz.strip(), mail_luz, obs_luz.strip()])
                     st.success(f"¡Datos de Luz para {cap_luz_sel} guardados!")
                     st.rerun()
                 else:
@@ -1226,7 +1223,7 @@ with tab_agua_luz:
             "Usuario / Titular": reg.get("usuario", ""),
             "Dirección": reg.get("direccion", ""),
             "Nro Medidor": reg.get("nro_medidor", ""),
-            "Pagado": reg.get("pagado", ""),
+            "Monto Pagado ($)": reg.get("pagado", ""),
             "Mail Enviado": reg.get("mail_enviado", ""),
             "Observaciones": reg.get("observaciones", "")
         })
@@ -1258,10 +1255,8 @@ with tab_agua_luz:
             med_agua = st.text_input("Nro de Medidor de Agua:", value=str(reg_actual_agua.get("nro_medidor", "")))
             
             col_a1, col_a2 = st.columns(2)
-            val_p_agua = str(reg_actual_agua.get("pagado", "")).strip().upper()
-            idx_pa = 1 if val_p_agua == "SI" else (2 if val_p_agua == "NO" else 0)
-            pag_agua = col_a1.selectbox("Pagado (Agua):", options=["", "SI", "NO"], index=idx_pa)
-
+            pag_agua = col_a1.text_input("Monto Pagado ($):", value=str(reg_actual_agua.get("pagado", "")))
+            
             val_m_agua = str(reg_actual_agua.get("mail_enviado", "")).strip().upper()
             idx_ma = 1 if val_m_agua == "SI" else (2 if val_m_agua == "NO" else 0)
             mail_agua = col_a2.selectbox("Mail Enviado (Agua):", options=["", "SI", "NO"], index=idx_ma)
@@ -1278,13 +1273,13 @@ with tab_agua_luz:
                             ws_agua.update_cell(i_r, 2, usr_agua.strip())
                             ws_agua.update_cell(i_r, 3, dir_agua.strip())
                             ws_agua.update_cell(i_r, 4, med_agua.strip())
-                            ws_agua.update_cell(i_r, 5, pag_agua)
+                            ws_agua.update_cell(i_r, 5, pag_agua.strip())
                             ws_agua.update_cell(i_r, 6, mail_agua)
                             ws_agua.update_cell(i_r, 7, obs_agua.strip())
                             encontrado_a = True
                             break
                     if not encontrado_a:
-                        ws_agua.append_row([cap_agua_sel, usr_agua.strip(), dir_agua.strip(), med_agua.strip(), pag_agua, mail_agua, obs_agua.strip()])
+                        ws_agua.append_row([cap_agua_sel, usr_agua.strip(), dir_agua.strip(), med_agua.strip(), pag_agua.strip(), mail_agua, obs_agua.strip()])
                     st.success(f"¡Datos de Agua para {cap_agua_sel} guardados!")
                     st.rerun()
                 else:
